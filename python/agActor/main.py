@@ -2,7 +2,6 @@
 
 import argparse
 from actorcore.ICC import ICC
-from opscore.actor.keyvar import AllCodes
 
 
 class AgActor(ICC):
@@ -67,20 +66,20 @@ class AgActor(ICC):
 
         pass
 
-    def sendCommand(self, actor=None, cmdStr=None, timeLim=0, callFunc=None):
+    def sendCommand(self, actor=None, cmdStr=None, timeLim=0, callFunc=None, **kwargs):
 
         if callFunc is None:
             self.logger.info('calling self.cmdr.call...')
-            result = self.cmdr.call(actor=actor, cmdStr=cmdStr, timeLim=timeLim)
+            result = self.cmdr.call(actor=actor, cmdStr=cmdStr, timeLim=timeLim, **kwargs)
             for reply in result.replyList:
                 self.logger.info('reply={}'.format(reply.canonical()))
             self.logger.info('didFail={}'.format(result.didFail))
             if result.didFail:
-                raise Exception('sendCommand: command failed: actor={},cmdStr={},timeLim={}'.format(actor, cmdStr, timeLim))
+                raise Exception('sendCommand: command failed: actor={},cmdStr={},timeLim={},kwargs={}'.format(actor, cmdStr, timeLim, str(kwargs)))
             return result
         else:
             self.logger.info('calling self.cmdr.bgCall...')
-            self.cmdr.bgCall(callFunc=callFunc, actor=actor, cmdStr=cmdStr, timeLim=timeLim, callCodes=AllCodes)
+            self.cmdr.bgCall(actor=actor, cmdStr=cmdStr, timeLim=timeLim, callFunc=callFunc, **kwargs)
             return None
 
 
