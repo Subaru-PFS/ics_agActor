@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import queue
 from actorcore.ICC import ICC
 
 
@@ -69,17 +70,24 @@ class AgActor(ICC):
     def sendCommand(self, actor=None, cmdStr=None, timeLim=0, callFunc=None, **kwargs):
 
         if callFunc is None:
-            self.logger.info('calling self.cmdr.call...')
-            result = self.cmdr.call(actor=actor, cmdStr=cmdStr, timeLim=timeLim, **kwargs)
+            self.logger.info('calling Cmdr.cmdq...')
+            q = self.cmdr.cmdq(actor=actor, cmdStr=cmdStr, timeLim=timeLim, **kwargs)
+            while True:
+                try:
+                    result = q.get(timeout=1)
+                    break
+                except queue.Empty:
+                    if not self.cmdr.connector.activeConnection:
+                        raise Exception('connection lost: actor={},cmdStr="{}",timeLim={},kwargs={}'.format(actor, cmdStr, timeLim, str(kwargs)))
             for reply in result.replyList:
                 self.logger.info('reply={}'.format(reply.canonical()))
             self.logger.info('didFail={}'.format(result.didFail))
             if result.didFail:
-                raise Exception('sendCommand: command failed: actor={},cmdStr={},timeLim={},kwargs={}'.format(actor, cmdStr, timeLim, str(kwargs)))
+                raise Exception('command failed: actor={},cmdStr="{}",timeLim={},kwargs={}'.format(actor, cmdStr, timeLim, str(kwargs)))
             return result
         else:
-            self.logger.info('calling self.cmdr.bgCall...')
-            self.cmdr.bgCall(actor=actor, cmdStr=cmdStr, timeLim=timeLim, callFunc=callFunc, **kwargs)
+            self.logger.info('calling Cmdr.bgCall...')
+            self.cmdr.bgCall(callFunc=callFunc, actor=actor, cmdStr=cmdStr, timeLim=timeLim, **kwargs)
             return None
 
 
