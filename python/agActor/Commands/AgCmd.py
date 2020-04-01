@@ -14,7 +14,7 @@ class AgCmd(object):
             ('ping', '', self.ping),
             ('status', '', self.status),
             ('show', '', self.show),
-            ('acquire_field', '<visit> [<exposure_time>]', self.acquire_field),
+            ('acquire_field', '<target_id> [<exposure_time>]', self.acquire_field),
             ('autofocus', '[<exposure_time>]', self.autofocus),
             ('autoguide', '[(start|stop)] [<exposure_time>] [<cadence>]', self.autoguide),
         ]
@@ -23,7 +23,7 @@ class AgCmd(object):
             (1, 1),
             keys.Key('exposure_time', types.Int(), help=''),
             keys.Key('cadence', types.Int(), help=''),
-            keys.Key('visit', types.Int(), help=''),
+            keys.Key('target_id', types.Int(), help=''),
         )
 
     def ping(self, cmd):
@@ -53,7 +53,7 @@ class AgCmd(object):
 
     def acquire_field(self, cmd):
 
-        visit = int(cmd.cmd.keywords['visit'].values[0])
+        target_id = int(cmd.cmd.keywords['target_id'].values[0])
         exposure_time = 10000 # ms
         if 'exposure_time' in cmd.cmd.keywords:
             exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
