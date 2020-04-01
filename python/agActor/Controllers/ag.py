@@ -15,6 +15,7 @@ class ag(object):
 
         self.exposure_time = 1000 # ms
         self.cadence = 0 # ms (0 means as fast as possible)
+        self.focus = False
 
     def __del__(self):
 
@@ -29,7 +30,7 @@ class ag(object):
         self.logger.info('stopping ag controller...')
         self.stop_ag()
 
-    def start_ag(self, cmd=None, exposure_time=None, cadence=None):
+    def start_ag(self, cmd=None, exposure_time=None, cadence=None, focus=None):
 
         #cmd = cmd if cmd else self.actor.bcast
         if self.thread is None:
@@ -37,8 +38,10 @@ class ag(object):
                 self.exposure_time = exposure_time
             if cadence is not None:
                 self.cadence = cadence
+            if focus is not None:
+                self.focus = focus
             self.logger.info('starting ag...')
-            self.thread = AgThread(actor=self.actor, logger=self.logger, exposure_time=self.exposure_time, cadence=self.cadence)
+            self.thread = AgThread(actor=self.actor, logger=self.logger, exposure_time=self.exposure_time, cadence=self.cadence, focus=self.focus)
             self.thread.start()
 
     def stop_ag(self, cmd=None):
@@ -53,7 +56,7 @@ class ag(object):
 
 class AgThread(threading.Thread):
 
-    def __init__(self, actor=None, logger=None, exposure_time=1000, cadence=10000):
+    def __init__(self, actor=None, logger=None, exposure_time=1000, cadence=10000, focus=False):
 
         super().__init__()
 
@@ -61,6 +64,7 @@ class AgThread(threading.Thread):
         self.logger = logger
         self.exposure_time = exposure_time
         self.cadence = cadence
+        self.focus = focus
         self.lock = threading.Lock()
         self.__stop = threading.Event()
 
@@ -75,7 +79,7 @@ class AgThread(threading.Thread):
     def get_params(self):
 
         with self.lock:
-            return self.exposure_time, self.cadence
+            return self.exposure_time, self.cadence, self.focus
 
     def set_exposure_time(self, exposure_time=None):
 
@@ -89,6 +93,12 @@ class AgThread(threading.Thread):
         with self.lock:
             self.cadence = cadence
 
+    def set_focus(self, focus=None):
+
+        self.logger.info('AgThread.set_focus: focus={}'.format(focus))
+        with self.lock:
+            self.focus = focus
+
     def run(self):
 
         cmd = self.actor.bcast
@@ -97,7 +107,7 @@ class AgThread(threading.Thread):
         while True:
 
             start = time.time()
-            exposure_time, cadence = self.get_params()
+            exposure_time, cadence, focus = self.get_params()
             try:
                 result = self.actor.sendCommand(
                     actor='agcam',
