@@ -70,6 +70,7 @@ class AgCmd(object):
             )
         except Exception as e:
             cmd.fail('text="AgCmd.acquire_field: {}'.format(e))
+            return
         # get a list of detected objects from agcam
         # get field center coordinates from opDB
         # get a list of guide stars from opDB
@@ -94,6 +95,7 @@ class AgCmd(object):
             )
         except Exception as e:
             cmd.fail('text="AgCmd.focus: {}'.format(e))
+            return
         # get a list of detected objects from agcam
         # compute focus offset and tilt
         # write results to opDB
@@ -121,6 +123,7 @@ class AgCmd(object):
             self.actor.controllers['ag'].start_ag(cmd=cmd, exposure_time=exposure_time, cadence=cadence, focus=focus)
         except Exception as e:
             cmd.fail('text="AgCmd.start_autoguide: {}"'.format(e))
+            return
         cmd.finish()
 
     def stop_autoguide(self, cmd):
@@ -133,4 +136,5 @@ class AgCmd(object):
             #self.actor.detachController('ag', cmd=cmd)
         except Exception as e:
             cmd.fail('text="AgCmd.stop_autoguide: {}"'.format(e))
+            return
         cmd.finish()
