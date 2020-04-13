@@ -33,16 +33,16 @@ class ag(object):
     def start_ag(self, cmd=None, exposure_time=None, cadence=None, focus=None):
 
         #cmd = cmd if cmd else self.actor.bcast
-        if self.thread is None:
-            if exposure_time is not None:
-                self.exposure_time = exposure_time
-            if cadence is not None:
-                self.cadence = cadence
-            if focus is not None:
-                self.focus = focus
-            self.logger.info('starting ag...')
-            self.thread = AgThread(actor=self.actor, logger=self.logger, exposure_time=self.exposure_time, cadence=self.cadence, focus=self.focus)
-            self.thread.start()
+        self.stop_ag(cmd=cmd)
+        if exposure_time is not None:
+            self.exposure_time = exposure_time
+        if cadence is not None:
+            self.cadence = cadence
+        if focus is not None:
+            self.focus = focus
+        self.logger.info('starting ag...')
+        self.thread = AgThread(actor=self.actor, logger=self.logger, exposure_time=self.exposure_time, cadence=self.cadence, focus=self.focus)
+        self.thread.start()
 
     def stop_ag(self, cmd=None):
 
