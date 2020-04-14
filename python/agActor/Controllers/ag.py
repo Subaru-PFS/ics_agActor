@@ -3,7 +3,7 @@ import time
 import threading
 
 
-class ag(object):
+class ag:
 
     def __init__(self, actor, name, logLevel=logging.DEBUG):
 
