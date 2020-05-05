@@ -102,7 +102,7 @@ class AgThread(threading.Thread):
     def run(self):
 
         cmd = self.actor.bcast
-        cmd.inform('guideReady=0')
+        #cmd.inform('guideReady=0')
 
         while True:
 
@@ -120,13 +120,13 @@ class AgThread(threading.Thread):
             try:
                 result = self.actor.sendCommand(
                     actor='mlp1',
-                    cmdStr='set_offsets xy=0,0 altaz=0,0',
+                    cmdStr='guide xy=0,0 azel=0,0 ready=1',
                     timeLim=5
                 )
             except Exception as e:
                 self.logger.error('AgThread.run: {}'.format(e))
                 break
-            cmd.inform('guideReady=1')
+            #cmd.inform('guideReady=1')
             end = time.time()
             stop = self.__stop.wait(max(0, cadence / 1000 - (end - start)))
             if stop:
