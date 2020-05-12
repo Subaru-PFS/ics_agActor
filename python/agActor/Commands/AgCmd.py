@@ -16,12 +16,14 @@ class AgCmd:
             ('show', '', self.show),
             ('acquire_field', '<target_id> [<exposure_time>]', self.acquire_field),
             ('focus', '[<exposure_time>]', self.focus),
-            ('autoguide', 'start [<exposure_time>] [<cadence>] [<focus>]', self.start_autoguide),
+            ('autoguide', 'start [<initialize>] [<exposure_time>] [<cadence>] [<focus>]', self.start_autoguide),
+            ('autoguide', 'initialize [<exposure_time>]', self.initialize_autoguide),
             ('autoguide', 'stop', self.stop_autoguide),
         ]
         self.keys = keys.KeysDictionary(
             'ag_ag',
             (1, 1),
+            keys.Key('initialize', types.Enum('no', 'yes'), help=''),
             keys.Key('exposure_time', types.Int(), help=''),
             keys.Key('cadence', types.Int(), help=''),
             keys.Key('focus', types.Enum('no', 'yes'), help=''),
@@ -55,12 +57,19 @@ class AgCmd:
 
     def acquire_field(self, cmd):
 
+        controller = self.actor.controllers['ag']
+        #self.actor.logger.info('controller={}'.format(controller))
+        mode = controller.get_mode()
+        if mode != controller.Mode.OFF:
+            cmd.fail('text="AgCmd.acquire_field: mode={}'.format(mode))
+            return
+
         target_id = int(cmd.cmd.keywords['target_id'].values[0])
-        exposure_time = 10000 # ms
+        exposure_time = 2000 # ms
         if 'exposure_time' in cmd.cmd.keywords:
             exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
-            if exposure_time < 1000:
-                exposure_time = 1000
+            if exposure_time < 100:
+                exposure_time = 100
         # start an exposure
         try:
             result = self.actor.sendCommand(
@@ -81,11 +90,18 @@ class AgCmd:
 
     def focus(self, cmd):
 
-        exposure_time = 10000 # ms
+        controller = self.actor.controllers['ag']
+        #self.actor.logger.info('controller={}'.format(controller))
+        mode = controller.get_mode()
+        if mode != controller.Mode.OFF:
+            cmd.fail('text="AgCmd.acquire_field: mode={}'.format(mode))
+            return
+
+        exposure_time = 2000 # ms
         if 'exposure_time' in cmd.cmd.keywords:
             exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
-            if exposure_time < 1000:
-                exposure_time = 1000
+            if exposure_time < 100:
+                exposure_time = 100
         # start an exposure
         try:
             result = self.actor.sendCommand(
@@ -104,36 +120,54 @@ class AgCmd:
 
     def start_autoguide(self, cmd):
 
-        #controller = self.actor.controllers['ag']
+        controller = self.actor.controllers['ag']
         #self.actor.logger.info('controller={}'.format(controller))
 
         try:
-            exposure_time = 1000 # ms
+            initialize = True
+            if 'initialize' in cmd.cmd.keywords:
+                initialize = bool(cmd.cmd.keywords['initialize'].values[0])
+            exposure_time = 2000 # ms
             if 'exposure_time' in cmd.cmd.keywords:
                 exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
-                if exposure_time < 1000:
-                    exposure_time = 1000
+                if exposure_time < 100:
+                    exposure_time = 100
             cadence = 0 # ms
             if 'cadence' in cmd.cmd.keywords:
                 cadence = int(cmd.cmd.keywords['cadence'].values[0])
                 if cadence < 0:
                     cadence = 0
             focus = True if 'focus' in cmd.cmd.keywords and cmd.cmd.keywords['focus'].values[0] == 'yes' else False
-            #self.actor.attachController('ag', cmd=cmd)
-            self.actor.controllers['ag'].start_ag(cmd=cmd, exposure_time=exposure_time, cadence=cadence, focus=focus)
+            controller.start_autoguide(cmd=cmd, initialize=initialize, exposure_time=exposure_time, cadence=cadence, focus=focus)
         except Exception as e:
             cmd.fail('text="AgCmd.start_autoguide: {}"'.format(e))
             return
         cmd.finish()
 
-    def stop_autoguide(self, cmd):
+    def initialize_autoguide(self, cmd):
 
-        #controller = self.actor.controllers['ag']
+        controller = self.actor.controllers['ag']
         #self.actor.logger.info('controller={}'.format(controller))
 
         try:
-            self.actor.controllers['ag'].stop_ag()
-            #self.actor.detachController('ag', cmd=cmd)
+            exposure_time = 2000 # ms
+            if 'exposure_time' in cmd.cmd.keywords:
+                exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
+                if exposure_time < 100:
+                    exposure_time = 100
+            controller.initialize_autoguide(cmd=cmd, exposure_time=exposure_time)
+        except Exception as e:
+            cmd.fail('text="AgCmd.initialize_autoguide: {}"'.format(e))
+            return
+        cmd.finish()
+
+    def stop_autoguide(self, cmd):
+
+        controller = self.actor.controllers['ag']
+        #self.actor.logger.info('controller={}'.format(controller))
+
+        try:
+            controller.stop_autoguide()
         except Exception as e:
             cmd.fail('text="AgCmd.stop_autoguide: {}"'.format(e))
             return

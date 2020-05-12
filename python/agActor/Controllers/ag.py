@@ -1,9 +1,21 @@
+import enum
 import logging
-import time
 import threading
+import time
 
 
 class ag:
+
+    class Mode(enum.Enum):
+
+        OFF = 0
+        ON = 1
+        INIT = 2
+        AUTO = 3
+
+    EXPOSURE_TIME = 2000  # ms
+    CADENCE = 0  # ms
+    FOCUS = False
 
     def __init__(self, actor, name, logLevel=logging.DEBUG):
 
@@ -13,10 +25,6 @@ class ag:
         self.logger.setLevel(logLevel)
         self.thread = None
 
-        self.exposure_time = 1000 # ms
-        self.cadence = 0 # ms (0 means as fast as possible)
-        self.focus = False
-
     def __del__(self):
 
         self.logger.info('ag.__del__:')
@@ -24,48 +32,51 @@ class ag:
     def start(self, cmd=None):
 
         self.logger.info('starting ag controller...')
+        self.thread = AgThread(actor=self.actor, logger=self.logger)
+        self.thread.start()
 
     def stop(self, cmd=None):
 
         self.logger.info('stopping ag controller...')
-        self.stop_ag()
-
-    def start_ag(self, cmd=None, exposure_time=None, cadence=None, focus=None):
-
-        #cmd = cmd if cmd else self.actor.bcast
-        self.stop_ag(cmd=cmd)
-        if exposure_time is not None:
-            self.exposure_time = exposure_time
-        if cadence is not None:
-            self.cadence = cadence
-        if focus is not None:
-            self.focus = focus
-        self.logger.info('starting ag...')
-        self.thread = AgThread(actor=self.actor, logger=self.logger, exposure_time=self.exposure_time, cadence=self.cadence, focus=self.focus)
-        self.thread.start()
-
-    def stop_ag(self, cmd=None):
-
-        #cmd = cmd if cmd else self.actor.bcast
         if self.thread is not None:
-            self.logger.info('stopping ag...')
             self.thread.stop()
             self.thread.join()
             self.thread = None
 
+    def get_mode(self, cmd=None):
+
+        return self.thread.mode
+
+    def start_autoguide(self, cmd=None, initialize=True, exposure_time=EXPOSURE_TIME, cadence=CADENCE, focus=FOCUS):
+
+        #cmd = cmd if cmd else self.actor.bcast
+        self.thread.set_params(mode=ag.Mode.AUTO if initialize else ag.Mode.ON, exposure_time=exposure_time, cadence=cadence, focus=focus)
+
+    def initialize_autoguide(self, cmd=None, exposure_time=EXPOSURE_TIME):
+
+        #cmd = cmd if cmd else self.actor.bcast
+        self.thread.set_params(mode=ag.Mode.INIT, exposure_time=exposure_time)
+
+    def stop_autoguide(self, cmd=None):
+
+        #cmd = cmd if cmd else self.actor.bcast
+        self.thread.set_params(mode=ag.Mode.OFF)
+
 
 class AgThread(threading.Thread):
 
-    def __init__(self, actor=None, logger=None, exposure_time=1000, cadence=10000, focus=False):
+    def __init__(self, actor=None, logger=None):
 
         super().__init__()
 
         self.actor = actor
         self.logger = logger
-        self.exposure_time = exposure_time
-        self.cadence = cadence
-        self.focus = focus
+        self.mode = ag.Mode.OFF
+        self.exposure_time = ag.EXPOSURE_TIME
+        self.cadence = ag.CADENCE
+        self.focus = ag.FOCUS
         self.lock = threading.Lock()
+        self.__abort = threading.Event()
         self.__stop = threading.Event()
 
     def __del__(self):
@@ -75,29 +86,26 @@ class AgThread(threading.Thread):
     def stop(self):
 
         self.__stop.set()
+        self.__abort.set()
 
     def get_params(self):
 
         with self.lock:
-            return self.exposure_time, self.cadence, self.focus
+            self.__abort.clear()
+            return self.mode, self.exposure_time, self.cadence, self.focus
 
-    def set_exposure_time(self, exposure_time=None):
+    def set_params(self, mode=None, exposure_time=None, cadence=None, focus=None):
 
-        self.logger.info('AgThread.set_exposure_time: exposure_time={}'.format(exposure_time))
         with self.lock:
-            self.exposure_time = exposure_time
-
-    def set_cadence(self, cadence=None):
-
-        self.logger.info('AgThread.set_cadence: cadence={}'.format(cadence))
-        with self.lock:
-            self.cadence = cadence
-
-    def set_focus(self, focus=None):
-
-        self.logger.info('AgThread.set_focus: focus={}'.format(focus))
-        with self.lock:
-            self.focus = focus
+            if mode is not None:
+                self.__abort.set()
+                self.mode = mode
+            if exposure_time is not None:
+                self.exposure_time = exposure_time
+            if cadence is not None:
+                self.cadence = cadence
+            if focus is not None:
+                self.focus = focus
 
     def run(self):
 
@@ -106,30 +114,45 @@ class AgThread(threading.Thread):
 
         while True:
 
+            if self.__stop.is_set():
+                self.__stop.clear()
+                break
             start = time.time()
-            exposure_time, cadence, focus = self.get_params()
+            mode, exposure_time, cadence, focus = self.get_params()
+            self.logger.info('AgThread.run: mode={},exposure_time={},cadence={},focus={}'.format(mode, exposure_time, cadence, focus))
             try:
-                result = self.actor.sendCommand(
-                    actor='agcam',
-                    cmdStr='expose speed={}'.format(exposure_time),
-                    timeLim=(exposure_time // 1000 + 5)
-                )
+                if mode in (ag.Mode.ON, ag.Mode.INIT, ag.Mode.AUTO):
+                    result = self.actor.sendCommand(
+                        actor='agcam',
+                        cmdStr='expose speed={}'.format(exposure_time),
+                        timeLim=(exposure_time // 1000 + 5)
+                    )
+                    telescope_state = [
+                        t(v) for t, v in zip(
+                            (int, int, float, float, float, float, int, int),
+                            self.actor.models['mlp1'].keyVarDict['telescopeState'].valueList
+                        )
+                    ]
+                    self.logger.info('AgThread.run: telescopeState={}'.format(telescope_state))
+                    # retrieve detected objects from opdb
+                    if mode in (ag.Mode.INIT, ag.Mode.AUTO):
+                        # store initial conditions
+                        self.set_params(mode=ag.Mode.ON if mode == ag.Mode.AUTO else ag.Mode.OFF)
+                    else:  # mode == ag.Mode.ON
+                        # compute guide errors
+                        result = self.actor.sendCommand(
+                            actor='mlp1',
+                            cmdStr='guide xy=0,0 azel=0,0 ready=1',
+                            timeLim=5
+                        )
+                        #cmd.inform('guideReady=1')
+                        if focus:
+                            # compute focus error
+                            pass
             except Exception as e:
                 self.logger.error('AgThread.run: {}'.format(e))
-                break
-            try:
-                result = self.actor.sendCommand(
-                    actor='mlp1',
-                    cmdStr='guide xy=0,0 azel=0,0 ready=1',
-                    timeLim=5
-                )
-            except Exception as e:
-                self.logger.error('AgThread.run: {}'.format(e))
-                break
-            #cmd.inform('guideReady=1')
             end = time.time()
-            stop = self.__stop.wait(max(0, cadence / 1000 - (end - start)))
-            if stop:
-                break
+            timeout = max(0, cadence / 1000 - (end - start)) if mode == ag.Mode.ON else 0.5
+            self.__abort.wait(timeout)
 
         cmd.inform('guideReady=0')

@@ -48,7 +48,7 @@ class AgActor(ICC):
 
             #self.agcam = Agcam(actor=self, logger=self.logger)
 
-            _models = ('agcam',)
+            _models = ('agcam', 'mlp1')
             self.addModels(_models)
             #self.models['agcam'].keyVarDict['exposureState'].addCallback(self.agcam.receiveStatusKeys, callNow=False)
 
