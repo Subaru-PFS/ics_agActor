@@ -19,6 +19,7 @@ class AgCmd:
             ('autoguide', 'start [<initialize>] [<exposure_time>] [<cadence>] [<focus>]', self.start_autoguide),
             ('autoguide', 'initialize [<exposure_time>]', self.initialize_autoguide),
             ('autoguide', 'stop', self.stop_autoguide),
+            ('autoguide', 'reconfigure [<exposure_time>] [<cadence>] [<focus>]', self.reconfigure_autoguide),
         ]
         self.keys = keys.KeysDictionary(
             'ag_ag',
@@ -170,5 +171,30 @@ class AgCmd:
             controller.stop_autoguide()
         except Exception as e:
             cmd.fail('text="AgCmd.stop_autoguide: {}"'.format(e))
+            return
+        cmd.finish()
+
+    def reconfigure_autoguide(self, cmd):
+
+        controller = self.actor.controllers['ag']
+        #self.actor.logger.info('controller={}'.format(controller))
+
+        try:
+            exposure_time = None
+            if 'exposure_time' in cmd.cmd.keywords:
+                exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
+                if exposure_time < 100:
+                    exposure_time = 100
+            cadence = None
+            if 'cadence' in cmd.cmd.keywords:
+                cadence = int(cmd.cmd.keywords['cadence'].values[0])
+                if cadence < 0:
+                    cadence = 0
+            focus = None
+            if 'focus' in cmd.cmd.keywords:
+                focus = True if cmd.cmd.keywords['focus'].values[0] == 'yes' else False
+            controller.reconfigure_autoguide(cmd=cmd, exposure_time=exposure_time, cadence=cadence, focus=focus)
+        except Exception as e:
+            cmd.fail('text="AgCmd.reconfigure_autoguide: {}"'.format(e))
             return
         cmd.finish()

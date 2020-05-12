@@ -62,6 +62,11 @@ class ag:
         #cmd = cmd if cmd else self.actor.bcast
         self.thread.set_params(mode=ag.Mode.OFF)
 
+    def reconfigure_autoguide(self, cmd=None, exposure_time=None, cadence=None, focus=None):
+
+        #cmd = cmd if cmd else self.actor.bcast
+        self.thread.set_params(exposure_time=exposure_time, cadence=cadence, focus=focus)
+
 
 class AgThread(threading.Thread):
 
