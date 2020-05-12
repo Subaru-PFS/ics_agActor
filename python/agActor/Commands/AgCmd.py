@@ -14,7 +14,7 @@ class AgCmd:
             ('ping', '', self.ping),
             ('status', '', self.status),
             ('show', '', self.show),
-            ('acquire_field', '<target_id> [<exposure_time>]', self.acquire_field),
+            ('acquire_field', '<target_id> [<exposure_time>] [<guide>]', self.acquire_field),
             ('focus', '[<exposure_time>]', self.focus),
             ('autoguide', 'start [<initialize>] [<exposure_time>] [<cadence>] [<focus>]', self.start_autoguide),
             ('autoguide', 'initialize [<exposure_time>]', self.initialize_autoguide),
@@ -28,6 +28,7 @@ class AgCmd:
             keys.Key('exposure_time', types.Int(), help=''),
             keys.Key('cadence', types.Int(), help=''),
             keys.Key('focus', types.Enum('no', 'yes'), help=''),
+            keys.Key('guide', types.Enum('no', 'yes'), help=''),
             keys.Key('target_id', types.Int(), help=''),
         )
 
@@ -71,22 +72,39 @@ class AgCmd:
             exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
             if exposure_time < 100:
                 exposure_time = 100
-        # start an exposure
+        guide = True
+        if 'guide' in cmd.cmd.keywords:
+            guide = bool(cmd.cmd.keywords['guide'].values[0])
+
         try:
+            # start an exposure
             result = self.actor.sendCommand(
                 actor='agcam',
                 cmdStr='expose speed={}'.format(exposure_time),
                 timeLim=(exposure_time // 1000 + 5)
             )
+            telescope_state = [
+                t(v) for t, v in zip(
+                    (int, int, float, float, float, float, int, int),
+                    self.actor.models['mlp1'].keyVarDict['telescopeState'].valueList
+                )
+            ]
+            self.actor.logger.info('AgCmd.acquire_field: telescopeState={}'.format(telescope_state))
+            # retrieve detected objects from agcam (or opdb)
+            # get field center coordinates from opdb
+            # retrieve guide star coordinates from opdb
+            # compute offsets, scale, transparency, and seeing
+            # store results in opdb
+            if guide:
+                # send corrections to mlp1 and gen2 (or iic)
+                pass
+            else:
+                # convert horizontal coordinates to equatorial coordinates
+                # send corrections to gen2 (or iic)
+                pass
         except Exception as e:
             cmd.fail('text="AgCmd.acquire_field: {}'.format(e))
             return
-        # get a list of detected objects from agcam
-        # get field center coordinates from opDB
-        # get a list of guide stars from opDB
-        # compute offsets, scale, transparency, and seeing
-        # write results to opDB
-        # send corrections to mlp1 and gen2 (or iic)
         cmd.finish()
 
     def focus(self, cmd):
@@ -103,20 +121,21 @@ class AgCmd:
             exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
             if exposure_time < 100:
                 exposure_time = 100
-        # start an exposure
+
         try:
+            # start an exposure
             result = self.actor.sendCommand(
                 actor='agcam',
                 cmdStr='expose speed={}'.format(exposure_time),
                 timeLim=(exposure_time // 1000 + 5)
             )
+            # retrieve detected objects from agcam (or opdb)
+            # compute focus offset and tilt
+            # store results in opdb
+            # send corrections to gen2 (or iic)
         except Exception as e:
             cmd.fail('text="AgCmd.focus: {}'.format(e))
             return
-        # get a list of detected objects from agcam
-        # compute focus offset and tilt
-        # write results to opDB
-        # send corrections to gen2 (or iic)
         cmd.finish()
 
     def start_autoguide(self, cmd):
@@ -124,21 +143,24 @@ class AgCmd:
         controller = self.actor.controllers['ag']
         #self.actor.logger.info('controller={}'.format(controller))
 
+        initialize = True
+        if 'initialize' in cmd.cmd.keywords:
+            initialize = bool(cmd.cmd.keywords['initialize'].values[0])
+        exposure_time = 2000 # ms
+        if 'exposure_time' in cmd.cmd.keywords:
+            exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
+            if exposure_time < 100:
+                exposure_time = 100
+        cadence = 0 # ms
+        if 'cadence' in cmd.cmd.keywords:
+            cadence = int(cmd.cmd.keywords['cadence'].values[0])
+            if cadence < 0:
+                cadence = 0
+        focus = False
+        if 'focus' in cmd.cmd.keywords:
+            focus = bool(cmd.cmd.keywords['focus'].values[0])
+
         try:
-            initialize = True
-            if 'initialize' in cmd.cmd.keywords:
-                initialize = bool(cmd.cmd.keywords['initialize'].values[0])
-            exposure_time = 2000 # ms
-            if 'exposure_time' in cmd.cmd.keywords:
-                exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
-                if exposure_time < 100:
-                    exposure_time = 100
-            cadence = 0 # ms
-            if 'cadence' in cmd.cmd.keywords:
-                cadence = int(cmd.cmd.keywords['cadence'].values[0])
-                if cadence < 0:
-                    cadence = 0
-            focus = True if 'focus' in cmd.cmd.keywords and cmd.cmd.keywords['focus'].values[0] == 'yes' else False
             controller.start_autoguide(cmd=cmd, initialize=initialize, exposure_time=exposure_time, cadence=cadence, focus=focus)
         except Exception as e:
             cmd.fail('text="AgCmd.start_autoguide: {}"'.format(e))
@@ -150,12 +172,13 @@ class AgCmd:
         controller = self.actor.controllers['ag']
         #self.actor.logger.info('controller={}'.format(controller))
 
+        exposure_time = 2000 # ms
+        if 'exposure_time' in cmd.cmd.keywords:
+            exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
+            if exposure_time < 100:
+                exposure_time = 100
+
         try:
-            exposure_time = 2000 # ms
-            if 'exposure_time' in cmd.cmd.keywords:
-                exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
-                if exposure_time < 100:
-                    exposure_time = 100
             controller.initialize_autoguide(cmd=cmd, exposure_time=exposure_time)
         except Exception as e:
             cmd.fail('text="AgCmd.initialize_autoguide: {}"'.format(e))
@@ -179,20 +202,21 @@ class AgCmd:
         controller = self.actor.controllers['ag']
         #self.actor.logger.info('controller={}'.format(controller))
 
+        exposure_time = None
+        if 'exposure_time' in cmd.cmd.keywords:
+            exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
+            if exposure_time < 100:
+                exposure_time = 100
+        cadence = None
+        if 'cadence' in cmd.cmd.keywords:
+            cadence = int(cmd.cmd.keywords['cadence'].values[0])
+            if cadence < 0:
+                cadence = 0
+        focus = None
+        if 'focus' in cmd.cmd.keywords:
+            focus = bool(cmd.cmd.keywords['focus'].values[0])
+
         try:
-            exposure_time = None
-            if 'exposure_time' in cmd.cmd.keywords:
-                exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
-                if exposure_time < 100:
-                    exposure_time = 100
-            cadence = None
-            if 'cadence' in cmd.cmd.keywords:
-                cadence = int(cmd.cmd.keywords['cadence'].values[0])
-                if cadence < 0:
-                    cadence = 0
-            focus = None
-            if 'focus' in cmd.cmd.keywords:
-                focus = True if cmd.cmd.keywords['focus'].values[0] == 'yes' else False
             controller.reconfigure_autoguide(cmd=cmd, exposure_time=exposure_time, cadence=cadence, focus=focus)
         except Exception as e:
             cmd.fail('text="AgCmd.reconfigure_autoguide: {}"'.format(e))
