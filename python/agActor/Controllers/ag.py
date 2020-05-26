@@ -132,6 +132,7 @@ class AgThread(threading.Thread):
                         cmdStr='expose speed={}'.format(exposure_time),
                         timeLim=(exposure_time // 1000 + 5)
                     )
+                    end = time.time()
                     telescope_state = [
                         t(v) for t, v in zip(
                             (int, int, float, float, float, float, int, int),
@@ -147,7 +148,7 @@ class AgThread(threading.Thread):
                         # compute guide errors
                         result = self.actor.sendCommand(
                             actor='mlp1',
-                            cmdStr='guide xy=0,0 azel=0,0 ready=1',
+                            cmdStr='guide xy=0,0 azel=0,0 ready=1 time={} delay=0'.format((start + end) / 2),
                             timeLim=5
                         )
                         #cmd.inform('guideReady=1')
