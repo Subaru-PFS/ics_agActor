@@ -132,7 +132,6 @@ class AgThread(threading.Thread):
                         cmdStr='expose speed={}'.format(exposure_time),
                         timeLim=(exposure_time // 1000 + 5)
                     )
-                    end = time.time()
                     telescope_state = [
                         t(v) for t, v in zip(
                             (int, int, float, float, float, float, int, int),
@@ -140,6 +139,8 @@ class AgThread(threading.Thread):
                         )
                     ]
                     self.logger.info('AgThread.run: telescopeState={}'.format(telescope_state))
+                    data_time = self.actor.models['agcam'].keyVarDict['dataTime'].valueList[0]
+                    self.logger.info('AgThread.run: dataTime={}'.format(data_time))
                     # retrieve detected objects from opdb
                     if mode in (ag.Mode.INIT, ag.Mode.AUTO):
                         # store initial conditions
@@ -148,7 +149,7 @@ class AgThread(threading.Thread):
                         # compute guide errors
                         result = self.actor.sendCommand(
                             actor='mlp1',
-                            cmdStr='guide azel=0,0 ready=1 time={} delay=0 xy=0,0 size=0 intensity=0 flux=0'.format((start + end) / 2),
+                            cmdStr='guide azel=0,0 ready=1 time={} delay=0 xy=0,0 size=0 intensity=0 flux=0'.format(data_time),
                             timeLim=5
                         )
                         #cmd.inform('guideReady=1')
