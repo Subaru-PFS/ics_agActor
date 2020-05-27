@@ -148,7 +148,7 @@ class AgThread(threading.Thread):
                         # compute guide errors
                         result = self.actor.sendCommand(
                             actor='mlp1',
-                            cmdStr='guide xy=0,0 azel=0,0 ready=1 time={} delay=0'.format((start + end) / 2),
+                            cmdStr='guide azel=0,0 ready=1 time={} delay=0 xy=0,0 size=0 intensity=0 flux=0'.format((start + end) / 2),
                             timeLim=5
                         )
                         #cmd.inform('guideReady=1')
