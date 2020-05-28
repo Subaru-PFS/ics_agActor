@@ -146,7 +146,10 @@ class AgThread(threading.Thread):
                         # store initial conditions
                         self.set_params(mode=ag.Mode.ON if mode == ag.Mode.AUTO else ag.Mode.OFF)
                     else:  # mode == ag.Mode.ON
+                        cmd.inform('detectionState=1')
                         # compute guide errors
+                        time.sleep(2)  # simulate computation of guide errors
+                        cmd.inform('detectionState=0')
                         result = self.actor.sendCommand(
                             actor='mlp1',
                             cmdStr='guide azel=0,0 ready=1 time={} delay=0 xy=0,0 size=0 intensity=0 flux=0'.format(data_time),
