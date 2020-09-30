@@ -14,7 +14,7 @@ class AgCmd:
             ('ping', '', self.ping),
             ('status', '', self.status),
             ('show', '', self.show),
-            ('acquire_field', '<target_id> [<exposure_time>] [<guide>]', self.acquire_field),
+            ('acquire_field', '<target_id> [<frame_id>] [<exposure_time>] [<guide>]', self.acquire_field),
             ('focus', '[<exposure_time>]', self.focus),
             ('autoguide', 'start [<initialize>] [<exposure_time>] [<cadence>] [<focus>]', self.start_autoguide),
             ('autoguide', 'initialize [<exposure_time>]', self.initialize_autoguide),
@@ -23,13 +23,14 @@ class AgCmd:
         ]
         self.keys = keys.KeysDictionary(
             'ag_ag',
-            (1, 1),
+            (1, 2),
             keys.Key('initialize', types.Enum('no', 'yes'), help=''),
             keys.Key('exposure_time', types.Int(), help=''),
             keys.Key('cadence', types.Int(), help=''),
             keys.Key('focus', types.Enum('no', 'yes'), help=''),
             keys.Key('guide', types.Enum('no', 'yes'), help=''),
             keys.Key('target_id', types.Int(), help=''),
+            keys.Key('frame_id', types.Int(), help=''),  # for simulation
         )
 
     def ping(self, cmd):
@@ -67,6 +68,7 @@ class AgCmd:
             return
 
         target_id = int(cmd.cmd.keywords['target_id'].values[0])
+        frame_id = int(cmd.cmd.keywords['frame_id'].values[0]) if 'frame_id' in cmd.cmd.keywords else None  # for simulation
         exposure_time = 2000 # ms
         if 'exposure_time' in cmd.cmd.keywords:
             exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
@@ -78,9 +80,10 @@ class AgCmd:
 
         try:
             # start an exposure
+            cmdStr = 'expose speed={}'.format(exposure_time) if frame_id is None else 'expose frame_id={} speed={}'.format(frame_id, exposure_time)
             result = self.actor.sendCommand(
                 actor='agcam',
-                cmdStr='expose speed={}'.format(exposure_time),
+                cmdStr=cmdStr,
                 timeLim=(exposure_time // 1000 + 5)
             )
             telescope_state = [
