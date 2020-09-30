@@ -90,6 +90,8 @@ class AgCmd:
                 )
             ]
             self.actor.logger.info('AgCmd.acquire_field: telescopeState={}'.format(telescope_state))
+            frame_id = int(self.actor.models['agcam'].keyVarDict['frameId'].valueList[0])
+            self.actor.logger.info('AgCmd.acquire_field: frameId={}'.format(frame_id))
             # retrieve detected objects from agcam (or opdb)
             # get field center coordinates from opdb
             # retrieve guide star coordinates from opdb
