@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
-from twisted.internet import reactor
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
+from agActor import field_acquisition
 
 
 class AgCmd:
@@ -95,16 +95,19 @@ class AgCmd:
             self.actor.logger.info('AgCmd.acquire_field: telescopeState={}'.format(telescope_state))
             frame_id = int(self.actor.models['agcam'].keyVarDict['frameId'].valueList[0])
             self.actor.logger.info('AgCmd.acquire_field: frameId={}'.format(frame_id))
-            # retrieve detected objects from agcam (or opdb)
-            # get field center coordinates from opdb
+            # retrieve field center coordinates from opdb
+            # retrieve exposure information from opdb
             # retrieve guide star coordinates from opdb
+            # retrieve metrics of detected objects from opdb
             # compute offsets, scale, transparency, and seeing
+            dra, ddec, dinr = field_acquisition.acquire_field(target_id, frame_id, logger=self.actor.logger)
+            cmd.inform('text="dra={},ddec={},dinr={}"'.format(dra, ddec, dinr))
             # store results in opdb
             if guide:
+                # convert equatorial coordinates to horizontal coordinates
                 # send corrections to mlp1 and gen2 (or iic)
                 pass
             else:
-                # convert horizontal coordinates to equatorial coordinates
                 # send corrections to gen2 (or iic)
                 pass
         except Exception as e:
