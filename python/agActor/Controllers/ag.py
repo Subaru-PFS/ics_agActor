@@ -139,6 +139,8 @@ class AgThread(threading.Thread):
                         )
                     ]
                     self.logger.info('AgThread.run: telescopeState={}'.format(telescope_state))
+                    frame_id = int(self.actor.models['agcam'].keyVarDict['frameId'].valueList[0])
+                    self.actor.logger.info('AgThread.run: frameId={}'.format(frame_id))
                     data_time = self.actor.models['agcam'].keyVarDict['dataTime'].valueList[0]
                     self.logger.info('AgThread.run: dataTime={}'.format(data_time))
                     # retrieve detected objects from opdb
