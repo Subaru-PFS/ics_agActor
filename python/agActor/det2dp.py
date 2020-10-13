@@ -11,16 +11,16 @@ _COS60 = numpy.array([0.8660254037844386, 0, -0.8660254037844386, -0.86602540378
 # camera 4 at 3 o'clock position (-241.292, 0) mm
 # camera 5 at 1 o'clock position (-120.646, -208.965) mm
 # camera 6 at 11 o'clock position (120.646, -208.965) mm
-# (ref. morimoto-san's memo_AGcamera_20171023.pdf)
+# (ref. Moritani-san's memo_AGcamera_20171023.pdf)
 
 
-def det2fp(icam, x_det, y_det):
+def det2dp(icam, x_det, y_det):
     """
-    Convert detector coordinates to focal plane coordinates.
+    Convert detector coordinates to detector plane coordinates.
 
     Convert Cartesian coordinates of points on one of the detectors in the
-    detector coordinate system to those on the focal plane in the focal plane
-    coordinate system.
+    detector coordinate system to those on the focal plane in the detector
+    plane coordinate system.
 
     Parameters
     ----------
@@ -37,7 +37,7 @@ def det2fp(icam, x_det, y_det):
     -------
     2-tuple of array_likes
         The Cartesian coordinates x's and y's of points on the focal plane in
-        the focal plane coordinate system (mm)
+        the detector plane coordinate system (mm)
     """
 
     p = 0.013  # mm
@@ -47,6 +47,6 @@ def det2fp(icam, x_det, y_det):
     cos_a = _COS60[a]
     x = (x_det - 511.5) * p
     y = - (y_det - 511.5) * p + r
-    x_fp = cos_a * x + sin_a * y
-    y_fp = - sin_a * x + cos_a * y
-    return x_fp, y_fp
+    x_dp = cos_a * x + sin_a * y
+    y_dp = - sin_a * x + cos_a * y
+    return x_dp, y_dp

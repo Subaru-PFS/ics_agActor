@@ -1,5 +1,5 @@
 import numpy
-import det2fp
+import det2dp
 import opdb
 import kawanomoto
 
@@ -32,7 +32,7 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
             (
                 x[0],
                 x[1],
-                *det2fp.det2fp(int(x[0]) - 1, x[3], x[4]),
+                *det2dp.det2dp(int(x[0]) - 1, x[3], x[4]),
                 x[10],
                 *semi_axes(x[5] / x[2], x[6] / x[2], x[7] / x[2])
             ) for x in detected_objects
@@ -62,4 +62,4 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(name='field_acquisition')
     dra, ddec, dinr = acquire_field(args.target_id, args.frame_id, logger=logger)
-    print('dra,ddec,dinr:', dra, ddec, dinr)
+    print('dra={},ddec={},dinr={}'.format(dra, ddec, dinr))
