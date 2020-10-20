@@ -25,7 +25,7 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
         b = numpy.sqrt(4 * numpy.square(mu11) + numpy.square(mu20 - mu02))
         return numpy.sqrt(2 * (a + b)), numpy.sqrt(2 * (a - b))
 
-    _guide_objects = numpy.array([(x[1], x[2], x[3]) for x in guide_objects])
+    _guide_objects = numpy.array([(15 * x[1], x[2], x[3]) for x in guide_objects])
     #logger and logger.info('_guide_objects={}'.format(_guide_objects))
     _detected_objects = numpy.array(
         [
