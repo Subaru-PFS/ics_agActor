@@ -14,23 +14,22 @@ class AgCmd:
             ('ping', '', self.ping),
             ('status', '', self.status),
             ('show', '', self.show),
-            ('acquire_field', '<target_id> [<frame_id>] [<exposure_time>] [<guide>]', self.acquire_field),
+            ('acquire_field', '<target_id> [<exposure_time>] [<guide>]', self.acquire_field),
             ('focus', '[<exposure_time>]', self.focus),
-            ('autoguide', 'start [<initialize>] [<exposure_time>] [<cadence>] [<focus>]', self.start_autoguide),
-            ('autoguide', 'initialize [<exposure_time>]', self.initialize_autoguide),
+            ('autoguide', 'start [<target_id>] [<from_sky>] [<exposure_time>] [<cadence>] [<focus>]', self.start_autoguide),
+            ('autoguide', 'initialize <target_id> [<from_sky>] [<exposure_time>]', self.initialize_autoguide),
             ('autoguide', 'stop', self.stop_autoguide),
             ('autoguide', 'reconfigure [<exposure_time>] [<cadence>] [<focus>]', self.reconfigure_autoguide),
         ]
         self.keys = keys.KeysDictionary(
             'ag_ag',
-            (1, 2),
-            keys.Key('initialize', types.Enum('no', 'yes'), help=''),
+            (1, 3),
             keys.Key('exposure_time', types.Int(), help=''),
             keys.Key('cadence', types.Int(), help=''),
             keys.Key('focus', types.Enum('no', 'yes'), help=''),
             keys.Key('guide', types.Enum('no', 'yes'), help=''),
             keys.Key('target_id', types.Int(), help=''),
-            keys.Key('frame_id', types.Int(), help=''),  # for simulation
+            keys.Key('from_sky', types.Enum('no', 'yes'), help=''),
         )
 
     def ping(self, cmd):
@@ -68,7 +67,6 @@ class AgCmd:
             return
 
         target_id = int(cmd.cmd.keywords['target_id'].values[0])
-        frame_id = int(cmd.cmd.keywords['frame_id'].values[0]) if 'frame_id' in cmd.cmd.keywords else None  # for simulation
         exposure_time = 2000 # ms
         if 'exposure_time' in cmd.cmd.keywords:
             exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
@@ -80,7 +78,7 @@ class AgCmd:
 
         try:
             # start an exposure
-            cmdStr = 'expose speed={}'.format(exposure_time) if frame_id is None else 'expose frame_id={} speed={}'.format(frame_id, exposure_time)
+            cmdStr = 'expose speed={}'.format(exposure_time)
             result = self.actor.sendCommand(
                 actor='agcam',
                 cmdStr=cmdStr,
@@ -100,8 +98,10 @@ class AgCmd:
             # retrieve guide star coordinates from opdb
             # retrieve metrics of detected objects from opdb
             # compute offsets, scale, transparency, and seeing
+            cmd.inform('detectionState=1')
             dra, ddec, dinr = field_acquisition.acquire_field(target_id, frame_id, logger=self.actor.logger)
             cmd.inform('text="dra={},ddec={},dinr={}"'.format(dra, ddec, dinr))
+            cmd.inform('detectionState=0')
             # store results in opdb
             if guide:
                 # convert equatorial coordinates to horizontal coordinates
@@ -151,9 +151,12 @@ class AgCmd:
         controller = self.actor.controllers['ag']
         #self.actor.logger.info('controller={}'.format(controller))
 
-        initialize = True
-        if 'initialize' in cmd.cmd.keywords:
-            initialize = bool(cmd.cmd.keywords['initialize'].values[0])
+        target_id = None
+        if 'target_id' in cmd.cmd.keywords:
+            target_id = int(cmd.cmd.keywords['target_id'].values[0])
+        from_sky = None
+        if 'from_sky' in cmd.cmd.keywords:
+            from_sky = bool(cmd.cmd.keywords['from_sky'].values[0])
         exposure_time = 2000 # ms
         if 'exposure_time' in cmd.cmd.keywords:
             exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
@@ -169,7 +172,7 @@ class AgCmd:
             focus = bool(cmd.cmd.keywords['focus'].values[0])
 
         try:
-            controller.start_autoguide(cmd=cmd, initialize=initialize, exposure_time=exposure_time, cadence=cadence, focus=focus)
+            controller.start_autoguide(cmd=cmd, target_id=target_id, from_sky=from_sky, exposure_time=exposure_time, cadence=cadence, focus=focus)
         except Exception as e:
             cmd.fail('text="AgCmd.start_autoguide: {}"'.format(e))
             return
@@ -180,6 +183,10 @@ class AgCmd:
         controller = self.actor.controllers['ag']
         #self.actor.logger.info('controller={}'.format(controller))
 
+        target_id = int(cmd.cmd.keywords['target_id'].values[0])
+        from_sky = None
+        if 'from_sky' in cmd.cmd.keywords:
+            from_sky = bool(cmd.cmd.keywords['from_sky'].values[0])
         exposure_time = 2000 # ms
         if 'exposure_time' in cmd.cmd.keywords:
             exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
@@ -187,7 +194,7 @@ class AgCmd:
                 exposure_time = 100
 
         try:
-            controller.initialize_autoguide(cmd=cmd, exposure_time=exposure_time)
+            controller.initialize_autoguide(cmd=cmd, target_id=target_id, from_sky=from_sky, exposure_time=exposure_time)
         except Exception as e:
             cmd.fail('text="AgCmd.initialize_autoguide: {}"'.format(e))
             return
