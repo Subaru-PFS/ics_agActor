@@ -4,7 +4,7 @@ import sys
 from . import Subaru_POPT2_HSC
 
 class PFS():
-    def FA(self, stararray, detectarray, tel_ra, tel_de, dt, adc, inr):
+    def FA(self, stararray, detectarray, tel_ra, tel_de, dt, adc, inr, envtmp=273.15, wl=0.77):
         # subaru = Subaru_POPT2_HSC.Subaru()
         popt2  = Subaru_POPT2_HSC.POPT2()
         # hsc    = Subaru_POPT2_HSC.HSC()
@@ -12,7 +12,7 @@ class PFS():
         str_xdp,str_ydp,dxra,dyra,dxde,dyde,dxinr,dyinr = \
             popt2.makeBasis(tel_ra, tel_de, \
                             stararray[:,0], stararray[:,1], \
-                            dt, adc, inr)
+                            dt, adc, inr, envtmp, wl)
         filtered_detectarray = popt2.sourceFilter(detectarray)
         ra_offset,de_offset,inr_offset = \
             popt2.RADECInRShift(filtered_detectarray[:,2],\

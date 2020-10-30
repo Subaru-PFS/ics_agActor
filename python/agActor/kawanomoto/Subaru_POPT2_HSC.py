@@ -11,6 +11,9 @@ d_ra  = 1.0/3600.0
 d_de  = 1.0/3600.0
 d_inr = 0.01
 
+### constants proper to WFC optics
+wfc_scale_temp_coeff = -1.42e-05
+
 ### constants proper to HSC camera
 # hsc_inr_zero_offset        = +0.07 # in degree
 # hsc_detector_zero_offset_x = -0.15 # in mm
@@ -90,14 +93,16 @@ class POPT2():
     def telStatusfromText(self, textfile):
         array = np.loadtxt(textfile,\
                            dtype={\
-                               'names': ('DATE-OBS', 'UT-STR', 'RA2000', 'DEC2000', 'ADC-STR', 'INR-STR'),\
-                               'formats':('<U10', '<U12', '<U12', '<U12', '<U12', '<U12')})
+                               'names': ('DATE-OBS', 'UT-STR', 'RA2000', 'DEC2000', 'ADC-STR', 'INR-STR', 'DOM-TMP', 'WAVELEN'),\
+                               'formats':('<U10', '<U12', '<U12', '<U12', '<U12', '<U12', '<U12', '<U12')})
         dateobs = str(array['DATE-OBS'])
         utstr   = str(array['UT-STR'])
         ra2000  = str(array['RA2000'])
         dec2000 = str(array['DEC2000'])
         adcstr  = float(array['ADC-STR'])
         inrstr  = float(array['INR-STR'])
+        domtmp  = float(array['DOM-TMP'])
+        wl      = float(array['WAVELEN'])
 
         datetime= dateobs+"T"+utstr+"Z"
         coord = SkyCoord(ra=ra2000, dec=dec2000, unit=(u.hourangle, u.deg),
@@ -105,44 +110,44 @@ class POPT2():
         tel_ra = coord.ra.degree
         tel_de = coord.dec.degree
 
-        return tel_ra, tel_de, datetime, adcstr, inrstr
+        return tel_ra, tel_de, datetime, adcstr, inrstr, domtmp, wl
 
-    def celestial2focalplane(self, sep, zpa, adc):
+    def celestial2focalplane(self, sep, zpa, adc, envtmp=273.15, wl=0.77):
+        ## index difference PBL1Y_OLD - BSL7Y
+        dn=0.0269+0.000983/(wl-0.118)**2
+        D=dn
+
+        ## index of silica
+        K1=6.961663e-01
+        L1=4.679148e-03
+        K2=4.079426e-01
+        L2=1.351206e-02
+        K3=8.974794e-01
+        L3=9.793400e+01
+        ns=np.sqrt(1+K1*wl**2/(wl**2-L1)+K2*wl**2/(wl**2-L2)+K3*wl**2/(wl**2-L3))
+
+        ## band parameter
+        L=(ns-1.458)*100.0
+
         s = np.deg2rad(sep)
         t = np.deg2rad(zpa)
         # domain is sin(s) < 0.014 (equiv. to 0.80216712 degree)
         x = -np.sin(t)* np.sin(s)/0.014
         y = -np.cos(t)* np.sin(s)/0.014
 
-        # HSC-i
-        # c2 = 2.62712058958421e+02 -1.75552949394474e-06*adc**2
-        # c7 = 3.36363419130444e+00 -7.77258745608301e-08*adc**2
-        # c14= 2.39556420581842e-01 -1.34765101243770e-07*adc**2
-        # c23= 2.74199565969097e-02 -1.06998796205918e-07*adc**2
-        # c10= 5.24182514647881e-05 +8.88141736131490e-08*adc**2
-        # c6 = 0.000671476724227082*adc
+        c2  = +2.62667525e+02 +6.79629298e-03*L +2.95485180e-03*L**2 -1.24427501e-02*L**3 +4.29538574e-03*L**4     +(-1.02896197e-06 -2.44232480e-05*D)*adc**2
+        c7  = +3.36066057e+00 +2.91618032e-03*L -5.94570080e-03*L**2 +2.25906864e-03*L**3 -9.54318056e-04*L**4     +(-3.14122633e-08 +5.93271969e-07*D)*adc**2
+        c14 = +2.40282056e-01 +2.08597289e-03*L +8.73164378e-04*L**2 +5.17043407e-05*L**3 +1.05290296e-04*L**4     +(+4.63022273e-09 -2.03620979e-06*D)*adc**2
+        c23 = +2.79669736e-02 -3.82625311e-04*L -1.21946258e-03*L**2 +1.99189756e-03*L**3 -6.43291673e-04*L**4     +(+1.67178727e-08 -2.51789315e-06*D)*adc**2
+        c10 = +1.78766516e-04 +2.61041832e-05*L -3.85742701e-05*L**2 +1.11526349e-04*L**3 -3.40352999e-05*L**4     +(+7.00048528e-08 +5.29619686e-07*D)*adc**2
+        c6  =                                                                                                      +(+1.13257505e-04 -1.79098816e-02*D)*adc
 
-        # c3 = 2.62712056260913e+02 -4.54965104302589e-05*adc**2
-        # c8 = 3.36362932755874e+00 -6.52163563633518e-05*adc**2
-        # c15= 2.39549423378678e-01 -7.53113039413331e-05*adc**2
-        # c24= 2.74116747515975e-02 -6.65916863956645e-05*adc**2
-        # c11=-5.27438382354667e-05 -3.28967242481091e-06*adc**2
-        # c5 =-0.000663853081621188*adc
-
-        # HSC-r
-        c2 =  2.62713997e+02 -1.74358206e-06*adc**2
-        c7 =  3.36646746e+00 -2.88958580e-09*adc**2
-        c14=  2.41063109e-01 -9.82519927e-08*adc**2
-        c23=  2.86910313e-02 -1.81538844e-07*adc**2
-        c10=  2.39613061e-04 +1.21711231e-07*adc**2
-        c6 =  7.52927675e-04*adc
-
-        c3 =  2.62713997e+02 -9.83988677e-06*adc**2
-        c8 =  3.36646746e+00 -6.18741722e-06*adc**2
-        c15=  2.41063109e-01 -1.68825349e-05*adc**2
-        c24=  2.86910313e-02 -4.14132732e-05*adc**2
-        c11= -2.39613061e-04 -6.83967290e-07*adc**2
-        c5 = -7.47538979e-04*adc
+        c3  = +2.62667525e+02 +6.79629298e-03*L +2.95485181e-03*L**2 -1.24427501e-02*L**3 +4.29538573e-03*L**4     +(-4.19817951e-06 -1.48072020e-04*D)*adc**2
+        c8  = +3.36066057e+00 +2.91618032e-03*L -5.94570080e-03*L**2 +2.25906864e-03*L**3 -9.54318056e-04*L**4     +(-2.90664180e-07 -1.14168012e-05*D)*adc**2
+        c15 = +2.40282056e-01 +2.08597289e-03*L +8.73164378e-04*L**2 +5.17043406e-05*L**3 +1.05290296e-04*L**4     +(+3.03392976e-08 -8.36448773e-06*D)*adc**2
+        c24 = +2.79669736e-02 -3.82625311e-04*L -1.21946258e-03*L**2 +1.99189756e-03*L**3 -6.43291673e-04*L**4     +(+5.64175587e-08 -1.08834836e-05*D)*adc**2
+        c11 = -1.78766516e-04 -2.61041832e-05*L +3.85742701e-05*L**2 -1.11526349e-04*L**3 +3.40352999e-05*L**4     +(+3.09339180e-08 +2.51153604e-06*D)*adc**2
+        c5  =                                                                                                      +(-1.15297622e-04 +1.79322188e-02*D)*adc
 
         telx = \
             c2*(x) +\
@@ -159,42 +164,48 @@ class POPT2():
             c11*((3*x**2-y**2)*y) +\
             c5*(x**2-y**2)
 
+        telx = telx * (1.0+(envtmp-273.15)*wfc_scale_temp_coeff)
+        tely = tely * (1.0+(envtmp-273.15)*wfc_scale_temp_coeff)
+
         return telx,tely
 
-    def focalplane2celestial(self, xt, yt, adc):
+    def focalplane2celestial(self, xt, yt, adc, envtmp=273.15, wl=0.77):
         # domain is r < 270.0 mm
         x = xt / 270.0
         y = yt / 270.0
 
-        # HSC-i
-        # c2  = 1.43721073e-2 +8.45742896e-11*adc**2
-        # c7  =-1.88481512e-4 -8.54773812e-12*adc**2
-        # c14 =-6.99524470e-6 +6.75921244e-13*adc**2
-        # c23 =-7.26098879e-7 +2.53719080e-13*adc**2
-        # c10 = 3.69046017e-7 +4.40131478e-12*adc**2
-        # c6  = 2.21641168e-8*adc
+        x = x / (1.0+(envtmp-273.15)*wfc_scale_temp_coeff)
+        y = y / (1.0+(envtmp-273.15)*wfc_scale_temp_coeff)
 
-        # c3  = 1.43721073e-2 +4.46308029e-10*adc**2
-        # c8  =-1.88481512e-4 +6.90663074e-12*adc**2
-        # c15 =-6.99524470e-6 +2.25955460e-12*adc**2
-        # c24 =-7.26098879e-7 +3.43957790e-12*adc**2
-        # c11 =-3.69046017e-7 +4.55537365e-12*adc**2
-        # c5  =-2.21539988e-8*adc
+        ## index difference PBL1Y_OLD - BSL7Y
+        dn=0.0269+0.000983/(wl-0.118)**2
+        D=dn
 
-        # HSC-r
-        c2  = 1.43720661e-02 +8.73098647e-11*adc**2
-        c7  =-1.88505586e-04 -7.29895287e-12*adc**2
-        c14 =-6.90286146e-06 +2.95845304e-12*adc**2
-        c23 =-6.10509443e-07 +2.98407611e-12*adc**2
-        c10 = 3.52068898e-07 +3.82263321e-12*adc**2
-        c6  = 2.36143951e-08*adc
+        ## index of silica
+        K1=6.961663e-01
+        L1=4.679148e-03
+        K2=4.079426e-01
+        L2=1.351206e-02
+        K3=8.974794e-01
+        L3=9.793400e+01
+        ns=np.sqrt(1+K1*wl**2/(wl**2-L1)+K2*wl**2/(wl**2-L2)+K3*wl**2/(wl**2-L3))
 
-        c3  = 1.43720660e-02 +4.56838387e-10*adc**2
-        c8  =-1.88505600e-04 +2.25907820e-11*adc**2
-        c15 =-6.90284586e-06 +2.92610941e-11*adc**2
-        c24 =-6.10447604e-07 +4.30181634e-11*adc**2
-        c11 =-3.52062707e-07 +2.72749282e-12*adc**2
-        c5  =-2.33301629e-08*adc
+        ## band parameter
+        L=(ns-1.458)*100.0
+
+        c2  = +1.43744915e-02 -3.66089499e-07*L -1.32173994e-07*L**2 +6.30310359e-07*L**3 -2.17492601e-07*L**4  +(+5.12241706e-11 +1.16857741e-09*D)*adc**2
+        c7  = -1.88330903e-04 -1.46551865e-07*L +3.24759111e-07*L**2 -1.68546415e-07*L**3 +6.63343214e-08*L**4  +(-2.91612501e-12 -1.40785167e-10*D)*adc**2
+        c14 = -6.88533077e-06 -9.59400370e-08*L -6.00088739e-08*L**2 -1.38481412e-08*L**3 -2.99932745e-09*L**4  +(-7.72671402e-13 +1.18001709e-10*D)*adc**2
+        c23 = -5.76217456e-07 +3.12412231e-08*L +7.04529374e-08*L**2 -1.08409015e-07*L**3 +3.56485140e-08*L**4  +(-9.09493515e-13 +1.21275883e-10*D)*adc**2
+        c10 =  3.55386763e-07 -1.38438066e-09*L +1.97735820e-09*L**2 -5.70585703e-09*L**3 +1.73697244e-09*L**4  +(+4.74196770e-14 +1.18597848e-10*D)*adc**2
+        c6  =                                                                                                   +(-5.28327182e-09 +9.38352100e-07*D)*adc
+
+        c3  = +1.43744915e-02 -3.66089499e-07*L -1.32173994e-07*L**2 +6.30310359e-07*L**3 -2.17492601e-07*L**4  +(+2.20632222e-10 +7.82650662e-09*D)*adc**2
+        c8  = -1.88330903e-04 -1.46551865e-07*L +3.24759111e-07*L**2 -1.68546415e-07*L**3 +6.63343214e-08*L**4  +(+3.80828224e-12 +3.14914474e-10*D)*adc**2
+        c15 = -6.88533077e-06 -9.59400370e-08*L -6.00088739e-08*L**2 -1.38481412e-08*L**3 -2.99932745e-09*L**4  +(-3.40551222e-12 +4.81036157e-10*D)*adc**2
+        c24 = -5.76217456e-07 +3.12412231e-08*L +7.04529374e-08*L**2 -1.08409015e-07*L**3 +3.56485140e-08*L**4  +(-2.68215298e-12 +5.45580678e-10*D)*adc**2
+        c11 = -3.55386763e-07 +1.38438066e-09*L -1.97735820e-09*L**2 +5.70585703e-09*L**3 -1.73697244e-09*L**4  +(+2.07735825e-12 +1.46216935e-11*D)*adc**2
+        c5  =                                                                                                   +(+5.37984880e-09 -9.38735856e-07*D)*adc
 
         tantx = \
             c2*(x) +\
@@ -213,6 +224,9 @@ class POPT2():
 
         s = np.arctan(np.sqrt(tantx**2+tanty**2))
         t = np.arctan2(-tantx, -tanty)
+
+        s = np.rad2deg(s)
+        t = np.rad2deg(t)
 
         return s, t
 
@@ -307,14 +321,14 @@ class POPT2():
 
         return ra_offset, de_offset, inr_offset
 
-    def makeBasis(self, tel_ra, tel_de, str_ra, str_de, t, adc, inr):
+    def makeBasis(self, tel_ra, tel_de, str_ra, str_de, t, adc, inr, envtmp, wl):
         sep0,zpa0 = Subaru.starSepZPA(self, tel_ra, tel_de, str_ra, str_de, t)
         sep1,zpa1 = Subaru.starSepZPA(self, tel_ra+d_ra, tel_de, str_ra, str_de, t)
         sep2,zpa2 = Subaru.starSepZPA(self, tel_ra, tel_de+d_de, str_ra, str_de, t)
 
-        xfp0,yfp0 = POPT2.celestial2focalplane(self, sep0,zpa0,adc)
-        xfp1,yfp1 = POPT2.celestial2focalplane(self, sep1,zpa1,adc)
-        xfp2,yfp2 = POPT2.celestial2focalplane(self, sep2,zpa2,adc)
+        xfp0,yfp0 = POPT2.celestial2focalplane(self, sep0,zpa0,adc,envtmp,wl)
+        xfp1,yfp1 = POPT2.celestial2focalplane(self, sep1,zpa1,adc,envtmp,wl)
+        xfp2,yfp2 = POPT2.celestial2focalplane(self, sep2,zpa2,adc,envtmp,wl)
 
         xdp0,ydp0 = HSC.fp2dp(self, xfp0,yfp0,inr)
         xdp1,ydp1 = HSC.fp2dp(self, xfp1,yfp1,inr)

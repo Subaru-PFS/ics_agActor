@@ -59,7 +59,7 @@ if __name__ == '__main__':
     parser.add_argument('--temperature', type=float, default=0, help='air temperature (deg C)')
     parser.add_argument('--relative-humidity', type=float, default=0, help='relative humidity (%%)')
     parser.add_argument('--pressure', type=float, default=620, help='atmospheric pressure (hPa)')
-    parser.add_argument('--obswl', type=float, default=1, help='wavelength of observation (um)')
+    parser.add_argument('--obswl', type=float, default=0.77, help='wavelength of observation (um)')
     parser.add_argument('--dra', type=float, default=0, help='(")')
     parser.add_argument('--ddec', type=float, default=0, help='(")')
     args, _ = parser.parse_known_args()

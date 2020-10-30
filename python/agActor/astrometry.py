@@ -52,7 +52,7 @@ def measure(
     x_dp, y_dp = det2dp.det2dp(numpy.rint(icam - 1), x_det, y_det)
     x_fp, y_fp = hsc.dp2fp(x_dp, y_dp, inr)
     separation, position_angle = popt2.focalplane2celestial(x_fp, y_fp, adc)
-    altaz = altaz_c.directional_offset_by(- position_angle * units.rad, separation * units.rad)
+    altaz = altaz_c.directional_offset_by(- position_angle * units.deg, separation * units.deg)
     icrs = altaz.transform_to('icrs')
 
     # source_id, ra, dec, mag
