@@ -13,8 +13,9 @@ class ag:
         ON = 1
         INIT = INIT_SKY = 2
         AUTO = AUTO_SKY = 3
-        INIT_DB = 6
-        AUTO_DB = 7
+        INIT_DB = 4
+        AUTO_DB = 5
+        STOP = 6
 
     EXPOSURE_TIME = 2000  # ms
     CADENCE = 0  # ms
@@ -65,7 +66,7 @@ class ag:
     def stop_autoguide(self, cmd=None):
 
         #cmd = cmd if cmd else self.actor.bcast
-        self.thread.set_params(mode=ag.Mode.OFF)
+        self.thread.set_params(mode=ag.Mode.STOP)
 
     def reconfigure_autoguide(self, cmd=None, exposure_time=None, cadence=None, focus=None):
 
@@ -81,6 +82,7 @@ class AgThread(threading.Thread):
 
         self.actor = actor
         self.logger = logger
+        self.input_mode = None
         self.mode = ag.Mode.OFF
         self.target_id = None
         self.exposure_time = ag.EXPOSURE_TIME
@@ -99,10 +101,32 @@ class AgThread(threading.Thread):
         self.__stop.set()
         self.__abort.set()
 
-    def get_params(self):
+    def _get_params(self):
 
         with self.lock:
             self.__abort.clear()
+            if self.input_mode is not None:
+                self.mode = self.input_mode
+                self.input_mode = None
+            return self.mode, self.target_id, self.exposure_time, self.cadence, self.focus
+
+    def _set_params(self, mode=None, target_id=None, exposure_time=None, cadence=None, focus=None):
+
+        with self.lock:
+            if mode is not None:
+                self.mode = mode
+            if target_id is not None:
+                self.target_id = target_id
+            if exposure_time is not None:
+                self.exposure_time = exposure_time
+            if cadence is not None:
+                self.cadence = cadence
+            if focus is not None:
+                self.focus = focus
+
+    def get_params(self):
+
+        with self.lock:
             return self.mode, self.target_id, self.exposure_time, self.cadence, self.focus
 
     def set_params(self, mode=None, target_id=None, exposure_time=None, cadence=None, focus=None):
@@ -110,7 +134,7 @@ class AgThread(threading.Thread):
         with self.lock:
             if mode is not None:
                 self.__abort.set()
-                self.mode = mode
+                self.input_mode = mode
             if target_id is not None:
                 self.target_id = target_id
             if exposure_time is not None:
@@ -131,14 +155,14 @@ class AgThread(threading.Thread):
                 self.__stop.clear()
                 break
             start = time.time()
-            mode, target_id, exposure_time, cadence, focus = self.get_params()
+            mode, target_id, exposure_time, cadence, focus = self._get_params()
             self.logger.info('AgThread.run: mode={},target_id={},exposure_time={},cadence={},focus={}'.format(mode, target_id, exposure_time, cadence, focus))
             try:
                 if mode in (ag.Mode.INIT_DB, ag.Mode.AUTO_DB):
                     autoguide.set_target(target_id=target_id, logger=self.logger)
                     autoguide.set_catalog(logger=self.logger)
                     mode = ag.Mode.ON if mode == ag.Mode.AUTO_DB else ag.Mode.OFF
-                    self.set_params(mode=mode)
+                    self._set_params(mode=mode)
                 if mode in (ag.Mode.ON, ag.Mode.INIT, ag.Mode.AUTO):
                     result = self.actor.sendCommand(
                         actor='agcam',
@@ -160,7 +184,7 @@ class AgThread(threading.Thread):
                     if mode in (ag.Mode.INIT, ag.Mode.AUTO):
                         # store initial conditions
                         autoguide.set_catalog(frame_id=frame_id, logger=self.logger)
-                        self.set_params(mode=ag.Mode.ON if mode == ag.Mode.AUTO else ag.Mode.OFF)
+                        self._set_params(mode=ag.Mode.ON if mode == ag.Mode.AUTO else ag.Mode.OFF)
                     else:  # mode == ag.Mode.ON
                         cmd.inform('detectionState=1')
                         # compute guide errors
@@ -175,6 +199,10 @@ class AgThread(threading.Thread):
                         if focus:
                             # compute focus error
                             pass
+                if mode == ag.Mode.STOP:
+                    #cmd.inform('detectionState=0')
+                    cmd.inform('guideReady=0')
+                    self._set_params(mode=ag.Mode.OFF)
             except Exception as e:
                 self.logger.error('AgThread.run: {}'.format(e))
             end = time.time()
