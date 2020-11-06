@@ -21,6 +21,38 @@ class ag:
     CADENCE = 0  # ms
     FOCUS = False
 
+    class Params:
+
+        def __init__(self, **kwargs):
+
+            self.set(**kwargs)
+
+        def set(self, mode=None, target_id=None, exposure_time=None, cadence=None, focus=None):
+
+            self.mode = mode
+            self.target_id = target_id
+            self.exposure_time = exposure_time
+            self.cadence = cadence
+            self.focus = focus
+
+        def update(self, mode=None, target_id=None, exposure_time=None, cadence=None, focus=None):
+
+            if mode is not None: self.mode = mode
+            if target_id is not None: self.target_id = target_id
+            if exposure_time is not None: self.exposure_time = exposure_time
+            if cadence is not None: self.cadence = cadence
+            if focus is not None: self.focus = focus
+
+        def release(self):
+
+            params = {'mode': self.mode, 'target_id': self.target_id, 'exposure_time': self.exposure_time, 'cadence': self.cadence, 'focus': self.focus}
+            self.set()  # set all members to None
+            return params
+
+        def get(self):
+
+            return self.mode, self.target_id, self.exposure_time, self.cadence, self.focus
+
     def __init__(self, actor, name, logLevel=logging.DEBUG):
 
         self.actor = actor
@@ -49,7 +81,8 @@ class ag:
 
     def get_mode(self, cmd=None):
 
-        return self.thread.mode
+        mode, _, _, _, _ = self.thread.params.get()
+        return mode
 
     def start_autoguide(self, cmd=None, target_id=None, from_sky=None, exposure_time=EXPOSURE_TIME, cadence=CADENCE, focus=FOCUS):
 
@@ -82,12 +115,8 @@ class AgThread(threading.Thread):
 
         self.actor = actor
         self.logger = logger
-        self.input_mode = None
-        self.mode = ag.Mode.OFF
-        self.target_id = None
-        self.exposure_time = ag.EXPOSURE_TIME
-        self.cadence = ag.CADENCE
-        self.focus = ag.FOCUS
+        self.input_params = ag.Params()
+        self.params = ag.Params(mode=ag.Mode.OFF, exposure_time=ag.EXPOSURE_TIME, cadence=ag.CADENCE, focus=ag.FOCUS)
         self.lock = threading.Lock()
         self.__abort = threading.Event()
         self.__stop = threading.Event()
@@ -105,44 +134,25 @@ class AgThread(threading.Thread):
 
         with self.lock:
             self.__abort.clear()
-            if self.input_mode is not None:
-                self.mode = self.input_mode
-                self.input_mode = None
-            return self.mode, self.target_id, self.exposure_time, self.cadence, self.focus
+            self.params.update(**self.input_params.release())
+            return self.params.get()
 
-    def _set_params(self, mode=None, target_id=None, exposure_time=None, cadence=None, focus=None):
+    def _set_params(self, **kwargs):
 
         with self.lock:
-            if mode is not None:
-                self.mode = mode
-            if target_id is not None:
-                self.target_id = target_id
-            if exposure_time is not None:
-                self.exposure_time = exposure_time
-            if cadence is not None:
-                self.cadence = cadence
-            if focus is not None:
-                self.focus = focus
+            self.params.update(**kwargs)
 
     def get_params(self):
 
         with self.lock:
-            return self.mode, self.target_id, self.exposure_time, self.cadence, self.focus
+            return self.params.get()
 
-    def set_params(self, mode=None, target_id=None, exposure_time=None, cadence=None, focus=None):
+    def set_params(self, mode=None, **kwargs):
 
         with self.lock:
+            self.input_params.update(mode=mode, **kwargs)
             if mode is not None:
                 self.__abort.set()
-                self.input_mode = mode
-            if target_id is not None:
-                self.target_id = target_id
-            if exposure_time is not None:
-                self.exposure_time = exposure_time
-            if cadence is not None:
-                self.cadence = cadence
-            if focus is not None:
-                self.focus = focus
 
     def run(self):
 
