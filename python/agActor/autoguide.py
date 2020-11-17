@@ -25,7 +25,7 @@ def set_target(target_id, logger=None):
     Field.guide_objects = []
 
 
-def set_catalog(frame_id=None, logger=None):
+def set_catalog(frame_id=None, obswl=0.77, logger=None):
 
     logger and logger.info('frame_id={}'.format(frame_id))
 
@@ -36,12 +36,12 @@ def set_catalog(frame_id=None, logger=None):
         ra = Field.ra
         dec = Field.dec
 
-        _, _, taken_at, _, _, inr, adc = opdb.query_agc_exposure(frame_id)
-        logger and logger.info('taken_at={},inr={},adc={}'.format(taken_at, inr, adc))
+        _, _, taken_at, _, _, inr, adc, inside_temperature, _, _, _, _, _ = opdb.query_agc_exposure(frame_id)
+        logger and logger.info('taken_at={},inr={},adc={},inside_temperature={}'.format(taken_at, inr, adc, inside_temperature))
 
         detected_objects = opdb.query_agc_data(frame_id)
 
-        guide_objects = astrometry.measure(detected_objects, ra, dec, taken_at, inr, adc, logger=logger)
+        guide_objects = astrometry.measure(detected_objects, ra, dec, taken_at, inr, adc, obswl=obswl, inside_temperature=inside_temperature, logger=logger)
 
     else:
 
@@ -54,7 +54,7 @@ def set_catalog(frame_id=None, logger=None):
     Field.guide_objects = guide_objects
 
 
-def autoguide(frame_id, guide_objects=None, ra=None, dec=None, logger=None):
+def autoguide(frame_id, guide_objects=None, ra=None, dec=None, obswl=0.77, logger=None):
 
     logger and logger.info('frame_id={}'.format(frame_id))
 
@@ -66,17 +66,17 @@ def autoguide(frame_id, guide_objects=None, ra=None, dec=None, logger=None):
         dec = Field.dec
     logger and logger.info('ra={},dec={}'.format(ra, dec))
 
-    _, _, taken_at, _, _, inr, adc = opdb.query_agc_exposure(frame_id)
-    logger and logger.info('taken_at={},inr={},adc={}'.format(taken_at, inr, adc))
+    _, _, taken_at, _, _, inr, adc, inside_temperature, _, _, _, _, _ = opdb.query_agc_exposure(frame_id)
+    logger and logger.info('taken_at={},inr={},adc={},inside_temperature={}'.format(taken_at, inr, adc, inside_temperature))
 
     detected_objects = opdb.query_agc_data(frame_id)
 
-    return _autoguide(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, logger=logger)
+    return _autoguide(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, obswl=obswl, inside_temperature=inside_temperature, logger=logger)
 
 
-def _autoguide(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, logger=None):
+def _autoguide(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, obswl=0.77, inside_temperature=0, logger=None):
 
-    dra, ddec, dinr = field_acquisition._acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, logger=logger)
+    dra, ddec, dinr = field_acquisition._acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, obswl=obswl, inside_temperature=inside_temperature, logger=logger)
     #logger and logger.info('dra={},ddec={},dinr={}'.format(dra, ddec, dinr))
 
     _, _, dalt, daz = to_altaz.to_altaz(ra, dec, taken_at, dra=dra, ddec=ddec)
@@ -93,6 +93,7 @@ if __name__ == '__main__':
     parser.add_argument('--target-id', type=int, required=True, help='target identifier')
     parser.add_argument('--frame-id', type=int, required=True, help='frame identifier')
     parser.add_argument('--ref-frame-id', type=int, default=None, help='reference frame identifier')
+    parser.add_argument('--obswl', type=float, default=0.77, help='wavelength of observation (um)')
     args, _ = parser.parse_known_args()
 
     import logging
@@ -100,6 +101,6 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(name='autoguide')
     set_target(args.target_id, logger=logger)
-    set_catalog(args.ref_frame_id, logger=logger)
-    dalt, daz, dinr = autoguide(args.frame_id, logger=logger)
+    set_catalog(args.ref_frame_id, obswl=args.obswl, logger=logger)
+    dalt, daz, dinr = autoguide(args.frame_id, obswl=args.obswl, logger=logger)
     print('dalt={},daz={},dinr={}'.format(dalt, daz, dinr))

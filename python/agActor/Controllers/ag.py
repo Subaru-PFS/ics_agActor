@@ -168,11 +168,12 @@ class AgThread(threading.Thread):
             mode, target_id, exposure_time, cadence, focus = self._get_params()
             self.logger.info('AgThread.run: mode={},target_id={},exposure_time={},cadence={},focus={}'.format(mode, target_id, exposure_time, cadence, focus))
             try:
-                if mode in (ag.Mode.INIT_DB, ag.Mode.AUTO_DB):
+                if mode in (ag.Mode.INIT, ag.Mode.AUTO, ag.Mode.INIT_DB, ag.Mode.AUTO_DB):
                     autoguide.set_target(target_id=target_id, logger=self.logger)
-                    autoguide.set_catalog(logger=self.logger)
-                    mode = ag.Mode.ON if mode == ag.Mode.AUTO_DB else ag.Mode.OFF
-                    self._set_params(mode=mode)
+                    if mode in (ag.Mode.INIT_DB, ag.Mode.AUTO_DB):
+                        autoguide.set_catalog(logger=self.logger)
+                        mode = ag.Mode.ON if mode == ag.Mode.AUTO_DB else ag.Mode.OFF
+                        self._set_params(mode=mode)
                 if mode in (ag.Mode.ON, ag.Mode.INIT, ag.Mode.AUTO):
                     result = self.actor.sendCommand(
                         actor='agcam',

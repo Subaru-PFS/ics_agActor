@@ -39,17 +39,17 @@ def query_guide_star(target_id):
         return c.execute('SELECT source_id,ra,dec,mag FROM guide_star WHERE target_id=?', (target_id, )).fetchall()
 
 
-def insert_agc_exposure(frame_id, pfs_visit_id, exptime, taken_at, azimuth, altitude, inr, adc):
+def insert_agc_exposure(frame_id, pfs_visit_id, exptime, taken_at, azimuth, altitude, inr, adc, inside_temperature, inside_humidity, inside_pressure, outside_temperature, outside_humidity, outside_pressure):
 
     with _connect() as c:
-        c.execute('INSERT INTO agc_exposure (frame_id,pfs_visit_id,exptime,taken_at,azimuth,altitude,inr,adc) VALUES (?,?,?,?,?,?,?,?)', (frame_id, pfs_visit_id, exptime, taken_at.astimezone(tz=datetime.timezone.utc).strftime(_DATETIME_FORMAT), azimuth, altitude, inr, adc))
+        c.execute('INSERT INTO agc_exposure (frame_id,pfs_visit_id,exptime,taken_at,azimuth,altitude,inr,adc,inside_temperature,inside_humidity,inside_pressure,outside_temperature,outside_humidity,outside_pressure) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)', (frame_id, pfs_visit_id, exptime, taken_at.astimezone(tz=datetime.timezone.utc).strftime(_DATETIME_FORMAT), azimuth, altitude, inr, adc, inside_temperature, inside_humidity, inside_pressure, outside_temperature, outside_humidity, outside_pressure))
         c.commit()
 
 
 def query_agc_exposure(frame_id):
 
     with _connect() as c:
-        data = c.execute('SELECT pfs_visit_id,exptime,taken_at,azimuth,altitude,inr,adc FROM agc_exposure WHERE frame_id=?', (frame_id, )).fetchone()
+        data = c.execute('SELECT pfs_visit_id,exptime,taken_at,azimuth,altitude,inr,adc,inside_temperature,inside_humidity,inside_pressure,outside_temperature,outside_humidity,outside_pressure FROM agc_exposure WHERE frame_id=?', (frame_id, )).fetchone()
         return (*data[:2], datetime.datetime.strptime(data[2], _DATETIME_FORMAT), *data[3:])
 
 

@@ -4,22 +4,22 @@ import opdb
 import kawanomoto
 
 
-def acquire_field(target_id, frame_id, logger=None):
+def acquire_field(target_id, frame_id, obswl=0.77, logger=None):
 
     ra, dec, _ = opdb.query_target(target_id)
     logger and logger.info('ra={},dec={}'.format(ra, dec))
 
     guide_objects = opdb.query_guide_star(target_id)
 
-    _, _, taken_at, _, _, inr, adc = opdb.query_agc_exposure(frame_id)
-    logger and logger.info('taken_at={},inr={},adc={}'.format(taken_at, inr, adc))
+    _, _, taken_at, _, _, inr, adc, inside_temperature, _, _, _, _, _ = opdb.query_agc_exposure(frame_id)
+    logger and logger.info('taken_at={},inr={},adc={},inside_temperature={}'.format(taken_at, inr, adc, inside_temperature))
 
     detected_objects = opdb.query_agc_data(frame_id)
 
-    return _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, logger=logger)
+    return _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, obswl=obswl, inside_temperature=inside_temperature, logger=logger)
 
 
-def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, logger=None):
+def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, obswl=0.77, inside_temperature=0, logger=None):
 
     def semi_axes(mu11, mu20, mu02):
 
@@ -43,7 +43,7 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
     )
 
     pfs = kawanomoto.FieldAcquisition.PFS()
-    dra, ddec, dinr = pfs.FA(_guide_objects, _detected_objects, 15 * ra, dec, taken_at, adc, inr)
+    dra, ddec, dinr = pfs.FA(_guide_objects, _detected_objects, 15 * ra, dec, taken_at, adc, inr, inside_temperature + 273.15, obswl)
     dra *= 3600
     ddec *= 3600
     dinr *= 3600
@@ -59,11 +59,12 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--target-id', type=int, required=True, help='target identifier')
     parser.add_argument('--frame-id', type=int, required=True, help='frame identifier')
+    parser.add_argument('--obswl', type=float, default=0.77, help='wavelength of observation (um)')
     args, _ = parser.parse_known_args()
 
     import logging
 
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(name='field_acquisition')
-    dra, ddec, dinr = acquire_field(args.target_id, args.frame_id, logger=logger)
+    dra, ddec, dinr = acquire_field(args.target_id, args.frame_id, obswl=args.obswl, logger=logger)
     print('dra={},ddec={},dinr={}'.format(dra, ddec, dinr))

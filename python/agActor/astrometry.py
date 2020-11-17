@@ -26,22 +26,22 @@ def measure(
         relative_humidity=0,
         pressure=620,
         obswl=0.77,
+        inside_temperature=None,
         logger=None
 ):
 
-    logger and logger.info('ra={},dec={},obstime={},inr={},adc={}'.format(ra, dec, obstime, inr, adc))
+    logger and logger.info('ra={},dec={},obstime={},inr={},adc={},obswl={},inside_temperature={}'.format(ra, dec, obstime, inr, adc, obswl, inside_temperature))
 
     ra = Angle(ra, unit=units.hourangle)
     dec = Angle(dec, unit=units.deg)
     obstime = Time(obstime)
-    temperature *= units.deg_C
-    relative_humidity /= 100
-    pressure *= units.hPa
-    obswl *= units.micron
+
+    if inside_temperature is None:
+        inside_temperature = temperature
 
     # subaru coordinates (NAD83 ~ WGS 1984 at 0.1" level, height of elevation axis)
     location = EarthLocation(lat=Angle((19, 49, 31.8), unit=units.deg), lon=Angle((-155, 28, 33.7), unit=units.deg), height=4163)
-    frame_tc = AltAz(obstime=obstime, location=location, temperature=temperature, relative_humidity=relative_humidity, pressure=pressure, obswl=obswl)
+    frame_tc = AltAz(obstime=obstime, location=location, temperature=temperature * units.deg_C, relative_humidity=relative_humidity / 100, pressure=pressure * units.hPa, obswl=obswl * units.micron)
 
     # field center in the horizontal coordinates
     icrs_c = SkyCoord(ra=ra, dec=dec, frame='icrs')
@@ -51,7 +51,7 @@ def measure(
     icam, x_det, y_det = numpy.array(detected_objects)[:, (0, 3, 4)].T
     x_dp, y_dp = det2dp.det2dp(numpy.rint(icam - 1), x_det, y_det)
     x_fp, y_fp = hsc.dp2fp(x_dp, y_dp, inr)
-    separation, position_angle = popt2.focalplane2celestial(x_fp, y_fp, adc)
+    separation, position_angle = popt2.focalplane2celestial(x_fp, y_fp, adc, inside_temperature + 273.15, obswl)
     altaz = altaz_c.directional_offset_by(- position_angle * units.deg, separation * units.deg)
     icrs = altaz.transform_to('icrs')
 
@@ -70,16 +70,13 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--target-id', type=int, required=True, help='target identifier')
     parser.add_argument('--frame-id', type=int, required=True, help='frame identifier')
-    parser.add_argument('--temperature', type=float, default=0, help='air temperature (deg C)')
-    parser.add_argument('--relative-humidity', type=float, default=0, help='relative humidity (%%)')
-    parser.add_argument('--pressure', type=float, default=620, help='atmospheric pressure (hPa)')
     parser.add_argument('--obswl', type=float, default=0.77, help='wavelength of observation (um)')
     args, _ = parser.parse_known_args()
 
     import opdb
 
     ra, dec, _ = opdb.query_target(args.target_id)
-    _, _, taken_at, _, _, inr, adc = opdb.query_agc_exposure(args.frame_id)
+    _, _, taken_at, _, _, inr, adc, inside_temperature, _, _, temperature, relative_humidity, pressure = opdb.query_agc_exposure(args.frame_id)
     detected_objects = opdb.query_agc_data(args.frame_id)
 
     import logging
@@ -94,10 +91,11 @@ if __name__ == '__main__':
         obstime=taken_at,
         inr=inr,
         adc=adc,
-        temperature=args.temperature,
-        relative_humidity=args.relative_humidity,
-        pressure=args.pressure,
+        temperature=temperature,
+        relative_humidity=relative_humidity,
+        pressure=pressure,
         obswl=args.obswl,
+        inside_temperature=inside_temperature,
         logger=logger
     )
     print(objects)
