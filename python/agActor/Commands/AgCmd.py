@@ -26,10 +26,10 @@ class AgCmd:
             (1, 3),
             keys.Key('exposure_time', types.Int(), help=''),
             keys.Key('cadence', types.Int(), help=''),
-            keys.Key('focus', types.Enum('no', 'yes'), help=''),
-            keys.Key('guide', types.Enum('no', 'yes'), help=''),
+            keys.Key('focus', types.Bool('no', 'yes'), help=''),
+            keys.Key('guide', types.Bool('no', 'yes'), help=''),
             keys.Key('target_id', types.Int(), help=''),
-            keys.Key('from_sky', types.Enum('no', 'yes'), help=''),
+            keys.Key('from_sky', types.Bool('no', 'yes'), help=''),
         )
 
     def ping(self, cmd):
@@ -72,7 +72,7 @@ class AgCmd:
             exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
             if exposure_time < 100:
                 exposure_time = 100
-        guide = True
+        guide = False
         if 'guide' in cmd.cmd.keywords:
             guide = bool(cmd.cmd.keywords['guide'].values[0])
 
@@ -93,23 +93,33 @@ class AgCmd:
             self.actor.logger.info('AgCmd.acquire_field: telescopeState={}'.format(telescope_state))
             frame_id = int(self.actor.models['agcam'].keyVarDict['frameId'].valueList[0])
             self.actor.logger.info('AgCmd.acquire_field: frameId={}'.format(frame_id))
+            data_time = float(self.actor.models['agcam'].keyVarDict['dataTime'].valueList[0])
+            self.actor.logger.info('AgCmd.acquire_field: dataTime={}'.format(data_time))
             # retrieve field center coordinates from opdb
             # retrieve exposure information from opdb
             # retrieve guide star coordinates from opdb
             # retrieve metrics of detected objects from opdb
             # compute offsets, scale, transparency, and seeing
-            cmd.inform('detectionState=1')
-            dra, ddec, dinr = field_acquisition.acquire_field(target_id, frame_id, logger=self.actor.logger)
-            cmd.inform('text="dra={},ddec={},dinr={}"'.format(dra, ddec, dinr))
-            cmd.inform('detectionState=0')
-            # store results in opdb
             if guide:
+                cmd.inform('detectionState=1')
                 # convert equatorial coordinates to horizontal coordinates
+                dra, ddec, dinr, dalt, daz = field_acquisition.acquire_field(target_id, frame_id, altazimuth=True, logger=self.actor.logger)
+                cmd.inform('text="dra={},ddec={},dinr={},dalt={},daz={}"'.format(dra, ddec, dinr, dalt, daz))
+                cmd.inform('detectionState=0')
                 # send corrections to mlp1 and gen2 (or iic)
-                pass
+                result = self.actor.sendCommand(
+                    actor='mlp1',
+                    cmdStr='guide azel={},{} ready=1 time={} delay=0 xy=0,0 size=0 intensity=0 flux=0'.format(daz, dalt, data_time),
+                    timeLim=5
+                )
+                #cmd.inform('guideReady=1')
             else:
+                cmd.inform('detectionState=1')
+                dra, ddec, dinr = field_acquisition.acquire_field(target_id, frame_id, logger=self.actor.logger)
+                cmd.inform('text="dra={},ddec={},dinr={}"'.format(dra, ddec, dinr))
+                cmd.inform('detectionState=0')
                 # send corrections to gen2 (or iic)
-                pass
+            # store results in opdb
         except Exception as e:
             cmd.fail('text="AgCmd.acquire_field: {}'.format(e))
             return
