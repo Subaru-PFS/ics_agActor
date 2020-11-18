@@ -9,13 +9,14 @@ class ag:
 
     class Mode(enum.Enum):
 
-        OFF = 0
-        ON = 1
-        INIT = INIT_SKY = 2
-        AUTO = AUTO_SKY = 3
-        INIT_DB = 4
-        AUTO_DB = 5
-        STOP = 6
+        OFF = 0                    # [--S] idle
+        ON = 1                     # [FIS] start/resume autoguide
+        INIT = 2                   # [FIS] initialize only, guide objects from exposure
+        _DB = 4                    # [F--] guide objects from opdb
+        AUTO = INIT | ON           # [-IS] auto-start, guide objects from first exposure
+        INIT_DB = INIT | _DB       # [-IS] initialize only, guide objects from opdb
+        AUTO_DB = INIT | _DB | ON  # [-IS] auto-start, guide objects from opdb
+        STOP = 8                   # [-I-] stop autoguide
 
     EXPOSURE_TIME = 2000  # ms
     CADENCE = 0  # ms
@@ -35,7 +36,7 @@ class ag:
             self.cadence = cadence
             self.focus = focus
 
-        def update(self, mode=None, target_id=None, exposure_time=None, cadence=None, focus=None):
+        def reset(self, mode=None, target_id=None, exposure_time=None, cadence=None, focus=None):
 
             if mode is not None: self.mode = mode
             if target_id is not None: self.target_id = target_id
@@ -43,11 +44,9 @@ class ag:
             if cadence is not None: self.cadence = cadence
             if focus is not None: self.focus = focus
 
-        def release(self):
+        def clear(self):
 
-            params = {'mode': self.mode, 'target_id': self.target_id, 'exposure_time': self.exposure_time, 'cadence': self.cadence, 'focus': self.focus}
-            self.set()  # set all members to None
-            return params
+            self.set()
 
         def get(self):
 
@@ -81,7 +80,7 @@ class ag:
 
     def get_mode(self, cmd=None):
 
-        mode, _, _, _, _ = self.thread.params.get()
+        mode, _, _, _, _ = self.thread.get_params()
         return mode
 
     def start_autoguide(self, cmd=None, target_id=None, from_sky=None, exposure_time=EXPOSURE_TIME, cadence=CADENCE, focus=FOCUS):
@@ -134,13 +133,14 @@ class AgThread(threading.Thread):
 
         with self.lock:
             self.__abort.clear()
-            self.params.update(**self.input_params.release())
+            self.params.reset(*self.input_params.get())
+            self.input_params.clear()
             return self.params.get()
 
     def _set_params(self, **kwargs):
 
         with self.lock:
-            self.params.update(**kwargs)
+            self.params.reset(**kwargs)
 
     def get_params(self):
 
@@ -150,13 +150,14 @@ class AgThread(threading.Thread):
     def set_params(self, mode=None, **kwargs):
 
         with self.lock:
-            self.input_params.update(mode=mode, **kwargs)
+            self.input_params.reset(mode=mode, **kwargs)
             if mode is not None:
                 self.__abort.set()
 
     def run(self):
 
         cmd = self.actor.bcast
+        #cmd.inform('detectionState=0')
         #cmd.inform('guideReady=0')
 
         while True:
