@@ -1,7 +1,6 @@
 import astrometry
 import field_acquisition
 import opdb
-import to_altaz
 
 
 class Field:
@@ -71,16 +70,7 @@ def autoguide(frame_id, guide_objects=None, ra=None, dec=None, obswl=0.77, logge
 
     detected_objects = opdb.query_agc_data(frame_id)
 
-    return _autoguide(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, obswl=obswl, inside_temperature=inside_temperature, logger=logger)
-
-
-def _autoguide(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, obswl=0.77, inside_temperature=0, logger=None):
-
-    dra, ddec, dinr = field_acquisition._acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, obswl=obswl, inside_temperature=inside_temperature, logger=logger)
-    #logger and logger.info('dra={},ddec={},dinr={}'.format(dra, ddec, dinr))
-
-    _, _, dalt, daz = to_altaz.to_altaz(ra, dec, taken_at, dra=dra, ddec=ddec)
-    logger and logger.info('dalt={},daz={}'.format(dalt, daz))
+    _, _, dinr, dalt, daz = field_acquisition._acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, obswl=obswl, inside_temperature=inside_temperature, altazimuth=True, logger=logger)
 
     return dalt, daz, dinr
 

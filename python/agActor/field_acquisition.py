@@ -1,10 +1,11 @@
 import numpy
 import det2dp
 import opdb
+import to_altaz
 import kawanomoto
 
 
-def acquire_field(target_id, frame_id, obswl=0.77, logger=None):
+def acquire_field(target_id, frame_id, obswl=0.77, altazimuth=False, logger=None):
 
     ra, dec, _ = opdb.query_target(target_id)
     logger and logger.info('ra={},dec={}'.format(ra, dec))
@@ -16,10 +17,10 @@ def acquire_field(target_id, frame_id, obswl=0.77, logger=None):
 
     detected_objects = opdb.query_agc_data(frame_id)
 
-    return _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, obswl=obswl, inside_temperature=inside_temperature, logger=logger)
+    return _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, obswl=obswl, inside_temperature=inside_temperature, altazimuth=altazimuth, logger=logger)
 
 
-def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, obswl=0.77, inside_temperature=0, logger=None):
+def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, obswl=0.77, inside_temperature=0, altazimuth=False, logger=None):
 
     def semi_axes(mu11, mu20, mu02):
 
@@ -49,6 +50,13 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
     dinr *= 3600
     logger and logger.info('dra={},ddec={},dinr={}'.format(dra, ddec, dinr))
 
+    if altazimuth:
+
+        _, _, dalt, daz = to_altaz.to_altaz(ra, dec, taken_at, dra=dra, ddec=ddec)
+        logger and logger.info('dalt={},daz={}'.format(dalt, daz))
+
+        return dra, ddec, dinr, dalt, daz
+
     return dra, ddec, dinr
 
 
@@ -60,11 +68,16 @@ if __name__ == '__main__':
     parser.add_argument('--target-id', type=int, required=True, help='target identifier')
     parser.add_argument('--frame-id', type=int, required=True, help='frame identifier')
     parser.add_argument('--obswl', type=float, default=0.77, help='wavelength of observation (um)')
+    parser.add_argument('--altazimuth', action='store_true', help='')
     args, _ = parser.parse_known_args()
 
     import logging
 
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(name='field_acquisition')
-    dra, ddec, dinr = acquire_field(args.target_id, args.frame_id, obswl=args.obswl, logger=logger)
-    print('dra={},ddec={},dinr={}'.format(dra, ddec, dinr))
+    if args.altazimuth:
+        dra, ddec, dinr, dalt, daz = acquire_field(args.target_id, args.frame_id, obswl=args.obswl, altazimuth=True, logger=logger)
+        print('dra={},ddec={},dinr={},dalt={},daz={}'.format(dra, ddec, dinr, dalt, daz))
+    else:
+        dra, ddec, dinr = acquire_field(args.target_id, args.frame_id, obswl=args.obswl, logger=logger)
+        print('dra={},ddec={},dinr={}'.format(dra, ddec, dinr))
