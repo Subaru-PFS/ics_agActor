@@ -157,8 +157,10 @@ class AgThread(threading.Thread):
     def run(self):
 
         cmd = self.actor.bcast
-        #cmd.inform('detectionState=0')
-        #cmd.inform('guideReady=0')
+
+        time.sleep(0.2)  # wait for tron to start accepting messages from this actor (~0.1 s needed)
+        cmd.inform('detectionState=0')
+        cmd.inform('guideReady=0')
 
         while True:
 
