@@ -7,16 +7,21 @@ from agActor import autoguide
 
 class ag:
 
-    class Mode(enum.Enum):
+    class Mode(enum.IntFlag):
 
-        OFF = 0                    # [--S] idle
-        ON = 1                     # [FIS] start/resume autoguide
-        INIT = 2                   # [FIS] initialize only, guide objects from exposure
-        _DB = 4                    # [F--] guide objects from opdb
-        AUTO = INIT | ON           # [-IS] auto-start, guide objects from first exposure
-        INIT_DB = INIT | _DB       # [-IS] initialize only, guide objects from opdb
-        AUTO_DB = INIT | _DB | ON  # [-IS] auto-start, guide objects from opdb
-        STOP = 8                   # [-I-] stop autoguide
+        # flags (Fs), inputs (Is), and states (Ss)
+        OFF = 0                         # [--S] idle
+        ON = 1                          # [FIS] start/resume autoguide
+        ONCE = 2                        # [FIS] autoguide once
+        REF = 4                         # [FIS] initialize only, guide objects from exposure
+        DB = 8                          # [F--] guide objects from opdb
+        STOP = 16                       # [-I-] stop autoguide
+        REF_DB = REF | DB               # [-IS] initialize only, guide objects from opdb
+        AUTO = REF | ON                 # [-IS] auto-start, guide objects from first exposure
+        AUTO_DB = REF | DB | ON         # [-IS] auto-start, guide objects from opdb
+        AUTO_ONCE = REF | ONCE          # [-IS] initialize and autoguide once, guide objects from exposure
+        AUTO_ONCE_DB = REF | DB | ONCE  # [-IS] initialize and autoguide once, guide objects from opdb
+                                        #       (field acquisition with autoguider)
 
     EXPOSURE_TIME = 2000  # ms
     CADENCE = 0  # ms
@@ -92,7 +97,7 @@ class ag:
     def initialize_autoguide(self, cmd=None, target_id=None, from_sky=None, exposure_time=EXPOSURE_TIME):
 
         #cmd = cmd if cmd else self.actor.bcast
-        mode = ag.Mode.INIT if from_sky else ag.Mode.INIT_DB
+        mode = ag.Mode.REF if from_sky else ag.Mode.REF_DB
         self.thread.set_params(mode=mode, target_id=target_id, exposure_time=exposure_time)
 
     def stop_autoguide(self, cmd=None):
@@ -104,6 +109,11 @@ class ag:
 
         #cmd = cmd if cmd else self.actor.bcast
         self.thread.set_params(exposure_time=exposure_time, cadence=cadence, focus=focus)
+
+    def acquire_field(self, cmd=None, target_id=None, exposure_time=EXPOSURE_TIME, focus=None):
+
+        #cmd = cmd if cmd else self.actor.bcast
+        self.thread.set_params(mode=ag.Mode.AUTO_ONCE_DB, target_id=target_id, exposure_time=exposure_time, focus=focus)
 
 
 class AgThread(threading.Thread):
@@ -171,13 +181,13 @@ class AgThread(threading.Thread):
             mode, target_id, exposure_time, cadence, focus = self._get_params()
             self.logger.info('AgThread.run: mode={},target_id={},exposure_time={},cadence={},focus={}'.format(mode, target_id, exposure_time, cadence, focus))
             try:
-                if mode in (ag.Mode.INIT, ag.Mode.AUTO, ag.Mode.INIT_DB, ag.Mode.AUTO_DB):
+                if mode & ag.Mode.REF:
                     autoguide.set_target(target_id=target_id, logger=self.logger)
-                    if mode in (ag.Mode.INIT_DB, ag.Mode.AUTO_DB):
+                    if mode & ag.Mode.DB:
                         autoguide.set_catalog(logger=self.logger)
-                        mode = ag.Mode.ON if mode == ag.Mode.AUTO_DB else ag.Mode.OFF
+                        mode &= ~(ag.Mode.REF | ag.Mode.DB)
                         self._set_params(mode=mode)
-                if mode in (ag.Mode.ON, ag.Mode.INIT, ag.Mode.AUTO):
+                if mode & (ag.Mode.ON | ag.Mode.ONCE | ag.Mode.REF):
                     result = self.actor.sendCommand(
                         actor='agcam',
                         cmdStr='expose speed={}'.format(exposure_time),
@@ -195,11 +205,11 @@ class AgThread(threading.Thread):
                     data_time = float(self.actor.models['agcam'].keyVarDict['dataTime'].valueList[0])
                     self.logger.info('AgThread.run: dataTime={}'.format(data_time))
                     # retrieve detected objects from opdb
-                    if mode in (ag.Mode.INIT, ag.Mode.AUTO):
+                    if mode & ag.Mode.REF:
                         # store initial conditions
                         autoguide.set_catalog(frame_id=frame_id, logger=self.logger)
-                        self._set_params(mode=ag.Mode.ON if mode == ag.Mode.AUTO else ag.Mode.OFF)
-                    else:  # mode == ag.Mode.ON
+                        self._set_params(mode=mode & ~ag.Mode.REF)
+                    else:  # mode & (ag.Mode.ON | ag.Mode.ONCE)
                         cmd.inform('detectionState=1')
                         # compute guide errors
                         dalt, daz, _ = autoguide.autoguide(frame_id=frame_id, logger=self.logger)
@@ -213,6 +223,8 @@ class AgThread(threading.Thread):
                         if focus:
                             # compute focus error
                             pass
+                if mode & ag.Mode.ONCE:
+                    self._set_params(mode=ag.Mode.OFF)
                 if mode == ag.Mode.STOP:
                     #cmd.inform('detectionState=0')
                     cmd.inform('guideReady=0')
