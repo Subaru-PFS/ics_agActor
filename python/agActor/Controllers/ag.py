@@ -193,12 +193,9 @@ class AgThread(threading.Thread):
                         cmdStr='expose speed={}'.format(exposure_time),
                         timeLim=(exposure_time // 1000 + 5)
                     )
-                    telescope_state = [
-                        t(v) for t, v in zip(
-                            (int, int, float, float, float, float, int, int),
-                            self.actor.models['mlp1'].keyVarDict['telescopeState'].valueList
-                        )
-                    ]
+                    telescope_state = {
+                        x.name: x.__class__.baseType(x) for x in self.actor.models['mlp1'].keyVarDict['telescopeState'].valueList
+                    }
                     self.logger.info('AgThread.run: telescopeState={}'.format(telescope_state))
                     frame_id = int(self.actor.models['agcam'].keyVarDict['frameId'].valueList[0])
                     self.actor.logger.info('AgThread.run: frameId={}'.format(frame_id))
