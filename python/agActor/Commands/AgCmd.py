@@ -84,13 +84,11 @@ class AgCmd:
                 cmdStr=cmdStr,
                 timeLim=(exposure_time // 1000 + 5)
             )
-            telescope_state = {
-                x.name: x.__class__.baseType(x) for x in self.actor.models['mlp1'].keyVarDict['telescopeState'].valueList
-            }
+            telescope_state = self.actor.mlp1.telescopeState
             self.actor.logger.info('AgCmd.acquire_field: telescopeState={}'.format(telescope_state))
-            frame_id = int(self.actor.models['agcam'].keyVarDict['frameId'].valueList[0])
+            frame_id = self.actor.agcam.frameId
             self.actor.logger.info('AgCmd.acquire_field: frameId={}'.format(frame_id))
-            data_time = float(self.actor.models['agcam'].keyVarDict['dataTime'].valueList[0])
+            data_time = self.actor.agcam.dataTime
             self.actor.logger.info('AgCmd.acquire_field: dataTime={}'.format(data_time))
             # retrieve field center coordinates from opdb
             # retrieve exposure information from opdb

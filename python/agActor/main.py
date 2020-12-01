@@ -3,6 +3,8 @@
 import argparse
 import queue
 from actorcore.ICC import ICC
+from agActor.agcam import Agcam
+from agActor.mlp1 import Mlp1
 
 
 class AgActor(ICC):
@@ -46,11 +48,13 @@ class AgActor(ICC):
             self.allControllers = ['ag']
             self.attachAllControllers()
 
-            #self.agcam = Agcam(actor=self, logger=self.logger)
+            self.agcam = Agcam(actor=self, logger=self.logger)
+            self.mlp1 = Mlp1(actor=self, logger=self.logger)
 
             _models = ('agcam', 'mlp1')
             self.addModels(_models)
             #self.models['agcam'].keyVarDict['exposureState'].addCallback(self.agcam.receiveStatusKeys, callNow=False)
+            #self.models['mlp1'].keyVarDict['telescopeState'].addCallback(self.mlp1.receiveStatusKeys, callNow=False)
 
     # override
     def connectionLost(self, reason):
