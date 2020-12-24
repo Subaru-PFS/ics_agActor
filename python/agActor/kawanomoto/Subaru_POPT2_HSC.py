@@ -263,11 +263,6 @@ class POPT2():
         return s, t
 
     def sourceFilter(self, agarray):
-        ag_ccd  = agarray[:,0]
-        ag_id   = agarray[:,1]
-        ag_xc   = agarray[:,2]
-        ag_yc   = agarray[:,3]
-        ag_flx  = agarray[:,4]
         ag_smma = agarray[:,5]
         ag_smmi = agarray[:,6]
 
@@ -280,18 +275,7 @@ class POPT2():
 
         v = cellip*csizeU*csizeL
 
-        vdatanum = np.sum(v)
-
-        oarray = np.zeros((vdatanum,7))
-        oarray[:,0] = ag_ccd[v]
-        oarray[:,1] = ag_id[v]
-        oarray[:,2] = ag_xc[v]
-        oarray[:,3] = ag_yc[v]
-        oarray[:,4] = ag_flx[v]
-        oarray[:,5] = ag_smma[v]
-        oarray[:,6] = ag_smmi[v]
-
-        return oarray
+        return v
 
     def RADECInRShift(self, obj_xdp, obj_ydp, obj_int, \
                       cat_xdp, cat_ydp, cat_mag,\
@@ -351,7 +335,7 @@ class POPT2():
         de_offset  = A[1] * d_de
         inr_offset = A[2] * d_inr
 
-        return ra_offset, de_offset, inr_offset
+        return ra_offset, de_offset, inr_offset, f, min_dist_index[f], errx, erry
 
     def makeBasis(self, tel_ra, tel_de, str_ra, str_de, t, adc, inr, envtmp, wl):
         sep0,zpa0 = Subaru.starSepZPA(self, tel_ra, tel_de, str_ra, str_de, t)

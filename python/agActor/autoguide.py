@@ -53,7 +53,7 @@ def set_catalog(frame_id=None, obswl=0.77, logger=None):
     Field.guide_objects = guide_objects
 
 
-def autoguide(frame_id, guide_objects=None, ra=None, dec=None, obswl=0.77, logger=None):
+def autoguide(frame_id, guide_objects=None, ra=None, dec=None, obswl=0.77, verbose=False, logger=None):
 
     logger and logger.info('frame_id={}'.format(frame_id))
 
@@ -70,9 +70,9 @@ def autoguide(frame_id, guide_objects=None, ra=None, dec=None, obswl=0.77, logge
 
     detected_objects = opdb.query_agc_data(frame_id)
 
-    _, _, dinr, dalt, daz = field_acquisition._acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, obswl=obswl, inside_temperature=inside_temperature, altazimuth=True, logger=logger)
+    _, _, dinr, dalt, daz, *extra = field_acquisition._acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, obswl=obswl, inside_temperature=inside_temperature, altazimuth=True, verbose=verbose, logger=logger)
 
-    return dalt, daz, dinr
+    return (dalt, daz, dinr, *extra)
 
 
 if __name__ == '__main__':
@@ -84,6 +84,7 @@ if __name__ == '__main__':
     parser.add_argument('--frame-id', type=int, required=True, help='frame identifier')
     parser.add_argument('--ref-frame-id', type=int, default=None, help='reference frame identifier')
     parser.add_argument('--obswl', type=float, default=0.77, help='wavelength of observation (um)')
+    parser.add_argument('--verbose', action='store_true', help='')
     args, _ = parser.parse_known_args()
 
     import logging
@@ -92,5 +93,10 @@ if __name__ == '__main__':
     logger = logging.getLogger(name='autoguide')
     set_target(args.target_id, logger=logger)
     set_catalog(args.ref_frame_id, obswl=args.obswl, logger=logger)
-    dalt, daz, dinr = autoguide(args.frame_id, obswl=args.obswl, logger=logger)
+    dalt, daz, dinr, *extra = autoguide(args.frame_id, obswl=args.obswl, verbose=args.verbose, logger=logger)
     print('dalt={},daz={},dinr={}'.format(dalt, daz, dinr))
+    if args.verbose:
+        guide_objects, detected_objects, identified_objects = extra
+        print(guide_objects)
+        print(detected_objects)
+        print(identified_objects)

@@ -14,6 +14,42 @@ _COS60 = numpy.array([0.8660254037844386, 0, -0.8660254037844386, -0.86602540378
 # (ref. Moritani-san's memo_AGcamera_20171023.pdf)
 
 
+def dp2det(icam, x_dp, y_dp):
+    """
+    Convert detector plane coordinates to detector coordinates.
+
+    Convert Cartesian coordinates of points on the focal plane in the detector
+    plane coordinate system to those on one of the detectors in the detector
+    coordinate system.
+
+    Parameters
+    ----------
+    icam : array_like
+        The detector identifiers ([0, 5])
+    x_dp : array_like
+        The Cartesian coordinates x's of points on the focal plane in the
+        detector plane coordinate system (mm)
+    y_dp : array_like
+        The Cartesian coordinates y's of points on the focal plane in the
+        detector plane coordinate system (mm)
+
+    Returns
+    -------
+    2-tuple of array_likes
+        The Cartesian coordinates x's and y's of points on the specified
+        detector in the detector coordinate system (pix)
+    """
+
+    p = 0.013  # mm
+    r = 241.292  # mm
+    a = numpy.mod(1 - icam, 6).astype(numpy.intc)
+    sin_a = _SIN60[a]
+    cos_a = _COS60[a]
+    x_det = (cos_a * x_dp - sin_a * y_dp) / p + 511.5
+    y_det = - (sin_a * x_dp + cos_a * y_dp - r) / p + 511.5
+    return x_det, y_det
+
+
 def det2dp(icam, x_det, y_det):
     """
     Convert detector coordinates to detector plane coordinates.

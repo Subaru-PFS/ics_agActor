@@ -4,7 +4,7 @@ from astropy import units
 from astropy.coordinates import AltAz, Angle, EarthLocation, SkyCoord, solar_system_ephemeris
 from astropy.time import Time
 from astropy.utils import iers
-import det2dp
+import coordinates
 from kawanomoto import Subaru_POPT2_HSC
 
 
@@ -49,7 +49,7 @@ def measure(
 
     # detected stellar objects in the equatorial coordinates
     icam, x_det, y_det = numpy.array(detected_objects)[:, (0, 3, 4)].T
-    x_dp, y_dp = det2dp.det2dp(numpy.rint(icam - 1), x_det, y_det)
+    x_dp, y_dp = coordinates.det2dp(numpy.rint(icam - 1), x_det, y_det)
     x_fp, y_fp = hsc.dp2fp(x_dp, y_dp, inr)
     separation, position_angle = popt2.focalplane2celestial(x_fp, y_fp, adc, inside_temperature + 273.15, obswl)
     altaz = altaz_c.directional_offset_by(- position_angle * units.deg, separation * units.deg)
@@ -58,7 +58,7 @@ def measure(
     # source_id, ra, dec, mag
     counter = itertools.count(1)
     mag = 0
-    objects = numpy.array([(next(counter), x.ra.to(units.hourangle).value, x.dec.to(units.deg).value, mag) for x in icrs])
+    objects = [(next(counter), x.ra.to(units.hourangle).value, x.dec.to(units.deg).value, mag) for x in icrs]
 
     return objects
 

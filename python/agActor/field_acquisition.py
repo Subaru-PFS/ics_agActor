@@ -1,11 +1,11 @@
 import numpy
-import det2dp
+import coordinates
 import opdb
 import to_altaz
 import kawanomoto
 
 
-def acquire_field(target_id, frame_id, obswl=0.77, altazimuth=False, logger=None):
+def acquire_field(target_id, frame_id, obswl=0.77, altazimuth=False, verbose=False, logger=None):
 
     ra, dec, _ = opdb.query_target(target_id)
     logger and logger.info('ra={},dec={}'.format(ra, dec))
@@ -17,10 +17,10 @@ def acquire_field(target_id, frame_id, obswl=0.77, altazimuth=False, logger=None
 
     detected_objects = opdb.query_agc_data(frame_id)
 
-    return _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, obswl=obswl, inside_temperature=inside_temperature, altazimuth=altazimuth, logger=logger)
+    return _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, obswl=obswl, inside_temperature=inside_temperature, altazimuth=altazimuth, verbose=verbose, logger=logger)
 
 
-def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, obswl=0.77, inside_temperature=0, altazimuth=False, logger=None):
+def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, obswl=0.77, inside_temperature=0, altazimuth=False, verbose=False, logger=None):
 
     def semi_axes(mu11, mu20, mu02):
 
@@ -36,7 +36,7 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
             (
                 x[0],
                 x[1],
-                *det2dp.det2dp(int(x[0]) - 1, x[3], x[4]),
+                *coordinates.det2dp(int(x[0]) - 1, x[3], x[4]),
                 x[10],
                 *semi_axes(x[5] / x[2], x[6] / x[2], x[7] / x[2])
             ) for x in detected_objects
@@ -44,20 +44,27 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
     )
 
     pfs = kawanomoto.FieldAcquisition.PFS()
-    dra, ddec, dinr = pfs.FA(_guide_objects, _detected_objects, 15 * ra, dec, taken_at, adc, inr, inside_temperature + 273.15, obswl)
+    dra, ddec, dinr, *extra = pfs.FA(_guide_objects, _detected_objects, 15 * ra, dec, taken_at, adc, inr, inside_temperature + 273.15, obswl, verbose=verbose)
     dra *= 3600
     ddec *= 3600
     dinr *= 3600
     logger and logger.info('dra={},ddec={},dinr={}'.format(dra, ddec, dinr))
+
+    if verbose:
+
+        v, f, min_dist_index_f, errx, erry = extra
+        index_v, = numpy.where(v)
+        index_f, = numpy.where(f)
+        extra = guide_objects, detected_objects, [(int(index_v[index_f[i]]), int(j), float(x), float(y)) for i, (j, x, y) in enumerate(zip(min_dist_index_f, errx, erry))]
 
     if altazimuth:
 
         _, _, dalt, daz = to_altaz.to_altaz(ra, dec, taken_at, dra=dra, ddec=ddec)
         logger and logger.info('dalt={},daz={}'.format(dalt, daz))
 
-        return dra, ddec, dinr, dalt, daz
+        return (dra, ddec, dinr, dalt, daz, *extra)
 
-    return dra, ddec, dinr
+    return (dra, ddec, dinr, *extra)
 
 
 if __name__ == '__main__':
@@ -69,6 +76,7 @@ if __name__ == '__main__':
     parser.add_argument('--frame-id', type=int, required=True, help='frame identifier')
     parser.add_argument('--obswl', type=float, default=0.77, help='wavelength of observation (um)')
     parser.add_argument('--altazimuth', action='store_true', help='')
+    parser.add_argument('--verbose', action='store_true', help='')
     args, _ = parser.parse_known_args()
 
     import logging
@@ -76,8 +84,13 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(name='field_acquisition')
     if args.altazimuth:
-        dra, ddec, dinr, dalt, daz = acquire_field(args.target_id, args.frame_id, obswl=args.obswl, altazimuth=True, logger=logger)
+        dra, ddec, dinr, dalt, daz, *extra = acquire_field(args.target_id, args.frame_id, obswl=args.obswl, altazimuth=True, verbose=args.verbose, logger=logger)
         print('dra={},ddec={},dinr={},dalt={},daz={}'.format(dra, ddec, dinr, dalt, daz))
     else:
-        dra, ddec, dinr = acquire_field(args.target_id, args.frame_id, obswl=args.obswl, logger=logger)
+        dra, ddec, dinr, *extra = acquire_field(args.target_id, args.frame_id, obswl=args.obswl, verbose=args.verbose, logger=logger)
         print('dra={},ddec={},dinr={}'.format(dra, ddec, dinr))
+    if args.verbose:
+        guide_objects, detected_objects, identified_objects = extra
+        print(guide_objects)
+        print(detected_objects)
+        print(identified_objects)
