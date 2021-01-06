@@ -15,14 +15,14 @@ class PFS():
                             dt, adc, inr, tmp, wl)
         v = popt2.sourceFilter(detectarray)
         filtered_detectarray = detectarray[v]
-        ra_offset,de_offset,inr_offset,f,min_dist_index_f,errx,erry = \
+        ra_offset,de_offset,inr_offset,f,min_dist_index_f,obj_xdp,obj_ydp,cat_xdp,cat_ydp = \
             popt2.RADECInRShift(filtered_detectarray[:,2],\
                                 filtered_detectarray[:,3],\
                                 filtered_detectarray[:,4],\
                                 str_xdp,str_ydp,stararray[:,2],\
                                 dxra,dyra,dxde,dyde,dxinr,dyinr)
 
-        return (ra_offset,de_offset,inr_offset,v,f,min_dist_index_f,errx,erry) if verbose else (ra_offset,de_offset,inr_offset)
+        return (ra_offset,de_offset,inr_offset,v,f,min_dist_index_f,obj_xdp,obj_ydp,cat_xdp,cat_ydp) if verbose else (ra_offset,de_offset,inr_offset)
 
 ###
 if __name__ == "__main__":

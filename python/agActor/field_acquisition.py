@@ -52,10 +52,10 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
 
     if verbose:
 
-        v, f, min_dist_index_f, errx, erry = extra
+        v, f, min_dist_index_f, obj_x, obj_y, cat_x, cat_y = extra
         index_v, = numpy.where(v)
         index_f, = numpy.where(f)
-        extra = guide_objects, detected_objects, [(int(index_v[index_f[i]]), int(j), float(x), float(y)) for i, (j, x, y) in enumerate(zip(min_dist_index_f, errx, erry))]
+        extra = guide_objects, detected_objects, [(int(index_v[index_f[i]]), int(x[0]), float(x[3]), float(x[4]), float(x[1]), float(x[2])) for i, x in enumerate(zip(min_dist_index_f, obj_x, obj_y, cat_x, cat_y))]
 
     if altazimuth:
 

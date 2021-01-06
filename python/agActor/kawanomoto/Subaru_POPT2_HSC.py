@@ -335,7 +335,7 @@ class POPT2():
         de_offset  = A[1] * d_de
         inr_offset = A[2] * d_inr
 
-        return ra_offset, de_offset, inr_offset, f, min_dist_index[f], errx, erry
+        return ra_offset, de_offset, inr_offset, f, min_dist_index[f], match_obj_xdp, match_obj_ydp, match_cat_xdp, match_cat_ydp
 
     def makeBasis(self, tel_ra, tel_de, str_ra, str_de, t, adc, inr, envtmp, wl):
         sep0,zpa0 = Subaru.starSepZPA(self, tel_ra, tel_de, str_ra, str_de, t)
