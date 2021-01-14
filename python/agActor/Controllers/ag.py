@@ -2,6 +2,7 @@ import enum
 import logging
 import threading
 import time
+import numpy
 from agActor import autoguide
 
 
@@ -211,11 +212,22 @@ class AgThread(threading.Thread):
                     else:  # mode & (ag.Mode.ON | ag.Mode.ONCE)
                         cmd.inform('detectionState=1')
                         # compute guide errors
-                        dalt, daz, _ = autoguide.autoguide(frame_id=frame_id, logger=self.logger)
+                        dalt, daz, _, *values = autoguide.autoguide(frame_id=frame_id, verbose=True, logger=self.logger)
+                        filename = '/dev/shm/guide_objects.npy'
+                        numpy.save(filename, values[0])
+                        cmd.inform('guideObjects={}'.format(filename))
+                        filename = '/dev/shm/detected_objects.npy'
+                        numpy.save(filename, values[1])
+                        cmd.inform('detectedObjects={}'.format(filename))
+                        filename = '/dev/shm/identified_objects.npy'
+                        numpy.save(filename, values[2])
+                        cmd.inform('identifiedObjects={}'.format(filename))
                         cmd.inform('detectionState=0')
+                        dx, dy, size, peak, flux = values[3], values[4], values[5], values[6], values[7]
                         result = self.actor.sendCommand(
                             actor='mlp1',
-                            cmdStr='guide azel={},{} ready=1 time={} delay=0 xy=0,0 size=0 intensity=0 flux=0'.format(daz, dalt, data_time),
+                            # daz, dalt: arcsec, positive feedback; dx, dy: mas, HSC -> PFS; size: mas; peak, flux: adu
+                            cmdStr='guide azel={},{} ready=1 time={} delay=0 xy={},{} size={} intensity={} flux={}'.format(- daz, - dalt, data_time, dx / 0.098, - dy / 0.098, size * 13 / 0.098, peak, flux),
                             timeLim=5
                         )
                         #cmd.inform('guideReady=1')

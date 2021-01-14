@@ -114,20 +114,40 @@ class AgCmd:
             if guide:
                 cmd.inform('detectionState=1')
                 # convert equatorial coordinates to horizontal coordinates
-                _, _, _, dra, ddec, dinr, dalt, daz = field_acquisition.acquire_field(design=(design_id, design_path), frame_id=frame_id, altazimuth=True, logger=self.actor.logger)
+                _, _, _, dra, ddec, dinr, dalt, daz, *values = field_acquisition.acquire_field(design=(design_id, design_path), frame_id=frame_id, altazimuth=True, verbose=True, logger=self.actor.logger)
                 cmd.inform('text="dra={},ddec={},dinr={},dalt={},daz={}"'.format(dra, ddec, dinr, dalt, daz))
+                filename = '/dev/shm/guide_objects.npy'
+                numpy.save(filename, values[0])
+                cmd.inform('guideObjects={}'.format(filename))
+                filename = '/dev/shm/detected_objects.npy'
+                numpy.save(filename, values[1])
+                cmd.inform('detectedObjects={}'.format(filename))
+                filename = '/dev/shm/identified_objects.npy'
+                numpy.save(filename, values[2])
+                cmd.inform('identifiedObjects={}'.format(filename))
                 cmd.inform('detectionState=0')
+                dx, dy, size, peak, flux = values[3], values[4], values[5], values[6], values[7]
                 # send corrections to mlp1 and gen2 (or iic)
                 result = self.actor.sendCommand(
                     actor='mlp1',
-                    cmdStr='guide azel={},{} ready=1 time={} delay=0 xy=0,0 size=0 intensity=0 flux=0'.format(daz, dalt, data_time),
+                    # daz, dalt: arcsec, positive feedback; dx, dy: mas, HSC -> PFS; size: mas; peak, flux: adu
+                    cmdStr='guide azel={},{} ready=1 time={} delay=0 xy={},{} size={} intensity={} flux={}'.format(- daz, - dalt, data_time, dx / 98e-6, - dy / 98e-6, size * 13 / 98e-3, peak, flux),
                     timeLim=5
                 )
                 #cmd.inform('guideReady=1')
             else:
                 cmd.inform('detectionState=1')
-                _, _, _, dra, ddec, dinr = field_acquisition.acquire_field(design=(design_id, design_path), frame_id=frame_id, logger=self.actor.logger)
+                _, _, _, dra, ddec, dinr, *values = field_acquisition.acquire_field(design=(design_id, design_path), frame_id=frame_id, verbose=True, logger=self.actor.logger)
                 cmd.inform('text="dra={},ddec={},dinr={}"'.format(dra, ddec, dinr))
+                filename = '/dev/shm/guide_objects.npy'
+                numpy.save(filename, values[0])
+                cmd.inform('guideObjects={}'.format(filename))
+                filename = '/dev/shm/detected_objects.npy'
+                numpy.save(filename, values[1])
+                cmd.inform('detectedObjects={}'.format(filename))
+                filename = '/dev/shm/identified_objects.npy'
+                numpy.save(filename, values[2])
+                cmd.inform('identifiedObjects={}'.format(filename))
                 cmd.inform('detectionState=0')
                 # send corrections to gen2 (or iic)
             # store results in opdb

@@ -75,19 +75,58 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
 
     if verbose:
 
+        guide_objects = numpy.array(
+            [(x[0], x[1], x[2], x[3]) for x in guide_objects],
+            dtype=[
+                ('source_id', numpy.int64),  # u8 (80) not supported by FITSIO
+                ('ra', numpy.float64),
+                ('dec', numpy.float64),
+                ('mag', numpy.float32)
+            ]
+        )
+        detected_objects = numpy.array(
+            detected_objects,
+            dtype=[
+                ('camera_id', numpy.int16),
+                ('spot_id', numpy.int16),
+                ('moment_00', numpy.float32),
+                ('centroid_x', numpy.float32),
+                ('centroid_y', numpy.float32),
+                ('central_moment_11', numpy.float32),
+                ('central_moment_20', numpy.float32),
+                ('central_moment_02', numpy.float32),
+                ('peak_x', numpy.uint16),
+                ('peak_y', numpy.uint16),
+                ('peak', numpy.uint16),
+                ('background', numpy.float32),
+                ('flags', numpy.uint8)
+            ]
+        )
         v, f, min_dist_index_f, obj_x, obj_y, cat_x, cat_y = diags
         index_v, = numpy.where(v)
         index_f, = numpy.where(f)
-        identified_objects = [
-            (
-                k,  # index of detected object
-                int(x[0]),  # index of identified guide object
-                float(x[1]), float(x[2]),  # detector plane coordinates of detected object
-                float(x[3]), float(x[4]),  # detector plane coordinates of identified guide object
-                *coordinates.dp2det(detected_objects[k][0], float(x[3]), float(x[4]))  # detector coordinates of identified guide object
-            )
-            for k, x in ((int(index_v[int(index_f[i])]), x) for i, x in enumerate(zip(min_dist_index_f, obj_x, obj_y, cat_x, cat_y)))
-        ]
+        identified_objects = numpy.array(
+            [
+                (
+                    k,  # index of detected object
+                    int(x[0]),  # index of identified guide object
+                    float(x[1]), float(x[2]),  # detector plane coordinates of detected object
+                    float(x[3]), float(x[4]),  # detector plane coordinates of identified guide object
+                    *coordinates.dp2det(detected_objects[k][0], float(x[3]), float(x[4]))  # detector coordinates of identified guide object
+                )
+                for k, x in ((int(index_v[int(index_f[i])]), x) for i, x in enumerate(zip(min_dist_index_f, obj_x, obj_y, cat_x, cat_y)))
+            ],
+            dtype=[
+                ('detected_object_id', numpy.int16),
+                ('guide_object_id', numpy.int16),
+                ('detected_object_x', numpy.float32),
+                ('detected_object_y', numpy.float32),
+                ('guide_object_x', numpy.float32),
+                ('guide_object_y', numpy.float32),
+                ('guide_object_xdet', numpy.float32),
+                ('guide_object_ydet', numpy.float32)
+            ]
+        )
 
         # find "representative" spot size, peak intensity, and flux by "median" of pointing errors
         dx = 0  # mm
@@ -95,17 +134,17 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
         size = 0  # pix
         peak = 0  # pix
         flux = 0  # pix
-        esq = [(x[2] - x[4]) ** 2 + (x[3] - x[5]) ** 2 for x in identified_objects]  # squares of pointing errors in detector plane coordinates
+        esq = (identified_objects['detected_object_x'] - identified_objects['guide_object_x']) ** 2 + (identified_objects['detected_object_y'] - identified_objects['guide_object_y']) ** 2  # squares of pointing errors in detector plane coordinates
         n = len(esq) - numpy.isnan(esq).sum()
         if n > 0:
             i = numpy.argpartition(esq, n // 2)[n // 2]  # index of "median" of identified objects
-            dx = identified_objects[i][2] - identified_objects[i][4]
-            dy = identified_objects[i][3] - identified_objects[i][5]
-            k = identified_objects[i][0]  # index of "median" of detected objects
-            a, b = semi_axes(*detected_objects[k][5:8])
+            dx = identified_objects['detected_object_x'][i] - identified_objects['guide_object_x'][i]
+            dy = identified_objects['detected_object_y'][i] - identified_objects['guide_object_y'][i]
+            k = identified_objects['detected_object_id'][i]  # index of "median" of detected objects
+            a, b = semi_axes(detected_objects['central_moment_11'][k], detected_objects['central_moment_20'][k], detected_objects['central_moment_02'][k])
             size = (a * b) ** 0.5
-            peak = detected_objects[k][10]
-            flux = detected_objects[k][2]
+            peak = detected_objects['peak'][k]
+            flux = detected_objects['moment_00'][k]
 
         values = *values, guide_objects, detected_objects, identified_objects, dx, dy, size, peak, flux
 
