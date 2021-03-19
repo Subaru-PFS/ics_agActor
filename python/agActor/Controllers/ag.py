@@ -33,18 +33,18 @@ class ag:
 
             self.set(**kwargs)
 
-        def set(self, mode=None, target_id=None, exposure_time=None, cadence=None, focus=None):
+        def set(self, mode=None, tile_id=None, exposure_time=None, cadence=None, focus=None):
 
             self.mode = mode
-            self.target_id = target_id
+            self.tile_id = tile_id
             self.exposure_time = exposure_time
             self.cadence = cadence
             self.focus = focus
 
-        def reset(self, mode=None, target_id=None, exposure_time=None, cadence=None, focus=None):
+        def reset(self, mode=None, tile_id=None, exposure_time=None, cadence=None, focus=None):
 
             if mode is not None: self.mode = mode
-            if target_id is not None: self.target_id = target_id
+            if tile_id is not None: self.tile_id = tile_id
             if exposure_time is not None: self.exposure_time = exposure_time
             if cadence is not None: self.cadence = cadence
             if focus is not None: self.focus = focus
@@ -55,7 +55,7 @@ class ag:
 
         def get(self):
 
-            return self.mode, self.target_id, self.exposure_time, self.cadence, self.focus
+            return self.mode, self.tile_id, self.exposure_time, self.cadence, self.focus
 
     def __init__(self, actor, name, logLevel=logging.DEBUG):
 
@@ -88,17 +88,17 @@ class ag:
         mode, _, _, _, _ = self.thread.get_params()
         return mode
 
-    def start_autoguide(self, cmd=None, target_id=None, from_sky=None, exposure_time=EXPOSURE_TIME, cadence=CADENCE, focus=FOCUS):
+    def start_autoguide(self, cmd=None, tile_id=None, from_sky=None, exposure_time=EXPOSURE_TIME, cadence=CADENCE, focus=FOCUS):
 
         #cmd = cmd if cmd else self.actor.bcast
-        mode = ag.Mode.AUTO if from_sky else ag.Mode.ON if target_id is None else ag.Mode.AUTO_DB
-        self.thread.set_params(mode=mode, target_id=target_id, exposure_time=exposure_time, cadence=cadence, focus=focus)
+        mode = ag.Mode.AUTO if from_sky else ag.Mode.ON if tile_id is None else ag.Mode.AUTO_DB
+        self.thread.set_params(mode=mode, tile_id=tile_id, exposure_time=exposure_time, cadence=cadence, focus=focus)
 
-    def initialize_autoguide(self, cmd=None, target_id=None, from_sky=None, exposure_time=EXPOSURE_TIME):
+    def initialize_autoguide(self, cmd=None, tile_id=None, from_sky=None, exposure_time=EXPOSURE_TIME):
 
         #cmd = cmd if cmd else self.actor.bcast
         mode = ag.Mode.REF if from_sky else ag.Mode.REF_DB
-        self.thread.set_params(mode=mode, target_id=target_id, exposure_time=exposure_time)
+        self.thread.set_params(mode=mode, tile_id=tile_id, exposure_time=exposure_time)
 
     def stop_autoguide(self, cmd=None):
 
@@ -110,10 +110,10 @@ class ag:
         #cmd = cmd if cmd else self.actor.bcast
         self.thread.set_params(exposure_time=exposure_time, cadence=cadence, focus=focus)
 
-    def acquire_field(self, cmd=None, target_id=None, exposure_time=EXPOSURE_TIME, focus=None):
+    def acquire_field(self, cmd=None, tile_id=None, exposure_time=EXPOSURE_TIME, focus=None):
 
         #cmd = cmd if cmd else self.actor.bcast
-        self.thread.set_params(mode=ag.Mode.AUTO_ONCE_DB, target_id=target_id, exposure_time=exposure_time, focus=focus)
+        self.thread.set_params(mode=ag.Mode.AUTO_ONCE_DB, tile_id=tile_id, exposure_time=exposure_time, focus=focus)
 
 
 class AgThread(threading.Thread):
@@ -178,11 +178,11 @@ class AgThread(threading.Thread):
                 self.__stop.clear()
                 break
             start = time.time()
-            mode, target_id, exposure_time, cadence, focus = self._get_params()
-            self.logger.info('AgThread.run: mode={},target_id={},exposure_time={},cadence={},focus={}'.format(mode, target_id, exposure_time, cadence, focus))
+            mode, tile_id, exposure_time, cadence, focus = self._get_params()
+            self.logger.info('AgThread.run: mode={},tile_id={},exposure_time={},cadence={},focus={}'.format(mode, tile_id, exposure_time, cadence, focus))
             try:
                 if mode & ag.Mode.REF:
-                    autoguide.set_target(target_id=target_id, logger=self.logger)
+                    autoguide.set_tile(tile_id=tile_id, logger=self.logger)
                     if mode & ag.Mode.DB:
                         autoguide.set_catalog(logger=self.logger)
                         mode &= ~(ag.Mode.REF | ag.Mode.DB)

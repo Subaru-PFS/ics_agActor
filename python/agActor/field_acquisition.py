@@ -5,12 +5,12 @@ import to_altaz
 import kawanomoto
 
 
-def acquire_field(target_id, frame_id, obswl=0.77, altazimuth=False, verbose=False, logger=None):
+def acquire_field(tile_id, frame_id, obswl=0.77, altazimuth=False, verbose=False, logger=None):
 
-    ra, dec, _ = opdb.query_target(target_id)
+    ra, dec, _ = opdb.query_tile(tile_id)
     logger and logger.info('ra={},dec={}'.format(ra, dec))
 
-    guide_objects = opdb.query_guide_star(target_id)
+    guide_objects = opdb.query_guide_star(tile_id)
 
     _, _, taken_at, _, _, inr, adc, inside_temperature, _, _, _, _, _ = opdb.query_agc_exposure(frame_id)
     logger and logger.info('taken_at={},inr={},adc={},inside_temperature={}'.format(taken_at, inr, adc, inside_temperature))
@@ -72,7 +72,7 @@ if __name__ == '__main__':
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument('--target-id', type=int, required=True, help='target identifier')
+    parser.add_argument('--tile-id', type=int, required=True, help='tile identifier')
     parser.add_argument('--frame-id', type=int, required=True, help='frame identifier')
     parser.add_argument('--obswl', type=float, default=0.77, help='wavelength of observation (um)')
     parser.add_argument('--altazimuth', action='store_true', help='')
@@ -84,10 +84,10 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(name='field_acquisition')
     if args.altazimuth:
-        dra, ddec, dinr, dalt, daz, *extra = acquire_field(args.target_id, args.frame_id, obswl=args.obswl, altazimuth=True, verbose=args.verbose, logger=logger)
+        dra, ddec, dinr, dalt, daz, *extra = acquire_field(args.tile_id, args.frame_id, obswl=args.obswl, altazimuth=True, verbose=args.verbose, logger=logger)
         print('dra={},ddec={},dinr={},dalt={},daz={}'.format(dra, ddec, dinr, dalt, daz))
     else:
-        dra, ddec, dinr, *extra = acquire_field(args.target_id, args.frame_id, obswl=args.obswl, verbose=args.verbose, logger=logger)
+        dra, ddec, dinr, *extra = acquire_field(args.tile_id, args.frame_id, obswl=args.obswl, verbose=args.verbose, logger=logger)
         print('dra={},ddec={},dinr={}'.format(dra, ddec, dinr))
     if args.verbose:
         guide_objects, detected_objects, identified_objects = extra

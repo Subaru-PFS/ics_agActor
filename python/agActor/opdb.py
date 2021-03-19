@@ -13,30 +13,33 @@ def _connect(database=_DATABASE):
     return sqlite3.connect(database)
 
 
-def insert_target(target_id, ra, dec, pa):
+def insert_tile(tile_id, ra_center, dec_center, pa):
 
+    program_id = tile_id
+    tile = tile_id
+    is_finished = False
     with _connect() as c:
-        c.execute('INSERT INTO target (target_id,ra,dec,pa) VALUES (?,?,?,?)', (target_id, ra, dec, pa))
+        c.execute('INSERT INTO tile (tile_id,program_id,tile,ra_center,dec_center,pa,is_finished) VALUES (?,?,?,?,?,?,?)', (tile_id, program_id, tile, ra_center, dec_center, pa, int(is_finished)))
         c.commit()
 
 
-def query_target(target_id):
+def query_tile(tile_id):
 
     with _connect() as c:
-        return c.execute('SELECT ra,dec,pa FROM target WHERE target_id=?', (target_id, )).fetchone()
+        return c.execute('SELECT ra_center,dec_center,pa FROM tile WHERE tile_id=?', (tile_id, )).fetchone()
 
 
-def insert_guide_star(target_id, data):
+def insert_guide_star(tile_id, data):
 
     with _connect() as c:
-        c.executemany('INSERT INTO guide_star (target_id,source_id,ra,dec,mag) VALUES (?,?,?,?,?)', ((target_id, *row) for row in data))
+        c.executemany('INSERT INTO guide_star (tile_id,source_id,ra,dec,mag) VALUES (?,?,?,?,?)', ((tile_id, *row) for row in data))
         c.commit()
 
 
-def query_guide_star(target_id):
+def query_guide_star(tile_id):
 
     with _connect() as c:
-        return c.execute('SELECT source_id,ra,dec,mag FROM guide_star WHERE target_id=?', (target_id, )).fetchall()
+        return c.execute('SELECT source_id,ra,dec,mag FROM guide_star WHERE tile_id=?', (tile_id, )).fetchall()
 
 
 def insert_agc_exposure(frame_id, pfs_visit_id, exptime, taken_at, azimuth, altitude, inr, adc, inside_temperature, inside_humidity, inside_pressure, outside_temperature, outside_humidity, outside_pressure):
@@ -67,7 +70,7 @@ def query_agc_data(frame_id):
 
 
 # spt_operational_database-like method names
-get_target = query_target
+get_tile = query_tile
 get_guide_star = query_guide_star
 get_agc_exposure = query_agc_exposure
 get_agc_data = query_agc_data
