@@ -31,17 +31,15 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
 
     _guide_objects = numpy.array([(15 * x[1], x[2], x[3]) for x in guide_objects])
 
-    _detected_objects = numpy.array(
-        [
-            (
-                x[0],
-                x[1],
-                *coordinates.det2dp(int(x[0]) - 1, x[3], x[4]),
-                x[10],
-                *semi_axes(x[5] / x[2], x[6] / x[2], x[7] / x[2])
-            ) for x in detected_objects
-        ]
-    )
+    _detected_objects = numpy.array([
+        (
+            x[0],
+            x[1],
+            *coordinates.det2dp(int(x[0]) - 1, x[3], x[4]),
+            x[10],
+            *semi_axes(x[5] / x[2], x[6] / x[2], x[7] / x[2])
+        ) for x in detected_objects
+    ])
 
     pfs = kawanomoto.FieldAcquisition.PFS()
     dra, ddec, dinr, *extra = pfs.FA(_guide_objects, _detected_objects, 15 * ra, dec, taken_at, adc, inr, inside_temperature + 273.15, obswl, verbose=verbose)
@@ -55,7 +53,16 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
         v, f, min_dist_index_f, obj_x, obj_y, cat_x, cat_y = extra
         index_v, = numpy.where(v)
         index_f, = numpy.where(f)
-        extra = guide_objects, detected_objects, [(int(index_v[index_f[i]]), int(x[0]), float(x[3]), float(x[4]), float(x[1]), float(x[2])) for i, x in enumerate(zip(min_dist_index_f, obj_x, obj_y, cat_x, cat_y))]
+        identified_objects = [
+            (
+                k,  # index of detected object
+                int(x[0]),  # index of identified guide object
+                float(x[1]), float(x[2]),  # detector plane coordinates of detected object
+                float(x[3]), float(x[4]),  # detector plane coordinates of identified guide object
+                *coordinates.dp2det(detected_objects[k][0] - 1, float(x[3]), float(x[4]))  # detector coordinates of identified guide object
+            ) for k, x in ((int(index_v[int(index_f[i])]), x) for i, x in enumerate(zip(min_dist_index_f, obj_x, obj_y, cat_x, cat_y)))
+        ]
+        extra = guide_objects, detected_objects, identified_objects
 
     if altazimuth:
 
