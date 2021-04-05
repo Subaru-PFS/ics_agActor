@@ -1,6 +1,6 @@
 import astrometry
 import field_acquisition
-import opdb
+from opdb import opDB as opdb
 
 
 class Field:

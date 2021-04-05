@@ -1,6 +1,6 @@
 import numpy
 import coordinates
-import opdb
+from opdb import opDB as opdb
 import to_altaz
 import kawanomoto
 
