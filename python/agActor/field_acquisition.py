@@ -5,22 +5,22 @@ import to_altaz
 import kawanomoto
 
 
-def acquire_field(tile_id, frame_id, obswl=0.77, altazimuth=False, verbose=False, logger=None):
+def acquire_field(tile_id, frame_id, obswl=0.62, altazimuth=False, verbose=False, logger=None):
 
     ra, dec, _ = opdb.query_tile(tile_id)
     logger and logger.info('ra={},dec={}'.format(ra, dec))
 
     guide_objects = opdb.query_guide_star(tile_id)
 
-    _, _, taken_at, _, _, inr, adc, inside_temperature, _, _, _, _, _ = opdb.query_agc_exposure(frame_id)
-    logger and logger.info('taken_at={},inr={},adc={},inside_temperature={}'.format(taken_at, inr, adc, inside_temperature))
+    _, _, taken_at, _, _, inr, adc, _, _, _, _, _, _, m2_pos3 = opdb.query_agc_exposure(frame_id)
+    logger and logger.info('taken_at={},inr={},adc={},m2_pos3={}'.format(taken_at, inr, adc, m2_pos3))
 
     detected_objects = opdb.query_agc_data(frame_id)
 
-    return _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, obswl=obswl, inside_temperature=inside_temperature, altazimuth=altazimuth, verbose=verbose, logger=logger)
+    return _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, m2_pos3=m2_pos3, obswl=obswl, altazimuth=altazimuth, verbose=verbose, logger=logger)
 
 
-def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, obswl=0.77, inside_temperature=0, altazimuth=False, verbose=False, logger=None):
+def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, m2_pos3=5.5, obswl=0.62, altazimuth=False, verbose=False, logger=None):
 
     def semi_axes(mu11, mu20, mu02):
 
@@ -37,12 +37,13 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
             x[1],
             *coordinates.det2dp(int(x[0]) - 1, x[3], x[4]),
             x[10],
-            *semi_axes(x[5] / x[2], x[6] / x[2], x[7] / x[2])
+            *semi_axes(x[5] / x[2], x[6] / x[2], x[7] / x[2]),
+            x[-1]
         ) for x in detected_objects
     ])
 
     pfs = kawanomoto.FieldAcquisition.PFS()
-    dra, ddec, dinr, *extra = pfs.FA(_guide_objects, _detected_objects, 15 * ra, dec, taken_at, adc, inr, inside_temperature + 273.15, obswl, verbose=verbose)
+    dra, ddec, dinr, *extra = pfs.FA(_guide_objects, _detected_objects, 15 * ra, dec, taken_at, adc, inr, m2_pos3, obswl, verbose=verbose)
     dra *= 3600
     ddec *= 3600
     dinr *= 3600
@@ -81,7 +82,7 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--tile-id', type=int, required=True, help='tile identifier')
     parser.add_argument('--frame-id', type=int, required=True, help='frame identifier')
-    parser.add_argument('--obswl', type=float, default=0.77, help='wavelength of observation (um)')
+    parser.add_argument('--obswl', type=float, default=0.62, help='wavelength of observation (um)')
     parser.add_argument('--altazimuth', action='store_true', help='')
     parser.add_argument('--verbose', action='store_true', help='')
     args, _ = parser.parse_known_args()

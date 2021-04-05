@@ -15,7 +15,7 @@ def to_altaz(
         temperature=0,
         relative_humidity=0,
         pressure=620,
-        obswl=0.77,
+        obswl=0.62,
         dra=0,
         ddec=0
 ):
@@ -59,7 +59,7 @@ if __name__ == '__main__':
     parser.add_argument('--temperature', type=float, default=0, help='air temperature (deg C)')
     parser.add_argument('--relative-humidity', type=float, default=0, help='relative humidity (%%)')
     parser.add_argument('--pressure', type=float, default=620, help='atmospheric pressure (hPa)')
-    parser.add_argument('--obswl', type=float, default=0.77, help='wavelength of observation (um)')
+    parser.add_argument('--obswl', type=float, default=0.62, help='wavelength of observation (um)')
     parser.add_argument('--dra', type=float, default=0, help='(")')
     parser.add_argument('--ddec', type=float, default=0, help='(")')
     args, _ = parser.parse_known_args()

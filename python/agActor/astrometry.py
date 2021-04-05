@@ -5,14 +5,14 @@ from astropy.coordinates import AltAz, Angle, EarthLocation, SkyCoord, solar_sys
 from astropy.time import Time
 from astropy.utils import iers
 import coordinates
-from kawanomoto import Subaru_POPT2_HSC
+from kawanomoto import Subaru_POPT2_PFS
 
 
 iers.conf.auto_download = True
 solar_system_ephemeris.set('de430')
 
-popt2 = Subaru_POPT2_HSC.POPT2()
-hsc = Subaru_POPT2_HSC.HSC()
+popt2 = Subaru_POPT2_PFS.POPT2()
+pfs = Subaru_POPT2_PFS.PFS()
 
 
 def measure(
@@ -25,19 +25,16 @@ def measure(
         temperature=0,
         relative_humidity=0,
         pressure=620,
-        obswl=0.77,
-        inside_temperature=None,
+        m2_pos3=0.55,
+        obswl=0.62,
         logger=None
 ):
 
-    logger and logger.info('ra={},dec={},obstime={},inr={},adc={},obswl={},inside_temperature={}'.format(ra, dec, obstime, inr, adc, obswl, inside_temperature))
+    logger and logger.info('ra={},dec={},obstime={},inr={},adc={},m2_pos3={},obswl={}'.format(ra, dec, obstime, inr, adc, m2_pos3, obswl))
 
     ra = Angle(ra, unit=units.hourangle)
     dec = Angle(dec, unit=units.deg)
     obstime = Time(obstime)
-
-    if inside_temperature is None:
-        inside_temperature = temperature
 
     # subaru coordinates (NAD83 ~ WGS 1984 at 0.1" level, height of elevation axis)
     location = EarthLocation(lat=Angle((19, 49, 31.8), unit=units.deg), lon=Angle((-155, 28, 33.7), unit=units.deg), height=4163)
@@ -48,10 +45,10 @@ def measure(
     altaz_c = icrs_c.transform_to(frame_tc)
 
     # detected stellar objects in the equatorial coordinates
-    icam, x_det, y_det = numpy.array(detected_objects)[:, (0, 3, 4)].T
+    icam, x_det, y_det, stepped = numpy.array(detected_objects)[:, (0, 3, 4, -1)].T
     x_dp, y_dp = coordinates.det2dp(numpy.rint(icam - 1), x_det, y_det)
-    x_fp, y_fp = hsc.dp2fp(x_dp, y_dp, inr)
-    separation, position_angle = popt2.focalplane2celestial(x_fp, y_fp, adc, inside_temperature + 273.15, obswl)
+    x_fp, y_fp = pfs.dp2fp(x_dp, y_dp, inr)
+    separation, position_angle = popt2.focalplane2celestial(x_fp, y_fp, adc, m2_pos3, obswl, stepped)
     altaz = altaz_c.directional_offset_by(- position_angle * units.deg, separation * units.deg)
     icrs = altaz.transform_to('icrs')
 
@@ -70,13 +67,13 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--tile-id', type=int, required=True, help='tile identifier')
     parser.add_argument('--frame-id', type=int, required=True, help='frame identifier')
-    parser.add_argument('--obswl', type=float, default=0.77, help='wavelength of observation (um)')
+    parser.add_argument('--obswl', type=float, default=0.62, help='wavelength of observation (um)')
     args, _ = parser.parse_known_args()
 
     import opdb
 
     ra, dec, _ = opdb.query_tile(args.tile_id)
-    _, _, taken_at, _, _, inr, adc, inside_temperature, _, _, temperature, relative_humidity, pressure = opdb.query_agc_exposure(args.frame_id)
+    _, _, taken_at, _, _, inr, adc, _, _, _, temperature, relative_humidity, pressure, m2_pos3 = opdb.query_agc_exposure(args.frame_id)
     detected_objects = opdb.query_agc_data(args.frame_id)
 
     import logging
@@ -94,8 +91,8 @@ if __name__ == '__main__':
         temperature=temperature,
         relative_humidity=relative_humidity,
         pressure=pressure,
+        m2_pos3=m2_pos3,
         obswl=args.obswl,
-        inside_temperature=inside_temperature,
         logger=logger
     )
     print(objects)

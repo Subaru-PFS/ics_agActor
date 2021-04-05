@@ -24,7 +24,7 @@ def set_tile(tile_id, logger=None):
     Field.guide_objects = []
 
 
-def set_catalog(frame_id=None, obswl=0.77, logger=None):
+def set_catalog(frame_id=None, obswl=0.62, logger=None):
 
     logger and logger.info('frame_id={}'.format(frame_id))
 
@@ -35,12 +35,12 @@ def set_catalog(frame_id=None, obswl=0.77, logger=None):
         ra = Field.ra
         dec = Field.dec
 
-        _, _, taken_at, _, _, inr, adc, inside_temperature, _, _, _, _, _ = opdb.query_agc_exposure(frame_id)
-        logger and logger.info('taken_at={},inr={},adc={},inside_temperature={}'.format(taken_at, inr, adc, inside_temperature))
+        _, _, taken_at, _, _, inr, adc, _, _, _, _, _, _, m2_pos3 = opdb.query_agc_exposure(frame_id)
+        logger and logger.info('taken_at={},inr={},adc={},m2_pos3={}'.format(taken_at, inr, adc, m2_pos3))
 
         detected_objects = opdb.query_agc_data(frame_id)
 
-        guide_objects = astrometry.measure(detected_objects, ra, dec, taken_at, inr, adc, obswl=obswl, inside_temperature=inside_temperature, logger=logger)
+        guide_objects = astrometry.measure(detected_objects, ra, dec, taken_at, inr, adc, m2_pos3=m2_pos3, obswl=obswl, logger=logger)
 
     else:
 
@@ -53,7 +53,7 @@ def set_catalog(frame_id=None, obswl=0.77, logger=None):
     Field.guide_objects = guide_objects
 
 
-def autoguide(frame_id, guide_objects=None, ra=None, dec=None, obswl=0.77, verbose=False, logger=None):
+def autoguide(frame_id, guide_objects=None, ra=None, dec=None, obswl=0.62, verbose=False, logger=None):
 
     logger and logger.info('frame_id={}'.format(frame_id))
 
@@ -65,12 +65,12 @@ def autoguide(frame_id, guide_objects=None, ra=None, dec=None, obswl=0.77, verbo
         dec = Field.dec
     logger and logger.info('ra={},dec={}'.format(ra, dec))
 
-    _, _, taken_at, _, _, inr, adc, inside_temperature, _, _, _, _, _ = opdb.query_agc_exposure(frame_id)
-    logger and logger.info('taken_at={},inr={},adc={},inside_temperature={}'.format(taken_at, inr, adc, inside_temperature))
+    _, _, taken_at, _, _, inr, adc, _, _, _, _, _, _, m2_pos3 = opdb.query_agc_exposure(frame_id)
+    logger and logger.info('taken_at={},inr={},adc={},m2_pos3={}'.format(taken_at, inr, adc, m2_pos3))
 
     detected_objects = opdb.query_agc_data(frame_id)
 
-    _, _, dinr, dalt, daz, *extra = field_acquisition._acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, obswl=obswl, inside_temperature=inside_temperature, altazimuth=True, verbose=verbose, logger=logger)
+    _, _, dinr, dalt, daz, *extra = field_acquisition._acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, m2_pos3=m2_pos3, obswl=obswl, altazimuth=True, verbose=verbose, logger=logger)
 
     return (dalt, daz, dinr, *extra)
 
@@ -83,7 +83,7 @@ if __name__ == '__main__':
     parser.add_argument('--tile-id', type=int, required=True, help='tile identifier')
     parser.add_argument('--frame-id', type=int, required=True, help='frame identifier')
     parser.add_argument('--ref-frame-id', type=int, default=None, help='reference frame identifier')
-    parser.add_argument('--obswl', type=float, default=0.77, help='wavelength of observation (um)')
+    parser.add_argument('--obswl', type=float, default=0.62, help='wavelength of observation (um)')
     parser.add_argument('--verbose', action='store_true', help='')
     args, _ = parser.parse_known_args()
 
