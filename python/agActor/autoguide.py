@@ -35,7 +35,7 @@ def set_catalog(frame_id=None, obswl=0.62, logger=None):
         ra = Field.ra
         dec = Field.dec
 
-        _, _, taken_at, _, _, inr, adc, _, _, _, _, _, _, m2_pos3 = opdb.query_agc_exposure(frame_id)
+        _, _, taken_at, _, _, inr, adc, _, _, _, m2_pos3 = opdb.query_agc_exposure(frame_id)
         logger and logger.info('taken_at={},inr={},adc={},m2_pos3={}'.format(taken_at, inr, adc, m2_pos3))
 
         detected_objects = opdb.query_agc_data(frame_id)
@@ -65,7 +65,7 @@ def autoguide(frame_id, guide_objects=None, ra=None, dec=None, obswl=0.62, verbo
         dec = Field.dec
     logger and logger.info('ra={},dec={}'.format(ra, dec))
 
-    _, _, taken_at, _, _, inr, adc, _, _, _, _, _, _, m2_pos3 = opdb.query_agc_exposure(frame_id)
+    _, _, taken_at, _, _, inr, adc, _, _, _, m2_pos3 = opdb.query_agc_exposure(frame_id)
     logger and logger.info('taken_at={},inr={},adc={},m2_pos3={}'.format(taken_at, inr, adc, m2_pos3))
 
     detected_objects = opdb.query_agc_data(frame_id)

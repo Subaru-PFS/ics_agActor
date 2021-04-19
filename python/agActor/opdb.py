@@ -42,7 +42,7 @@ class opDB(pfs.utils.opdb.opDB):
     def query_agc_exposure(frame_id):
 
         return opDB._fetchone(
-            'SELECT pfs_visit_id,exptime,taken_at,azimuth,altitude,inr,adc,inside_temperature,inside_humidity,inside_pressure,outside_temperature,outside_humidity,outside_pressure,m2_pos3 FROM agc_exposure WHERE frame_id=%s', (frame_id,)
+            'SELECT pfs_visit_id,exptime,taken_at,azimuth,altitude,inr,adc,outside_temperature,outside_humidity,outside_pressure,m2_pos3 FROM agc_exposure WHERE frame_id=%s', (frame_id,)
         )
 
     @staticmethod
@@ -88,9 +88,6 @@ class opDB(pfs.utils.opdb.opDB):
             altitude,
             inr,
             adc,
-            inside_temperature,
-            inside_humidity,
-            inside_pressure,
             outside_temperature,
             outside_humidity,
             outside_pressure,

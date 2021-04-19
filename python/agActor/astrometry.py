@@ -73,7 +73,7 @@ if __name__ == '__main__':
     from opdb import opDB as opdb
 
     ra, dec, _ = opdb.query_tile(args.tile_id)
-    _, _, taken_at, _, _, inr, adc, _, _, _, temperature, relative_humidity, pressure, m2_pos3 = opdb.query_agc_exposure(args.frame_id)
+    _, _, taken_at, _, _, inr, adc, temperature, relative_humidity, pressure, m2_pos3 = opdb.query_agc_exposure(args.frame_id)
     detected_objects = opdb.query_agc_data(args.frame_id)
 
     import logging

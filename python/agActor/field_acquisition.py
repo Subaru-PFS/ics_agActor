@@ -12,7 +12,7 @@ def acquire_field(tile_id, frame_id, obswl=0.62, altazimuth=False, verbose=False
 
     guide_objects = opdb.query_guide_star(tile_id)
 
-    _, _, taken_at, _, _, inr, adc, _, _, _, _, _, _, m2_pos3 = opdb.query_agc_exposure(frame_id)
+    _, _, taken_at, _, _, inr, adc, _, _, _, m2_pos3 = opdb.query_agc_exposure(frame_id)
     logger and logger.info('taken_at={},inr={},adc={},m2_pos3={}'.format(taken_at, inr, adc, m2_pos3))
 
     detected_objects = opdb.query_agc_data(frame_id)
