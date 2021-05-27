@@ -77,18 +77,18 @@ class AgCmd:
             guide = bool(cmd.cmd.keywords['guide'].values[0])
 
         try:
+            cmd.inform('exposureTime={}'.format(exposure_time))
             # start an exposure
-            cmdStr = 'expose speed={}'.format(exposure_time)
             result = self.actor.sendCommand(
-                actor='agcam',
-                cmdStr=cmdStr,
+                actor='agcc',
+                cmdStr='expose object exptime={}'.format(exposure_time / 1000),
                 timeLim=(exposure_time // 1000 + 5)
             )
             telescope_state = self.actor.mlp1.telescopeState
             self.actor.logger.info('AgCmd.acquire_field: telescopeState={}'.format(telescope_state))
-            frame_id = self.actor.agcam.frameId
+            frame_id = self.actor.agcc.frameId
             self.actor.logger.info('AgCmd.acquire_field: frameId={}'.format(frame_id))
-            data_time = self.actor.agcam.dataTime
+            data_time = self.actor.agcc.dataTime
             self.actor.logger.info('AgCmd.acquire_field: dataTime={}'.format(data_time))
             # retrieve field center coordinates from opdb
             # retrieve exposure information from opdb
@@ -136,13 +136,14 @@ class AgCmd:
                 exposure_time = 100
 
         try:
+            cmd.inform('exposureTime={}'.format(exposure_time))
             # start an exposure
             result = self.actor.sendCommand(
-                actor='agcam',
-                cmdStr='expose speed={}'.format(exposure_time),
+                actor='agcc',
+                cmdStr='expose object exptime={}'.format(exposure_time / 1000),
                 timeLim=(exposure_time // 1000 + 5)
             )
-            # retrieve detected objects from agcam (or opdb)
+            # retrieve detected objects from agcc (or opdb)
             # compute focus offset and tilt
             # store results in opdb
             # send corrections to gen2 (or iic)

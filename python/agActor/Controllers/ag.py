@@ -188,16 +188,17 @@ class AgThread(threading.Thread):
                         mode &= ~(ag.Mode.REF | ag.Mode.DB)
                         self._set_params(mode=mode)
                 if mode & (ag.Mode.ON | ag.Mode.ONCE | ag.Mode.REF):
+                    cmd.inform('exposureTime={}'.format(exposure_time))
                     result = self.actor.sendCommand(
-                        actor='agcam',
-                        cmdStr='expose speed={}'.format(exposure_time),
+                        actor='agcc',
+                        cmdStr='expose object exptime={}'.format(exposure_time / 1000),
                         timeLim=(exposure_time // 1000 + 5)
                     )
                     telescope_state = self.actor.mlp1.telescopeState
                     self.logger.info('AgThread.run: telescopeState={}'.format(telescope_state))
-                    frame_id = self.actor.agcam.frameId
+                    frame_id = self.actor.agcc.frameId
                     self.actor.logger.info('AgThread.run: frameId={}'.format(frame_id))
-                    data_time = self.actor.agcam.dataTime
+                    data_time = self.actor.agcc.dataTime
                     self.logger.info('AgThread.run: dataTime={}'.format(data_time))
                     # retrieve detected objects from opdb
                     if mode & ag.Mode.REF:
