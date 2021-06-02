@@ -45,10 +45,10 @@ def measure(
     altaz_c = icrs_c.transform_to(frame_tc)
 
     # detected stellar objects in the equatorial coordinates
-    icam, x_det, y_det, stepped = numpy.array(detected_objects)[:, (0, 3, 4, -1)].T
+    icam, x_det, y_det, flags = numpy.array(detected_objects)[:, (0, 3, 4, -1)].T
     x_dp, y_dp = coordinates.det2dp(numpy.rint(icam - 1), x_det, y_det)
     x_fp, y_fp = pfs.dp2fp(x_dp, y_dp, inr)
-    separation, position_angle = popt2.focalplane2celestial(x_fp, y_fp, adc, m2_pos3, obswl, stepped)
+    separation, position_angle = popt2.focalplane2celestial(x_fp, y_fp, adc, m2_pos3, obswl, flags)
     altaz = altaz_c.directional_offset_by(- position_angle * units.deg, separation * units.deg)
     icrs = altaz.transform_to('icrs')
 

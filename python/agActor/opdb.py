@@ -39,17 +39,17 @@ class opDB(pfs.utils.opdb.opDB):
     query_guide_star = query_guide_object
 
     @staticmethod
-    def query_agc_exposure(frame_id):
+    def query_agc_exposure(agc_exposure_id):
 
         return opDB._fetchone(
-            'SELECT pfs_visit_id,exptime,taken_at,azimuth,altitude,inr,adc,outside_temperature,outside_humidity,outside_pressure,m2_pos3 FROM agc_exposure WHERE frame_id=%s', (frame_id,)
+            'SELECT pfs_visit_id,agc_exptime,taken_at,azimuth,altitude,insrot,adc_pa,outside_temperature,outside_humidity,outside_pressure,m2_pos3 FROM agc_exposure WHERE agc_exposure_id=%s', (agc_exposure_id,)
         )
 
     @staticmethod
-    def query_agc_data(frame_id):
+    def query_agc_data(agc_exposure_id):
 
         return opDB._fetchall(
-            'SELECT camera_id,spot_id,image_moment_00,centroid_x,centroid_y,central_image_moment_11,central_image_moment_20,central_image_moment_02,peak_pixel_x,peak_pixel_y,peak_intensity,background,stepped FROM agc_data WHERE frame_id=%s', (frame_id,)
+            'SELECT agc_camera_id,spot_id,image_moment_00_pix,centroid_x_pix,centroid_y_pix,central_image_moment_11_pix,central_image_moment_20_pix,central_image_moment_02_pix,peak_pixel_x_pix,peak_pixel_y_pix,peak_intensity,background,flags FROM agc_data WHERE agc_exposure_id=%s', (agc_exposure_id,)
         )
 
     @staticmethod
@@ -80,14 +80,14 @@ class opDB(pfs.utils.opdb.opDB):
 
     @staticmethod
     def insert_agc_exposure(
-            frame_id,
+            agc_exposure_id,
             pfs_visit_id,
-            exptime,
+            agc_exptime,
             taken_at,
             azimuth,
             altitude,
-            inr,
-            adc,
+            insrot,
+            adc_pa,
             outside_temperature,
             outside_humidity,
             outside_pressure,
@@ -98,23 +98,23 @@ class opDB(pfs.utils.opdb.opDB):
         opDB.insert('agc_exposure', **params)
 
     @staticmethod
-    def insert_agc_data(frame_id, data):
+    def insert_agc_data(agc_exposure_id, data):
 
         for x in data:
             params = dict(
-                frame_id=frame_id,
-                camera_id=int(x[0]),
+                agc_exposure_id=agc_exposure_id,
+                agc_camera_id=int(x[0]),
                 spot_id=int(x[1]),
-                image_moment_00=float(x[2]),
-                centroid_x=float(x[3]),
-                centroid_y=float(x[4]),
-                central_image_moment_11=float(x[5]),
-                central_image_moment_20=float(x[6]),
-                central_image_moment_02=float(x[7]),
-                peak_pixel_x=int(x[8]),
-                peak_pixel_y=int(x[9]),
-                peak_intensity=int(x[10]),
+                image_moment_00_pix=float(x[2]),
+                centroid_x_pix=float(x[3]),
+                centroid_y_pix=float(x[4]),
+                central_image_moment_11_pix=float(x[5]),
+                central_image_moment_20_pix=float(x[6]),
+                central_image_moment_02_pix=float(x[7]),
+                peak_pixel_x_pix=int(x[8]),
+                peak_pixel_y_pix=int(x[9]),
+                peak_intensity=float(x[10]),
                 background=float(x[11]),
-                stepped=bool(x[12])
+                flags=int(x[12])
             )
             opDB.insert('agc_data', **params)
