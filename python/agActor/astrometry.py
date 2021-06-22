@@ -32,7 +32,7 @@ def measure(
 
     logger and logger.info('ra={},dec={},obstime={},inr={},adc={},m2_pos3={},obswl={}'.format(ra, dec, obstime, inr, adc, m2_pos3, obswl))
 
-    ra = Angle(ra, unit=units.hourangle)
+    ra = Angle(ra, unit=units.deg)
     dec = Angle(dec, unit=units.deg)
     obstime = Time(obstime)
 
@@ -55,7 +55,7 @@ def measure(
     # source_id, ra, dec, mag
     counter = itertools.count(1)
     mag = 0
-    objects = [(next(counter), x.ra.to(units.hourangle).value, x.dec.to(units.deg).value, mag) for x in icrs]
+    objects = [(next(counter), x.ra.to(units.deg).value, x.dec.to(units.deg).value, mag) for x in icrs]
 
     return objects
 

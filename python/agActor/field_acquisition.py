@@ -29,7 +29,7 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
 
         return numpy.sqrt(2 * (a + b)), numpy.sqrt(2 * (a - b))
 
-    _guide_objects = numpy.array([(15 * x[1], x[2], x[3]) for x in guide_objects])
+    _guide_objects = numpy.array([(x[1], x[2], x[3]) for x in guide_objects])
 
     _detected_objects = numpy.array([
         (
@@ -43,7 +43,7 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
     ])
 
     pfs = kawanomoto.FieldAcquisition.PFS()
-    dra, ddec, dinr, *extra = pfs.FA(_guide_objects, _detected_objects, 15 * ra, dec, taken_at, adc, inr, m2_pos3, obswl, verbose=verbose)
+    dra, ddec, dinr, *extra = pfs.FA(_guide_objects, _detected_objects, ra, dec, taken_at, adc, inr, m2_pos3, obswl, verbose=verbose)
     dra *= 3600
     ddec *= 3600
     dinr *= 3600

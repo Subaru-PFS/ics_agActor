@@ -20,7 +20,7 @@ def to_altaz(
         ddec=0
 ):
 
-    ra = Angle(ra, unit=units.hourangle)
+    ra = Angle(ra, unit=units.deg)
     dec = Angle(dec, unit=units.deg)
     obstime = Time(obstime) if obstime is not None else Time.now()
 
@@ -64,8 +64,10 @@ if __name__ == '__main__':
     parser.add_argument('--ddec', type=float, default=0, help='(")')
     args, _ = parser.parse_known_args()
 
+    ra = Angle(args.ra, unit=units.hourangle).to(units.deg).value
+
     alt, az, dalt, daz = to_altaz(
-        ra=args.ra,
+        ra=ra,
         dec=args.dec,
         obstime=args.obstime,
         temperature=args.temperature,
