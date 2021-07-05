@@ -81,7 +81,7 @@ class AgCmd:
             # start an exposure
             result = self.actor.sendCommand(
                 actor='agcc',
-                cmdStr='expose object exptime={}'.format(exposure_time / 1000),
+                cmdStr='expose object exptime={} centroid=1'.format(exposure_time / 1000),
                 timeLim=(exposure_time // 1000 + 5)
             )
             telescope_state = self.actor.mlp1.telescopeState
@@ -140,7 +140,7 @@ class AgCmd:
             # start an exposure
             result = self.actor.sendCommand(
                 actor='agcc',
-                cmdStr='expose object exptime={}'.format(exposure_time / 1000),
+                cmdStr='expose object exptime={} centroid=1'.format(exposure_time / 1000),
                 timeLim=(exposure_time // 1000 + 5)
             )
             # retrieve detected objects from agcc (or opdb)
