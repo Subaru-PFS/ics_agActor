@@ -43,7 +43,7 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
         ) for x in detected_objects
     ])
 
-    pfs = kawanomoto.FieldAcquisition.PFS()
+    pfs = kawanomoto.FieldAcquisitionAndFocusing.PFS()
     dra, ddec, dinr, *extra = pfs.FA(_guide_objects, _detected_objects, ra, dec, taken_at, adc, inr, m2_pos3, obswl, verbose=verbose)
     dra *= 3600
     ddec *= 3600

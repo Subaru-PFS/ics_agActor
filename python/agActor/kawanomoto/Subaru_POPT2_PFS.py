@@ -39,8 +39,7 @@ class Subaru():
         tel_coord = SkyCoord(ra=tel_ra, dec=tel_de, frame='icrs')
         str_coord = SkyCoord(ra=str_ra, dec=str_de, frame='icrs')
 
-        #sbr = EarthLocation.of_site('Subaru Telescope')
-        sbr = EarthLocation(lat=Angle((19, 49, 31.8), unit=u.deg), lon=Angle((-155, 28, 33.7), unit=u.deg), height=4163)
+        sbr = EarthLocation.of_site('Subaru Telescope')
         frame_subaru = AltAz(obstime  = t, location = sbr,\
                              pressure = 620*u.hPa, obswl = wl*u.micron)
 
@@ -51,32 +50,6 @@ class Subaru():
         str_zpa = -tel_altaz.position_angle(str_altaz).degree
 
         return str_sep, str_zpa
-
-    # def starSepZPAGaia(self, tel_ra, tel_de, str_ra, str_de, str_plx, str_pmRA, str_pmDE, wl, t):
-    #     tel_ra = tel_ra*u.degree
-    #     tel_de = tel_de*u.degree
-    #     str_ra = str_ra*u.degree
-    #     str_de = str_de*u.degree
-
-    #     tel_coord = SkyCoord(ra=tel_ra, dec=tel_de, frame='icrs', obstime=t)
-    #     str_coord = SkyCoord(ra=str_ra, dec=str_de,
-    #                          distance=Distance(parallax=str_plx * u.mas, allow_negative=True),
-    #                          pm_ra_cosdec=str_pmRA * u.mas/u.yr,
-    #                          pm_dec=str_pmDE * u.mas/u.yr,
-    #                          obstime=Time(2015.5, format='decimalyear'),
-    #                          frame='icrs')
-
-    #     sbr = EarthLocation.of_site('Subaru Telescope')
-    #     frame_subaru = AltAz(obstime  = t, location = sbr,\
-    #                          pressure = 620*u.hPa, obswl = wl*u.micron)
-
-    #     tel_altaz = tel_coord.transform_to(frame_subaru)
-    #     str_altaz = str_coord.transform_to(frame_subaru)
-
-    #     str_sep =  tel_altaz.separation(str_altaz).degree
-    #     str_zpa = -tel_altaz.position_angle(str_altaz).degree
-
-    #     return str_sep, str_zpa
 
     def radec2radecplxpm(self, str_ra, str_de, str_plx, str_pmRA, str_pmDE, t):
         str_plx[np.where(str_plx<0.00001)]=0.00001
@@ -549,29 +522,6 @@ class POPT2():
 
         return xdp0,ydp0, dxdpdra,dydpdra, dxdpdde,dydpdde, dxdpdinr,dydpdinr
 
-    # def makeBasisGaia(self, tel_ra, tel_de, str_ra, str_de, str_plx, str_pmRA, str_pmDE, t, adc, inr):
-    #     sep0,zpa0 = Subaru.starSepZPAGaia(self, tel_ra, tel_de, str_ra, str_de, str_plx, str_pmRA, str_pmDE, t)
-    #     sep1,zpa1 = Subaru.starSepZPAGaia(self, tel_ra+d_ra, tel_de, str_ra, str_de, str_plx, str_pmRA, str_pmDE, t)
-    #     sep2,zpa2 = Subaru.starSepZPAGaia(self, tel_ra, tel_de+d_de, str_ra, str_de, str_plx, str_pmRA, str_pmDE, t)
-
-    #     xfp0,yfp0 = POPT2.celestial2focalplane(self, sep0,zpa0,adc)
-    #     xfp1,yfp1 = POPT2.celestial2focalplane(self, sep1,zpa1,adc)
-    #     xfp2,yfp2 = POPT2.celestial2focalplane(self, sep2,zpa2,adc)
-
-    #     xdp0,ydp0 = PFS.fp2dp(self, xfp0,yfp0,inr)
-    #     xdp1,ydp1 = PFS.fp2dp(self, xfp1,yfp1,inr)
-    #     xdp2,ydp2 = PFS.fp2dp(self, xfp2,yfp2,inr)
-    #     xdp3,ydp3 = PFS.fp2dp(self, xfp0,yfp0,inr+d_inr)
-
-    #     dxdpdra = xdp1-xdp0
-    #     dydpdra = ydp1-ydp0
-    #     dxdpdde = xdp2-xdp0
-    #     dydpdde = ydp2-ydp0
-    #     dxdpdinr= xdp3-xdp0
-    #     dydpdinr= ydp3-ydp0
-
-    #     return xdp0,ydp0, dxdpdra,dydpdra, dxdpdde,dydpdde, dxdpdinr,dydpdinr
-
 class PFS():
     def fp2dp(self, xt, yt, inr_deg):
         inr = np.deg2rad(inr_deg)
@@ -586,6 +536,32 @@ class PFS():
         y = (xc-pfs_detector_zero_offset_x)*np.sin(inr)-(yc-pfs_detector_zero_offset_y)*np.cos(inr)
 
         return x,y
+
+    def agarray2momentdifference(self, array):
+        ##### array
+        ### ccdid objectid xcent[mm] ycent[mm] flx[counts] semimajor[pix] semiminor[pix] flag[0 or 1]
+        v = POPT2.sourceFilter(self, array)
+        filtered_agarray = array[v]
+        outarray=np.array([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
+
+        for ccdid in range(1,7):
+            array = filtered_agarray[np.where(filtered_agarray[:,0]==ccdid)]
+            array_wosp = array[np.where(array[:,7]==0)]
+            array_wisp = array[np.where(array[:,7]==1)]
+
+            moment_wosp = np.median((array_wosp[:,5]**2+array_wosp[:,6]**2)/4)
+            moment_wisp = np.median((array_wisp[:,5]**2+array_wisp[:,6]**2)/4)
+
+            outarray[ccdid-1]=moment_wosp-moment_wisp
+
+        return outarray
+
+    def momentdifference2focuserror(self, momentdifference):
+        # momentdifference [pixel^2]
+        # focuserror [mm]
+        focuserror = momentdifference*0.0086-0.026
+
+        return focuserror
 
 ###
 if __name__ == "__main__":

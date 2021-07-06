@@ -27,6 +27,16 @@ class PFS():
 
         return (ra_offset,de_offset,inr_offset,v,f,min_dist_index_f,obj_xdp,obj_ydp,cat_xdp,cat_ydp) if verbose else (ra_offset,de_offset,inr_offset)
 
+    def Focus(self, agarray):
+        pfs    = Subaru_POPT2_PFS.PFS()
+        md = pfs.agarray2momentdifference(agarray)
+
+        df = np.array([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
+        for idx in range(6):
+            df[idx] = pfs.momentdifference2focuserror(md[idx])
+
+        return df
+
 ###
 if __name__ == "__main__":
     ###### star catalog
@@ -49,6 +59,10 @@ if __name__ == "__main__":
     popt2  = Subaru_POPT2_PFS.POPT2()
 
     pfs = PFS()
+
+    focuserror = pfs.Focus(agarray)
+
+    print(focuserror)
 
     # tel_ra, tel_de, dt, adc, inr, m2pos3, wl = popt2.telStatusfromText(telstat)
     # ra_offset,de_offset,inr_offset = pfs.FA(stararray, agarray, tel_ra, tel_de, dt, adc, inr, m2pos3, wl)
