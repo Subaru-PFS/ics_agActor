@@ -22,12 +22,13 @@ def acquire_field(tile_id, frame_id, obswl=0.62, altazimuth=False, verbose=False
 
 def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, m2_pos3=5.5, obswl=0.62, altazimuth=False, verbose=False, logger=None):
 
-    def semi_axes(mu11, mu20, mu02):
+    def semi_axes(xy, x2, y2):
 
-        a = mu20 + mu02
-        b = numpy.sqrt(4 * numpy.square(mu11) + numpy.square(mu20 - mu02))
-
-        return numpy.sqrt(2 * (a + b)), numpy.sqrt(2 * (a - b))
+        p = (x2 + y2) / 2
+        q = numpy.sqrt(numpy.square((x2 - y2) / 2) + numpy.square(xy))
+        a = numpy.sqrt(p + q)
+        b = numpy.sqrt(p - q)
+        return a, b
 
     _guide_objects = numpy.array([(x[1], x[2], x[3]) for x in guide_objects])
 
@@ -37,7 +38,7 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
             x[1],
             *coordinates.det2dp(int(x[0]) - 1, x[3], x[4]),
             x[10],
-            *semi_axes(x[5] / x[2], x[6] / x[2], x[7] / x[2]),
+            *semi_axes(x[5], x[6], x[7]),
             x[-1]
         ) for x in detected_objects
     ])
