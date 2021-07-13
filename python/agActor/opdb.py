@@ -1,38 +1,64 @@
-import pfs.utils.opdb
+import psycopg2
 
 
-class opDB(pfs.utils.opdb.opDB):
-
-    # override hostname
-    pfs.utils.opdb.opDB.host = 'localhost'
+class opDB:
 
     @staticmethod
-    def _fetchall(stmt, params=None):
+    def _connect():
 
-        with opDB.connect() as conn:
+        return psycopg2.connect(dbname='opdb', host='localhost', user='pfs')
+
+    @staticmethod
+    def fetchall(statement, params=None):
+
+        with opDB._connect() as conn:
             with conn.cursor() as curs:
-                curs.execute(stmt, params)
+                curs.execute(statement, params)
                 return curs.fetchall()
 
     @staticmethod
-    def _fetchone(stmt, params=None):
+    def fetchone(statement, params=None):
 
-        with opDB.connect() as conn:
+        with opDB._connect() as conn:
             with conn.cursor() as curs:
-                curs.execute(stmt, params)
+                curs.execute(statement, params)
                 return curs.fetchone()
+
+    @staticmethod
+    def execute(statement, params=None):
+
+        with opDB._connect() as conn:
+            with conn.cursor() as curs:
+                curs.execute(statement, params)
+            conn.commit()
+
+    @staticmethod
+    def insert(table, **params):
+
+        columns = ','.join(params)
+        values = ','.join(['%({})s'.format(x) for x in params])
+        statement = 'INSERT INTO {} ({}) VALUES ({})'.format(table, columns, values)
+        return opDB.execute(statement, params)
+
+    @staticmethod
+    def update(table, **params):
+
+        columns = ','.join(params)
+        values = ','.join(['%({})s'.format(x) for x in params])
+        statement = 'UPDATE {} SET ({}) = ({})'.format(table, columns, values)
+        return opDB.execute(statement, params)
 
     @staticmethod
     def query_tile(tile_id):
 
-        return opDB._fetchone(
+        return opDB.fetchone(
             'SELECT ra_center,dec_center,pa FROM tile WHERE tile_id=%s', (tile_id,)
         )
 
     @staticmethod
     def query_guide_object(tile_id):
 
-        return opDB._fetchall(
+        return opDB.fetchall(
             'SELECT source_id,ra,decl,mag FROM guide_object WHERE tile_id=%s', (tile_id,)
         )
 
@@ -41,14 +67,14 @@ class opDB(pfs.utils.opdb.opDB):
     @staticmethod
     def query_agc_exposure(agc_exposure_id):
 
-        return opDB._fetchone(
+        return opDB.fetchone(
             'SELECT pfs_visit_id,agc_exptime,taken_at,azimuth,altitude,insrot,adc_pa,outside_temperature,outside_humidity,outside_pressure,m2_pos3 FROM agc_exposure WHERE agc_exposure_id=%s', (agc_exposure_id,)
         )
 
     @staticmethod
     def query_agc_data(agc_exposure_id):
 
-        return opDB._fetchall(
+        return opDB.fetchall(
             'SELECT agc_camera_id,spot_id,image_moment_00_pix,centroid_x_pix,centroid_y_pix,central_image_moment_11_pix,central_image_moment_20_pix,central_image_moment_02_pix,peak_pixel_x_pix,peak_pixel_y_pix,peak_intensity,background,flags FROM agc_data WHERE agc_exposure_id=%s', (agc_exposure_id,)
         )
 
