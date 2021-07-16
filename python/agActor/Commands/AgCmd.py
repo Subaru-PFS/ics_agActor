@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 
+import numpy
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from agActor import field_acquisition
+from agActor import field_acquisition, focus
 
 
 class AgCmd:
@@ -143,10 +144,17 @@ class AgCmd:
                 cmdStr='expose object exptime={} centroid=1'.format(exposure_time / 1000),
                 timeLim=(exposure_time // 1000 + 5)
             )
+            frame_id = self.actor.agcc.frameId
+            self.actor.logger.info('AgCmd.focus: frameId={}'.format(frame_id))
             # retrieve detected objects from agcc (or opdb)
             # compute focus offset and tilt
-            # store results in opdb
+            dz = focus.focus(frame_id, verbose=True, logger=self.actor.logger)
+            if numpy.isnan(dz):
+                cmd.fail('text="AgCmd.focus: dz={}'.format(dz))
+                return
+            cmd.inform('text="dz={}"'.format(dz))
             # send corrections to gen2 (or iic)
+            # store results in opdb
         except Exception as e:
             cmd.fail('text="AgCmd.focus: {}'.format(e))
             return
