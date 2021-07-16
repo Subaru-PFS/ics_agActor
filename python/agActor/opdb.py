@@ -38,7 +38,7 @@ class opDB:
         columns = ','.join(params)
         values = ','.join(['%({})s'.format(x) for x in params])
         statement = 'INSERT INTO {} ({}) VALUES ({})'.format(table, columns, values)
-        return opDB.execute(statement, params)
+        opDB.execute(statement, params)
 
     @staticmethod
     def update(table, **params):
@@ -46,20 +46,30 @@ class opDB:
         columns = ','.join(params)
         values = ','.join(['%({})s'.format(x) for x in params])
         statement = 'UPDATE {} SET ({}) = ({})'.format(table, columns, values)
-        return opDB.execute(statement, params)
+        opDB.execute(statement, params)
+
+    @staticmethod
+    def query_pfs_design(pfs_design_id):
+
+        return opDB.fetchone(
+            'SELECT tile_id,ra_center_designed,dec_center_designed,pa_designed,num_sci_designed,num_cal_designed,num_sky_designed,num_guide_stars,exptime_tot,exptime_min,ets_version,ets_assigner,designed_at,to_be_observed_at,is_obsolete FROM pfs_design WHERE pfs_design_id=%s',
+            (pfs_design_id,)
+        )
 
     @staticmethod
     def query_tile(tile_id):
 
         return opDB.fetchone(
-            'SELECT ra_center,dec_center,pa FROM tile WHERE tile_id=%s', (tile_id,)
+            'SELECT ra_center,dec_center,pa FROM tile WHERE tile_id=%s',
+            (tile_id,)
         )
 
     @staticmethod
     def query_guide_object(tile_id):
 
         return opDB.fetchall(
-            'SELECT source_id,ra,decl,mag FROM guide_object WHERE tile_id=%s', (tile_id,)
+            'SELECT source_id,ra,decl,mag FROM guide_object WHERE tile_id=%s',
+            (tile_id,)
         )
 
     query_guide_star = query_guide_object
@@ -68,15 +78,40 @@ class opDB:
     def query_agc_exposure(agc_exposure_id):
 
         return opDB.fetchone(
-            'SELECT pfs_visit_id,agc_exptime,taken_at,azimuth,altitude,insrot,adc_pa,outside_temperature,outside_humidity,outside_pressure,m2_pos3 FROM agc_exposure WHERE agc_exposure_id=%s', (agc_exposure_id,)
+            'SELECT pfs_visit_id,agc_exptime,taken_at,azimuth,altitude,insrot,adc_pa,outside_temperature,outside_humidity,outside_pressure,m2_pos3 FROM agc_exposure WHERE agc_exposure_id=%s',
+            (agc_exposure_id,)
         )
 
     @staticmethod
     def query_agc_data(agc_exposure_id):
 
         return opDB.fetchall(
-            'SELECT agc_camera_id,spot_id,image_moment_00_pix,centroid_x_pix,centroid_y_pix,central_image_moment_11_pix,central_image_moment_20_pix,central_image_moment_02_pix,peak_pixel_x_pix,peak_pixel_y_pix,peak_intensity,background,flags FROM agc_data WHERE agc_exposure_id=%s', (agc_exposure_id,)
+            'SELECT agc_camera_id,spot_id,image_moment_00_pix,centroid_x_pix,centroid_y_pix,central_image_moment_11_pix,central_image_moment_20_pix,central_image_moment_02_pix,peak_pixel_x_pix,peak_pixel_y_pix,peak_intensity,background,flags FROM agc_data WHERE agc_exposure_id=%s',
+            (agc_exposure_id,)
         )
+
+    @staticmethod
+    def insert_pfs_design(
+            pfs_design_id,
+            tile_id,
+            ra_center_designed,
+            dec_center_designed,
+            pa_designed,
+            num_sci_designed,
+            num_cal_designed,
+            num_sky_designed,
+            num_guide_stars,
+            exptime_tot,
+            exptime_min,
+            ets_version,
+            ets_assigner,
+            designed_at,
+            to_be_observed_at,
+            is_obsolete
+    ):
+
+        params = locals().copy()
+        opDB.insert('pfs_design', **params)
 
     @staticmethod
     def insert_tile(tile_id, ra_center, dec_center, pa):
