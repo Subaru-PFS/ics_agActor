@@ -4,6 +4,7 @@ import numpy
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
 from agActor import field_acquisition, focus
+from agActor.opdb import opDB as opdb
 
 
 class AgCmd:
@@ -11,25 +12,28 @@ class AgCmd:
     def __init__(self, actor):
 
         self.actor = actor
+        self.visit_id = None
         self.vocab = [
             ('ping', '', self.ping),
             ('status', '', self.status),
             ('show', '', self.show),
-            ('acquire_field', '<tile_id> [<exposure_time>] [<guide>]', self.acquire_field),
-            ('focus', '[<exposure_time>]', self.focus),
-            ('autoguide', 'start [<tile_id>] [<from_sky>] [<exposure_time>] [<cadence>] [<focus>]', self.start_autoguide),
-            ('autoguide', 'initialize <tile_id> [<from_sky>] [<exposure_time>]', self.initialize_autoguide),
-            ('autoguide', 'stop', self.stop_autoguide),
-            ('autoguide', 'reconfigure [<exposure_time>] [<cadence>] [<focus>]', self.reconfigure_autoguide),
+            ('acquire_field', '(<design_id>|<tile_id>) [<visit_id>] [<exposure_time>] [<guide>]', self.acquire_field),
+            ('focus', '[<visit_id>] [<exposure_time>]', self.focus),
+            ('autoguide', '@start [(<design_id>|<tile_id>)] [<visit_id>] [<from_sky>] [<exposure_time>] [<cadence>] [<focus>]', self.start_autoguide),
+            ('autoguide', '@initialize (<design_id>|<tile_id>) [<visit_id>] [<from_sky>] [<exposure_time>]', self.initialize_autoguide),
+            ('autoguide', '@stop', self.stop_autoguide),
+            ('autoguide', '@reconfigure [<exposure_time>] [<cadence>] [<focus>]', self.reconfigure_autoguide),
         ]
         self.keys = keys.KeysDictionary(
             'ag_ag',
-            (1, 3),
+            (1, 4),
             keys.Key('exposure_time', types.Int(), help=''),
             keys.Key('cadence', types.Int(), help=''),
             keys.Key('focus', types.Bool('no', 'yes'), help=''),
             keys.Key('guide', types.Bool('no', 'yes'), help=''),
+            keys.Key('design_id', types.Int(), help=''),
             keys.Key('tile_id', types.Int(), help=''),
+            keys.Key('visit_id', types.Int(), help=''),
             keys.Key('from_sky', types.Bool('no', 'yes'), help=''),
         )
 
@@ -67,7 +71,16 @@ class AgCmd:
             cmd.fail('text="AgCmd.acquire_field: mode={}'.format(mode))
             return
 
-        tile_id = int(cmd.cmd.keywords['tile_id'].values[0])
+        if 'design_id' in cmd.cmd.keywords:
+            design_id = int(cmd.cmd.keywords['design_id'].values[0])
+            # get tile_id by design_id
+            tile_id, *_ = opdb.query_pfs_design(design_id)
+        else:
+            tile_id = int(cmd.cmd.keywords['tile_id'].values[0])
+        visit_id = self.visit_id
+        if 'visit_id' in cmd.cmd.keywords:
+            visit_id = int(cmd.cmd.keywords['visit_id'].values[0])
+            self.visit_id = visit_id
         exposure_time = 2000 # ms
         if 'exposure_time' in cmd.cmd.keywords:
             exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
@@ -82,7 +95,7 @@ class AgCmd:
             # start an exposure
             result = self.actor.sendCommand(
                 actor='agcc',
-                cmdStr='expose object exptime={} centroid=1'.format(exposure_time / 1000),
+                cmdStr='expose object pfsVisitId={} exptime={} centroid=1'.format(visit_id, exposure_time / 1000),
                 timeLim=(exposure_time // 1000 + 5)
             )
             telescope_state = self.actor.mlp1.telescopeState
@@ -130,6 +143,10 @@ class AgCmd:
             cmd.fail('text="AgCmd.acquire_field: mode={}'.format(mode))
             return
 
+        visit_id = self.visit_id
+        if 'visit_id' in cmd.cmd.keywords:
+            visit_id = int(cmd.cmd.keywords['visit_id'].values[0])
+            self.visit_id = visit_id
         exposure_time = 2000 # ms
         if 'exposure_time' in cmd.cmd.keywords:
             exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
@@ -141,7 +158,7 @@ class AgCmd:
             # start an exposure
             result = self.actor.sendCommand(
                 actor='agcc',
-                cmdStr='expose object exptime={} centroid=1'.format(exposure_time / 1000),
+                cmdStr='expose object pfsVisitId={} exptime={} centroid=1'.format(visit_id, exposure_time / 1000),
                 timeLim=(exposure_time // 1000 + 5)
             )
             frame_id = self.actor.agcc.frameId
@@ -166,8 +183,16 @@ class AgCmd:
         #self.actor.logger.info('controller={}'.format(controller))
 
         tile_id = None
-        if 'tile_id' in cmd.cmd.keywords:
+        if 'design_id' in cmd.cmd.keywords:
+            design_id = int(cmd.cmd.keywords['design_id'].values[0])
+            # get tile_id by design_id
+            tile_id, *_ = opdb.query_pfs_design(design_id)
+        elif 'tile_id' in cmd.cmd.keywords:
             tile_id = int(cmd.cmd.keywords['tile_id'].values[0])
+        visit_id = None
+        if 'visit_id' in cmd.cmd.keywords:
+            visit_id = int(cmd.cmd.keywords['visit_id'].values[0])
+            self.visit_id = visit_id
         from_sky = None
         if 'from_sky' in cmd.cmd.keywords:
             from_sky = bool(cmd.cmd.keywords['from_sky'].values[0])
@@ -186,7 +211,7 @@ class AgCmd:
             focus = bool(cmd.cmd.keywords['focus'].values[0])
 
         try:
-            controller.start_autoguide(cmd=cmd, tile_id=tile_id, from_sky=from_sky, exposure_time=exposure_time, cadence=cadence, focus=focus)
+            controller.start_autoguide(cmd=cmd, tile_id=tile_id, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time, cadence=cadence, focus=focus)
         except Exception as e:
             cmd.fail('text="AgCmd.start_autoguide: {}"'.format(e))
             return
@@ -197,7 +222,16 @@ class AgCmd:
         controller = self.actor.controllers['ag']
         #self.actor.logger.info('controller={}'.format(controller))
 
-        tile_id = int(cmd.cmd.keywords['tile_id'].values[0])
+        if 'design_id' in cmd.cmd.keywords:
+            design_id = int(cmd.cmd.keywords['design_id'].values[0])
+            # get tile_id by design_id
+            tile_id, *_ = opdb.query_pfs_design(design_id)
+        else:
+            tile_id = int(cmd.cmd.keywords['tile_id'].values[0])
+        visit_id = self.visit_id
+        if 'visit_id' in cmd.cmd.keywords:
+            visit_id = int(cmd.cmd.keywords['visit_id'].values[0])
+            self.visit_id = visit_id
         from_sky = None
         if 'from_sky' in cmd.cmd.keywords:
             from_sky = bool(cmd.cmd.keywords['from_sky'].values[0])
@@ -208,7 +242,7 @@ class AgCmd:
                 exposure_time = 100
 
         try:
-            controller.initialize_autoguide(cmd=cmd, tile_id=tile_id, from_sky=from_sky, exposure_time=exposure_time)
+            controller.initialize_autoguide(cmd=cmd, tile_id=tile_id, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time)
         except Exception as e:
             cmd.fail('text="AgCmd.initialize_autoguide: {}"'.format(e))
             return
