@@ -1,7 +1,7 @@
 import itertools
 import numpy
 from astropy import units
-from astropy.coordinates import AltAz, Angle, EarthLocation, SkyCoord, solar_system_ephemeris
+from astropy.coordinates import AltAz, Angle, SkyCoord, solar_system_ephemeris
 from astropy.time import Time
 from astropy.utils import iers
 import coordinates
@@ -36,9 +36,8 @@ def measure(
     dec = Angle(dec, unit=units.deg)
     obstime = Time(obstime)
 
-    # subaru coordinates (NAD83 ~ WGS 1984 at 0.1" level, height of elevation axis)
-    location = EarthLocation(lat=Angle((19, 49, 31.8), unit=units.deg), lon=Angle((-155, 28, 33.7), unit=units.deg), height=4163)
-    frame_tc = AltAz(obstime=obstime, location=location, temperature=temperature * units.deg_C, relative_humidity=relative_humidity / 100, pressure=pressure * units.hPa, obswl=obswl * units.micron)
+    import subaru
+    frame_tc = AltAz(obstime=obstime, location=subaru.location, temperature=temperature * units.deg_C, relative_humidity=relative_humidity / 100, pressure=pressure * units.hPa, obswl=obswl * units.micron)
 
     # field center in the horizontal coordinates
     icrs_c = SkyCoord(ra=ra, dec=dec, frame='icrs')

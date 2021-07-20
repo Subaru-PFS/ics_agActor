@@ -3,7 +3,7 @@ import numpy as np
 
 from astropy import units as u
 from astropy.time import Time
-from astropy.coordinates import SkyCoord, Distance, EarthLocation, AltAz, Angle
+from astropy.coordinates import SkyCoord, Distance, AltAz
 from astropy.utils import iers
 iers.conf.auto_download = True
 
@@ -39,10 +39,8 @@ class Subaru():
         tel_coord = SkyCoord(ra=tel_ra, dec=tel_de, frame='icrs')
         str_coord = SkyCoord(ra=str_ra, dec=str_de, frame='icrs')
 
-        # subaru coordinates (NAD83 ~ WGS 1984 at 0.1" level, height of elevation axis)
-        sbr = EarthLocation(lat=Angle((19, 49, 31.8), unit=u.deg), lon=Angle((-155, 28, 33.7), unit=u.deg), height=4163)
-        frame_subaru = AltAz(obstime  = t, location = sbr,\
-                             pressure = 620*u.hPa, obswl = wl*u.micron)
+        import subaru
+        frame_subaru = AltAz(obstime=t, location=subaru.location, pressure=620 * u.hPa, obswl=wl * u.micron)
 
         tel_altaz = tel_coord.transform_to(frame_subaru)
         str_altaz = str_coord.transform_to(frame_subaru)

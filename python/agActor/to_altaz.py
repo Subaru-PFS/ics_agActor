@@ -1,5 +1,5 @@
 from astropy import units
-from astropy.coordinates import AltAz, Angle, EarthLocation, SkyCoord, solar_system_ephemeris
+from astropy.coordinates import AltAz, Angle, SkyCoord, solar_system_ephemeris
 from astropy.time import Time
 from astropy.utils import iers
 
@@ -32,9 +32,8 @@ def to_altaz(
     dra *= units.arcsec
     ddec *= units.arcsec
 
-    # subaru coordinates (NAD83 ~ WGS 1984 at 0.1" level, height of elevation axis)
-    location = EarthLocation(lat=Angle((19, 49, 31.8), unit=units.deg), lon=Angle((-155, 28, 33.7), unit=units.deg), height=4163)
-    frame = AltAz(obstime=obstime, location=location, temperature=temperature, relative_humidity=relative_humidity, pressure=pressure, obswl=obswl)
+    import subaru
+    frame = AltAz(obstime=obstime, location=subaru.location, temperature=temperature, relative_humidity=relative_humidity, pressure=pressure, obswl=obswl)
 
     icrs = SkyCoord(ra=[ra, ra + dra], dec=[dec, dec + ddec], frame='icrs')
     altaz = icrs.transform_to(frame)
