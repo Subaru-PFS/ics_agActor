@@ -39,7 +39,8 @@ class Subaru():
         tel_coord = SkyCoord(ra=tel_ra, dec=tel_de, frame='icrs')
         str_coord = SkyCoord(ra=str_ra, dec=str_de, frame='icrs')
 
-        sbr = EarthLocation.of_site('Subaru Telescope')
+        # subaru coordinates (NAD83 ~ WGS 1984 at 0.1" level, height of elevation axis)
+        sbr = EarthLocation(lat=Angle((19, 49, 31.8), unit=u.deg), lon=Angle((-155, 28, 33.7), unit=u.deg), height=4163)
         frame_subaru = AltAz(obstime  = t, location = sbr,\
                              pressure = 620*u.hPa, obswl = wl*u.micron)
 
