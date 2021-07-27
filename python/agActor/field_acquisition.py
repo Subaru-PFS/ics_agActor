@@ -64,7 +64,26 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
                 *coordinates.dp2det(detected_objects[k][0] - 1, float(x[3]), float(x[4]))  # detector coordinates of identified guide object
             ) for k, x in ((int(index_v[int(index_f[i])]), x) for i, x in enumerate(zip(min_dist_index_f, obj_x, obj_y, cat_x, cat_y)))
         ]
-        extra = guide_objects, detected_objects, identified_objects
+
+        # find "representative" spot size, peak intensity, and flux by "median" of pointing errors
+        dx = 0  # mm
+        dy = 0  # mm (HSC definition)
+        size = 0  # pix
+        peak = 0  # pix
+        flux = 0  # pix
+        esq = [(x[2] - x[4]) ** 2 + (x[3] - x[5]) ** 2 for x in identified_objects]  # squares of pointing errors in detector plane coordinates
+        n = len(esq) - numpy.isnan(esq).sum()
+        if n > 0:
+            i = numpy.argpartition(esq, n // 2)[n // 2]  # index of "median" of identified objects
+            dx = (identified_objects[i][2] - identified_objects[i][4])
+            dy = (identified_objects[i][3] - identified_objects[i][5])
+            k = identified_objects[i][0]  # index of "median" of detected objects
+            a, b = semi_axes(*detected_objects[k][5:8])
+            size = (a * b) ** 0.5
+            peak = detected_objects[k][10]
+            flux = detected_objects[k][2]
+
+        extra = guide_objects, detected_objects, identified_objects, dx, dy, size, peak, flux
 
     if altazimuth:
 
@@ -99,7 +118,8 @@ if __name__ == '__main__':
         dra, ddec, dinr, *extra = acquire_field(args.tile_id, args.frame_id, obswl=args.obswl, verbose=args.verbose, logger=logger)
         print('dra={},ddec={},dinr={}'.format(dra, ddec, dinr))
     if args.verbose:
-        guide_objects, detected_objects, identified_objects = extra
-        print(guide_objects)
-        print(detected_objects)
-        print(identified_objects)
+        guide_objects, detected_objects, identified_objects, dx, dy, size, peak, flux = extra
+        print('guide_objects={}'.format(guide_objects))
+        print('detected_objects={}'.format(detected_objects))
+        print('identified_objects={}'.format(identified_objects))
+        print('dx={},dy={},size={},peak={},flux={}'.format(dx, dy, size, peak, flux))
