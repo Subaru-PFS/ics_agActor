@@ -44,15 +44,24 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
     ])
 
     pfs = kawanomoto.FieldAcquisitionAndFocusing.PFS()
-    dra, ddec, dinr, *extra = pfs.FA(_guide_objects, _detected_objects, ra, dec, taken_at, adc, inr, m2_pos3, obswl, verbose=verbose)
+    dra, ddec, dinr, *diags = pfs.FA(_guide_objects, _detected_objects, ra, dec, taken_at, adc, inr, m2_pos3, obswl)
     dra *= 3600
     ddec *= 3600
     dinr *= 3600
     logger and logger.info('dra={},ddec={},dinr={}'.format(dra, ddec, dinr))
 
+    values = ()
+
+    if altazimuth:
+
+        _, _, dalt, daz = to_altaz.to_altaz(ra, dec, taken_at, dra=dra, ddec=ddec)
+        logger and logger.info('dalt={},daz={}'.format(dalt, daz))
+
+        values = dalt, daz
+
     if verbose:
 
-        v, f, min_dist_index_f, obj_x, obj_y, cat_x, cat_y = extra
+        v, f, min_dist_index_f, obj_x, obj_y, cat_x, cat_y = diags
         index_v, = numpy.where(v)
         index_f, = numpy.where(f)
         identified_objects = [
@@ -83,16 +92,9 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
             peak = detected_objects[k][10]
             flux = detected_objects[k][2]
 
-        extra = guide_objects, detected_objects, identified_objects, dx, dy, size, peak, flux
+        values = *values, guide_objects, detected_objects, identified_objects, dx, dy, size, peak, flux
 
-    if altazimuth:
-
-        _, _, dalt, daz = to_altaz.to_altaz(ra, dec, taken_at, dra=dra, ddec=ddec)
-        logger and logger.info('dalt={},daz={}'.format(dalt, daz))
-
-        return (dra, ddec, dinr, dalt, daz, *extra)
-
-    return (dra, ddec, dinr, *extra)
+    return (dra, ddec, dinr, *values)
 
 
 if __name__ == '__main__':
@@ -111,14 +113,13 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(name='field_acquisition')
+    dra, ddec, dinr, *values = acquire_field(args.tile_id, args.frame_id, obswl=args.obswl, altazimuth=args.altazimuth, verbose=args.verbose, logger=logger)
+    print('dra={},ddec={},dinr={}'.format(dra, ddec, dinr))
     if args.altazimuth:
-        dra, ddec, dinr, dalt, daz, *extra = acquire_field(args.tile_id, args.frame_id, obswl=args.obswl, altazimuth=True, verbose=args.verbose, logger=logger)
-        print('dra={},ddec={},dinr={},dalt={},daz={}'.format(dra, ddec, dinr, dalt, daz))
-    else:
-        dra, ddec, dinr, *extra = acquire_field(args.tile_id, args.frame_id, obswl=args.obswl, verbose=args.verbose, logger=logger)
-        print('dra={},ddec={},dinr={}'.format(dra, ddec, dinr))
+        dalt, daz, *values = values
+        print('dalt={},daz={}'.format(dalt, daz))
     if args.verbose:
-        guide_objects, detected_objects, identified_objects, dx, dy, size, peak, flux = extra
+        guide_objects, detected_objects, identified_objects, dx, dy, size, peak, flux = values
         print('guide_objects={}'.format(guide_objects))
         print('detected_objects={}'.format(detected_objects))
         print('identified_objects={}'.format(identified_objects))

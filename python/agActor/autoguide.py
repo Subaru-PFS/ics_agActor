@@ -70,9 +70,9 @@ def autoguide(frame_id, guide_objects=None, ra=None, dec=None, obswl=0.62, verbo
 
     detected_objects = opdb.query_agc_data(frame_id)
 
-    _, _, dinr, dalt, daz, *extra = field_acquisition._acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, m2_pos3=m2_pos3, obswl=obswl, altazimuth=True, verbose=verbose, logger=logger)
+    _, _, dinr, dalt, daz, *values = field_acquisition._acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, m2_pos3=m2_pos3, obswl=obswl, altazimuth=True, verbose=verbose, logger=logger)
 
-    return (dalt, daz, dinr, *extra)
+    return (dalt, daz, dinr, *values)
 
 
 if __name__ == '__main__':
@@ -93,10 +93,10 @@ if __name__ == '__main__':
     logger = logging.getLogger(name='autoguide')
     set_tile(args.tile_id, logger=logger)
     set_catalog(args.ref_frame_id, obswl=args.obswl, logger=logger)
-    dalt, daz, dinr, *extra = autoguide(args.frame_id, obswl=args.obswl, verbose=args.verbose, logger=logger)
+    dalt, daz, dinr, *values = autoguide(args.frame_id, obswl=args.obswl, verbose=args.verbose, logger=logger)
     print('dalt={},daz={},dinr={}'.format(dalt, daz, dinr))
     if args.verbose:
-        guide_objects, detected_objects, identified_objects = extra
+        guide_objects, detected_objects, identified_objects, *_ = values
         print(guide_objects)
         print(detected_objects)
         print(identified_objects)
