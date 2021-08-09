@@ -5,20 +5,20 @@ from opdb import opDB as opdb
 
 class Field:
 
-    tile_id = 0
+    design_id = 0
     ra = 0.0
     dec = 0.0
     guide_objects = []
 
 
-def set_tile(tile_id, logger=None):
+def set_design(design_id, logger=None):
 
-    logger and logger.info('tile_id={}'.format(tile_id))
+    logger and logger.info('design_id={}'.format(design_id))
 
-    ra, dec, _ = opdb.query_tile(tile_id)
+    _, ra, dec, *_ = opdb.query_pfs_design(design_id)
     logger and logger.info('ra={},dec={}'.format(ra, dec))
 
-    Field.tile_id = tile_id
+    Field.design_id = design_id
     Field.ra = ra
     Field.dec = dec
     Field.guide_objects = []
@@ -46,9 +46,9 @@ def set_catalog(frame_id=None, obswl=0.62, logger=None):
 
         # use guide object catalog from operational database
 
-        tile_id = Field.tile_id
+        design_id = Field.design_id
 
-        guide_objects = opdb.query_guide_star(tile_id)
+        guide_objects = opdb.query_guide_star(design_id)
 
     Field.guide_objects = guide_objects
 
@@ -80,7 +80,7 @@ if __name__ == '__main__':
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument('--tile-id', type=int, required=True, help='tile identifier')
+    parser.add_argument('--design-id', type=int, required=True, help='design identifier')
     parser.add_argument('--frame-id', type=int, required=True, help='frame identifier')
     parser.add_argument('--ref-frame-id', type=int, default=None, help='reference frame identifier')
     parser.add_argument('--obswl', type=float, default=0.62, help='wavelength of observation (um)')
@@ -91,7 +91,7 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(name='autoguide')
-    set_tile(args.tile_id, logger=logger)
+    set_design(args.design_id, logger=logger)
     set_catalog(args.ref_frame_id, obswl=args.obswl, logger=logger)
     dalt, daz, dinr, *values = autoguide(args.frame_id, obswl=args.obswl, verbose=args.verbose, logger=logger)
     print('dalt={},daz={},dinr={}'.format(dalt, daz, dinr))

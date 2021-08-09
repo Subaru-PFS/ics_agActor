@@ -5,12 +5,12 @@ import to_altaz
 import kawanomoto
 
 
-def acquire_field(tile_id, frame_id, obswl=0.62, altazimuth=False, verbose=False, logger=None):
+def acquire_field(design_id, frame_id, obswl=0.62, altazimuth=False, verbose=False, logger=None):
 
-    ra, dec, _ = opdb.query_tile(tile_id)
+    _, ra, dec, *_ = opdb.query_pfs_design(design_id)
     logger and logger.info('ra={},dec={}'.format(ra, dec))
 
-    guide_objects = opdb.query_guide_star(tile_id)
+    guide_objects = opdb.query_guide_star(design_id)
 
     _, _, taken_at, _, _, inr, adc, _, _, _, m2_pos3 = opdb.query_agc_exposure(frame_id)
     logger and logger.info('taken_at={},inr={},adc={},m2_pos3={}'.format(taken_at, inr, adc, m2_pos3))
@@ -102,7 +102,7 @@ if __name__ == '__main__':
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument('--tile-id', type=int, required=True, help='tile identifier')
+    parser.add_argument('--design-id', type=int, required=True, help='design identifier')
     parser.add_argument('--frame-id', type=int, required=True, help='frame identifier')
     parser.add_argument('--obswl', type=float, default=0.62, help='wavelength of observation (um)')
     parser.add_argument('--altazimuth', action='store_true', help='')
@@ -113,7 +113,7 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(name='field_acquisition')
-    dra, ddec, dinr, *values = acquire_field(args.tile_id, args.frame_id, obswl=args.obswl, altazimuth=args.altazimuth, verbose=args.verbose, logger=logger)
+    dra, ddec, dinr, *values = acquire_field(args.design_id, args.frame_id, obswl=args.obswl, altazimuth=args.altazimuth, verbose=args.verbose, logger=logger)
     print('dra={},ddec={},dinr={}'.format(dra, ddec, dinr))
     if args.altazimuth:
         dalt, daz, *values = values

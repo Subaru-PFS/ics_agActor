@@ -65,11 +65,11 @@ class opDB:
         )
 
     @staticmethod
-    def query_guide_object(tile_id):
+    def query_guide_object(pfs_design_id):
 
         return opDB.fetchall(
-            'SELECT source_id,ra,decl,mag FROM guide_object WHERE tile_id=%s',
-            (tile_id,)
+            'SELECT guide_star_id,guide_star_ra,guide_star_dec,guide_star_magnitude FROM guide_object WHERE pfs_design_id=%s',
+            (pfs_design_id,)
         )
 
     query_guide_star = query_guide_object
@@ -97,43 +97,41 @@ class opDB:
             ra_center_designed,
             dec_center_designed,
             pa_designed,
-            num_sci_designed,
-            num_cal_designed,
-            num_sky_designed,
-            num_guide_stars,
-            exptime_tot,
-            exptime_min,
-            ets_version,
-            ets_assigner,
-            designed_at,
-            to_be_observed_at,
-            is_obsolete
+            num_sci_designed=None,
+            num_cal_designed=None,
+            num_sky_designed=None,
+            num_guide_stars=None,
+            exptime_tot=None,
+            exptime_min=None,
+            ets_version=None,
+            ets_assigner=None,
+            designed_at=None,
+            to_be_observed_at=None,
+            is_obsolete=None
     ):
 
         params = locals().copy()
         opDB.insert('pfs_design', **params)
 
     @staticmethod
-    def insert_tile(tile_id, ra_center, dec_center, pa):
+    def insert_tile(ra_center, dec_center, pa):
 
         params = locals().copy()
-        params.update(
-            program_id=tile_id,
-            tile=tile_id,
-            is_finished=False
-        )
-        opDB.insert('tile', **params)
+        columns = ','.join(params)
+        values = ','.join(['%({})s'.format(x) for x in params])
+        statement = 'INSERT INTO tile ({}) VALUES ({}) RETURNING tile_id'.format(columns, values)
+        return opDB.fetchone(statement, params)[0]
 
     @staticmethod
-    def insert_guide_object(tile_id, data):
+    def insert_guide_object(pfs_design_id, data):
 
         for x in data:
             params = dict(
-                tile_id=tile_id,
-                source_id=int(x[0]),
-                ra=float(x[1]),
-                decl=float(x[2]),
-                mag=float(x[3])
+                pfs_design_id=pfs_design_id,
+                guide_star_id=int(x[0]),
+                guide_star_ra=float(x[1]),
+                guide_star_dec=float(x[2]),
+                guide_star_magnitude=float(x[3])
             )
             opDB.insert('guide_object', **params)
 
@@ -179,3 +177,12 @@ class opDB:
                 flags=int(x[12])
             )
             opDB.insert('agc_data', **params)
+
+    @staticmethod
+    def update_tile(tile_id, **params):
+
+        columns = ','.join(params)
+        values = ','.join(['%({})s'.format(x) for x in params])
+        statement = 'UPDATE tile SET ({})=({}) WHERE tile_id=%(tile_id)s'.format(columns, values)
+        params.update(tile_id=tile_id)
+        opDB.execute(statement, params)

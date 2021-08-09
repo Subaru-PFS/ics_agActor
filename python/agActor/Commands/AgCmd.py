@@ -4,7 +4,6 @@ import numpy
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
 from agActor import field_acquisition, focus
-from agActor.opdb import opDB as opdb
 
 
 class AgCmd:
@@ -17,22 +16,21 @@ class AgCmd:
             ('ping', '', self.ping),
             ('status', '', self.status),
             ('show', '', self.show),
-            ('acquire_field', '(<design_id>|<tile_id>) [<visit_id>] [<exposure_time>] [<guide>]', self.acquire_field),
+            ('acquire_field', '<design_id> [<visit_id>] [<exposure_time>] [<guide>]', self.acquire_field),
             ('focus', '[<visit_id>] [<exposure_time>]', self.focus),
-            ('autoguide', '@start [(<design_id>|<tile_id>)] [<visit_id>] [<from_sky>] [<exposure_time>] [<cadence>] [<focus>]', self.start_autoguide),
-            ('autoguide', '@initialize (<design_id>|<tile_id>) [<visit_id>] [<from_sky>] [<exposure_time>]', self.initialize_autoguide),
+            ('autoguide', '@start [<design_id>] [<visit_id>] [<from_sky>] [<exposure_time>] [<cadence>] [<focus>]', self.start_autoguide),
+            ('autoguide', '@initialize <design_id> [<visit_id>] [<from_sky>] [<exposure_time>]', self.initialize_autoguide),
             ('autoguide', '@stop', self.stop_autoguide),
             ('autoguide', '@reconfigure [<exposure_time>] [<cadence>] [<focus>]', self.reconfigure_autoguide),
         ]
         self.keys = keys.KeysDictionary(
             'ag_ag',
-            (1, 4),
+            (1, 5),
             keys.Key('exposure_time', types.Int(), help=''),
             keys.Key('cadence', types.Int(), help=''),
             keys.Key('focus', types.Bool('no', 'yes'), help=''),
             keys.Key('guide', types.Bool('no', 'yes'), help=''),
             keys.Key('design_id', types.Int(), help=''),
-            keys.Key('tile_id', types.Int(), help=''),
             keys.Key('visit_id', types.Int(), help=''),
             keys.Key('from_sky', types.Bool('no', 'yes'), help=''),
         )
@@ -71,12 +69,7 @@ class AgCmd:
             cmd.fail('text="AgCmd.acquire_field: mode={}'.format(mode))
             return
 
-        if 'design_id' in cmd.cmd.keywords:
-            design_id = int(cmd.cmd.keywords['design_id'].values[0])
-            # get tile_id by design_id
-            tile_id, *_ = opdb.query_pfs_design(design_id)
-        else:
-            tile_id = int(cmd.cmd.keywords['tile_id'].values[0])
+        design_id = int(cmd.cmd.keywords['design_id'].values[0])
         visit_id = self.visit_id
         if 'visit_id' in cmd.cmd.keywords:
             visit_id = int(cmd.cmd.keywords['visit_id'].values[0])
@@ -112,7 +105,7 @@ class AgCmd:
             if guide:
                 cmd.inform('detectionState=1')
                 # convert equatorial coordinates to horizontal coordinates
-                dra, ddec, dinr, dalt, daz = field_acquisition.acquire_field(tile_id, frame_id, altazimuth=True, logger=self.actor.logger)
+                dra, ddec, dinr, dalt, daz = field_acquisition.acquire_field(design_id, frame_id, altazimuth=True, logger=self.actor.logger)
                 cmd.inform('text="dra={},ddec={},dinr={},dalt={},daz={}"'.format(dra, ddec, dinr, dalt, daz))
                 cmd.inform('detectionState=0')
                 # send corrections to mlp1 and gen2 (or iic)
@@ -124,7 +117,7 @@ class AgCmd:
                 #cmd.inform('guideReady=1')
             else:
                 cmd.inform('detectionState=1')
-                dra, ddec, dinr = field_acquisition.acquire_field(tile_id, frame_id, logger=self.actor.logger)
+                dra, ddec, dinr = field_acquisition.acquire_field(design_id, frame_id, logger=self.actor.logger)
                 cmd.inform('text="dra={},ddec={},dinr={}"'.format(dra, ddec, dinr))
                 cmd.inform('detectionState=0')
                 # send corrections to gen2 (or iic)
@@ -182,13 +175,9 @@ class AgCmd:
         controller = self.actor.controllers['ag']
         #self.actor.logger.info('controller={}'.format(controller))
 
-        tile_id = None
+        design_id = None
         if 'design_id' in cmd.cmd.keywords:
             design_id = int(cmd.cmd.keywords['design_id'].values[0])
-            # get tile_id by design_id
-            tile_id, *_ = opdb.query_pfs_design(design_id)
-        elif 'tile_id' in cmd.cmd.keywords:
-            tile_id = int(cmd.cmd.keywords['tile_id'].values[0])
         visit_id = None
         if 'visit_id' in cmd.cmd.keywords:
             visit_id = int(cmd.cmd.keywords['visit_id'].values[0])
@@ -211,7 +200,7 @@ class AgCmd:
             focus = bool(cmd.cmd.keywords['focus'].values[0])
 
         try:
-            controller.start_autoguide(cmd=cmd, tile_id=tile_id, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time, cadence=cadence, focus=focus)
+            controller.start_autoguide(cmd=cmd, design_id=design_id, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time, cadence=cadence, focus=focus)
         except Exception as e:
             cmd.fail('text="AgCmd.start_autoguide: {}"'.format(e))
             return
@@ -222,12 +211,7 @@ class AgCmd:
         controller = self.actor.controllers['ag']
         #self.actor.logger.info('controller={}'.format(controller))
 
-        if 'design_id' in cmd.cmd.keywords:
-            design_id = int(cmd.cmd.keywords['design_id'].values[0])
-            # get tile_id by design_id
-            tile_id, *_ = opdb.query_pfs_design(design_id)
-        else:
-            tile_id = int(cmd.cmd.keywords['tile_id'].values[0])
+        design_id = int(cmd.cmd.keywords['design_id'].values[0])
         visit_id = self.visit_id
         if 'visit_id' in cmd.cmd.keywords:
             visit_id = int(cmd.cmd.keywords['visit_id'].values[0])
@@ -242,7 +226,7 @@ class AgCmd:
                 exposure_time = 100
 
         try:
-            controller.initialize_autoguide(cmd=cmd, tile_id=tile_id, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time)
+            controller.initialize_autoguide(cmd=cmd, design_id=design_id, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time)
         except Exception as e:
             cmd.fail('text="AgCmd.initialize_autoguide: {}"'.format(e))
             return

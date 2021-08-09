@@ -64,14 +64,14 @@ if __name__ == '__main__':
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument('--tile-id', type=int, required=True, help='tile identifier')
+    parser.add_argument('--design-id', type=int, required=True, help='design identifier')
     parser.add_argument('--frame-id', type=int, required=True, help='frame identifier')
     parser.add_argument('--obswl', type=float, default=0.62, help='wavelength of observation (um)')
     args, _ = parser.parse_known_args()
 
     from opdb import opDB as opdb
 
-    ra, dec, _ = opdb.query_tile(args.tile_id)
+    _, ra, dec, *_ = opdb.query_pfs_design(args.design_id)
     _, _, taken_at, _, _, inr, adc, temperature, relative_humidity, pressure, m2_pos3 = opdb.query_agc_exposure(args.frame_id)
     detected_objects = opdb.query_agc_data(args.frame_id)
 
