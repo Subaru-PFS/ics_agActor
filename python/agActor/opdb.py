@@ -41,14 +41,6 @@ class opDB:
         opDB.execute(statement, params)
 
     @staticmethod
-    def update(table, **params):
-
-        columns = ','.join(params)
-        values = ','.join(['%({})s'.format(x) for x in params])
-        statement = 'UPDATE {} SET ({}) = ({})'.format(table, columns, values)
-        opDB.execute(statement, params)
-
-    @staticmethod
     def query_pfs_design(pfs_design_id):
 
         return opDB.fetchone(
@@ -91,32 +83,14 @@ class opDB:
         )
 
     @staticmethod
-    def insert_pfs_design(
-            pfs_design_id,
-            tile_id,
-            ra_center_designed,
-            dec_center_designed,
-            pa_designed,
-            num_sci_designed=None,
-            num_cal_designed=None,
-            num_sky_designed=None,
-            num_guide_stars=None,
-            exptime_tot=None,
-            exptime_min=None,
-            ets_version=None,
-            ets_assigner=None,
-            designed_at=None,
-            to_be_observed_at=None,
-            is_obsolete=None
-    ):
+    def insert_pfs_design(pfs_design_id, tile_id, **params):
 
-        params = locals().copy()
+        params.update(pfs_design_id=pfs_design_id, tile_id=tile_id)
         opDB.insert('pfs_design', **params)
 
     @staticmethod
-    def insert_tile(ra_center, dec_center, pa):
+    def insert_tile(**params):
 
-        params = locals().copy()
         columns = ','.join(params)
         values = ','.join(['%({})s'.format(x) for x in params])
         statement = 'INSERT INTO tile ({}) VALUES ({}) RETURNING tile_id'.format(columns, values)
@@ -138,22 +112,9 @@ class opDB:
     insert_guide_star = insert_guide_object
 
     @staticmethod
-    def insert_agc_exposure(
-            agc_exposure_id,
-            pfs_visit_id,
-            agc_exptime,
-            taken_at,
-            azimuth,
-            altitude,
-            insrot,
-            adc_pa,
-            outside_temperature,
-            outside_humidity,
-            outside_pressure,
-            m2_pos3
-    ):
+    def insert_agc_exposure(agc_exposure_id, **params):
 
-        params = locals()
+        params.update(agc_exposure_id=agc_exposure_id)
         opDB.insert('agc_exposure', **params)
 
     @staticmethod
@@ -179,10 +140,43 @@ class opDB:
             opDB.insert('agc_data', **params)
 
     @staticmethod
+    def update_pfs_design(pfs_design_id, **params):
+
+        column_values = ','.join(['{}=%({})s'.format(x, x) for x in params])
+        statement = 'UPDATE pfs_design SET {} WHERE pfs_design_id=%(pfs_design_id)s'.format(column_values)
+        params.update(pfs_design_id=pfs_design_id)
+        opDB.execute(statement, params)
+
+    @staticmethod
     def update_tile(tile_id, **params):
 
-        columns = ','.join(params)
-        values = ','.join(['%({})s'.format(x) for x in params])
-        statement = 'UPDATE tile SET ({})=({}) WHERE tile_id=%(tile_id)s'.format(columns, values)
+        column_values = ','.join(['{}=%({})s'.format(x, x) for x in params])
+        statement = 'UPDATE tile SET {} WHERE tile_id=%(tile_id)s'.format(column_values)
         params.update(tile_id=tile_id)
+        opDB.execute(statement, params)
+
+    @staticmethod
+    def update_guide_object(pfs_design_id, guide_star_id, **params):
+
+        column_values = ','.join(['{}=%({})s'.format(x, x) for x in params])
+        statement = 'UPDATE guide_object SET {} WHERE pfs_design_id=%(pfs_design_id)s AND guide_star_id=%(guide_star_id)s'.format(column_values)
+        params.update(pfs_design_id=pfs_design_id, guide_star_id=guide_star_id)
+        opDB.execute(statement, params)
+
+    update_guide_star = update_guide_object
+
+    @staticmethod
+    def update_agc_exposure(agc_exposure_id, **params):
+
+        column_values = ','.join(['{}=%({})s'.format(x, x) for x in params])
+        statement = 'UPDATE agc_exposure SET {} WHERE agc_exposure_id=%(agc_exposure_id)s'.format(column_values)
+        params.update(agc_exposure_id=agc_exposure_id)
+        opDB.execute(statement, params)
+
+    @staticmethod
+    def update_agc_data(agc_exposure_id, agc_camera_id, spot_id, **params):
+
+        column_values = ','.join(['{}=%({})s'.format(x, x) for x in params])
+        statement = 'UPDATE agc_data SET {} WHERE agc_exposure_id=%(agc_exposure_id)s AND agc_camera_id=%(agc_camera_id)s AND spot_id=%(spot_id)s'.format(column_values)
+        params.update(agc_exposure_id=agc_exposure_id, agc_camera_id=agc_camera_id, spot_id=spot_id)
         opDB.execute(statement, params)
