@@ -227,7 +227,7 @@ class AgThread(threading.Thread):
                         result = self.actor.sendCommand(
                             actor='mlp1',
                             # daz, dalt: arcsec, positive feedback; dx, dy: mas, HSC -> PFS; size: mas; peak, flux: adu
-                            cmdStr='guide azel={},{} ready=1 time={} delay=0 xy={},{} size={} intensity={} flux={}'.format(- daz, - dalt, data_time, dx / 0.098, - dy / 0.098, size * 13 / 0.098, peak, flux),
+                            cmdStr='guide azel={},{} ready=1 time={} delay=0 xy={},{} size={} intensity={} flux={}'.format(- daz, - dalt, data_time, dx / 98e-6, - dy / 98e-6, size * 13 / 98e-3, peak, flux),
                             timeLim=5
                         )
                         #cmd.inform('guideReady=1')
