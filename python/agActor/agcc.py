@@ -32,9 +32,7 @@ class Agcc:
     @property
     def frameId(self):
 
-        #return self._getValues('agc_frameid')
-        import random
-        return random.randint(1, 9999)
+        return self._getValues('agc_frameid')
 
     @property
     def dataTime(self):
