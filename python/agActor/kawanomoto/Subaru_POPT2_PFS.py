@@ -56,6 +56,29 @@ class Subaru:
 
         return str_sep, str_zpa
 
+    def starRADEC(self, tel_ra, tel_de, str_sep, str_zpa, wl, t):
+        tel_ra = tel_ra * u.degree
+        tel_de = tel_de * u.degree
+        str_sep = str_sep * u.degree
+        str_zpa = str_zpa * u.degree
+
+        tel_coord = SkyCoord(ra=tel_ra, dec=tel_de, frame='icrs')
+
+        import subaru
+
+        frame_subaru = AltAz(obstime=t, location=subaru.location, pressure=620 * u.hPa, obswl=wl * u.micron)
+
+        tel_altaz = tel_coord.transform_to(frame_subaru)
+
+        str_altaz = tel_altaz.directional_offset_by(str_zpa, str_sep)
+
+        str_coord = str_altaz.transform_to('icrs')
+        ra = str_coord.ra.degree
+        de = str_coord.dec.degree
+
+        # print(ra,de)
+        return ra, de
+
     def radec2radecplxpm(self, str_ra, str_de, str_plx, str_pmRA, str_pmDE, t):
         str_plx[np.where(str_plx < 0.00001)] = 0.00001
 
@@ -82,6 +105,14 @@ class POPT2:
         m2pos3 = float(array['M2-POS3'])
         wl = float(array['WAVELEN'])
 
+        datetime = dateobs + 'T' + utstr + 'Z'
+        coord = SkyCoord(ra=ra2000, dec=dec2000, unit=(u.hourangle, u.deg), frame='icrs')
+        tel_ra = coord.ra.degree
+        tel_de = coord.dec.degree
+
+        return tel_ra, tel_de, datetime, adcstr, inrstr, m2pos3, wl
+
+    def telStatus(self, dateobs, utstr, ra2000, dec2000, adcstr, inrstr, m2pos3, wl):
         datetime = dateobs + 'T' + utstr + 'Z'
         coord = SkyCoord(ra=ra2000, dec=dec2000, unit=(u.hourangle, u.deg), frame='icrs')
         tel_ra = coord.ra.degree
