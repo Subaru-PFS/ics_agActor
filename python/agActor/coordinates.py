@@ -46,7 +46,7 @@ def dp2det(icam, x_dp, y_dp):
     sin_a = _SIN60[a]
     cos_a = _COS60[a]
     x_det = (cos_a * x_dp - sin_a * y_dp) / p + (511.5 + 24)
-    y_det = - (sin_a * x_dp + cos_a * y_dp - r) / p + (511.5 + 6)
+    y_det = - (sin_a * x_dp + cos_a * y_dp - r) / p + (511.5 + 9)
     return x_det, y_det
 
 
@@ -82,7 +82,7 @@ def det2dp(icam, x_det, y_det):
     sin_a = _SIN60[a]
     cos_a = _COS60[a]
     x = (x_det - (511.5 + 24)) * p
-    y = - (y_det - (511.5 + 6)) * p + r
+    y = - (y_det - (511.5 + 9)) * p + r
     x_dp = cos_a * x + sin_a * y
     y_dp = - sin_a * x + cos_a * y
     return x_dp, y_dp
