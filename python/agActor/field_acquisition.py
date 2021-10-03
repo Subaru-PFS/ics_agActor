@@ -36,7 +36,7 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
         (
             x[0],
             x[1],
-            *coordinates.det2dp(int(x[0]) - 1, x[3], x[4]),
+            *coordinates.det2dp(int(x[0]), x[3], x[4]),
             x[10],
             *semi_axes(x[5], x[6], x[7]),
             x[-1]
@@ -70,7 +70,7 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
                 int(x[0]),  # index of identified guide object
                 float(x[1]), float(x[2]),  # detector plane coordinates of detected object
                 float(x[3]), float(x[4]),  # detector plane coordinates of identified guide object
-                *coordinates.dp2det(detected_objects[k][0] - 1, float(x[3]), float(x[4]))  # detector coordinates of identified guide object
+                *coordinates.dp2det(detected_objects[k][0], float(x[3]), float(x[4]))  # detector coordinates of identified guide object
             ) for k, x in ((int(index_v[int(index_f[i])]), x) for i, x in enumerate(zip(min_dist_index_f, obj_x, obj_y, cat_x, cat_y)))
         ]
 
