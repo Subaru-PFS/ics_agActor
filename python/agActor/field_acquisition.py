@@ -20,7 +20,7 @@ def acquire_field(design_id, frame_id, obswl=0.62, altazimuth=False, verbose=Fal
     return _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, m2_pos3=m2_pos3, obswl=obswl, altazimuth=altazimuth, verbose=verbose, logger=logger)
 
 
-def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, m2_pos3=5.5, obswl=0.62, altazimuth=False, verbose=False, logger=None):
+def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, m2_pos3=6.0, obswl=0.62, altazimuth=False, verbose=False, logger=None):
 
     def semi_axes(xy, x2, y2):
 
