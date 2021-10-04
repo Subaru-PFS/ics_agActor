@@ -48,7 +48,7 @@ def set_catalog(frame_id=None, obswl=0.62, logger=None):
 
         design_id = Field.design_id
 
-        guide_objects = opdb.query_guide_star(design_id)
+        guide_objects = opdb.query_pfs_design_agc(design_id)
 
     Field.guide_objects = guide_objects
 

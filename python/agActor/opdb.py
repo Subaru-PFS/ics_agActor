@@ -57,14 +57,16 @@ class opDB:
         )
 
     @staticmethod
-    def query_guide_object(pfs_design_id):
+    def query_pfs_design_agc(pfs_design_id):
 
+        # return opDB.fetchall(
+        #     'SELECT guide_star_id,epoch,guide_star_ra,guide_star_dec,guide_star_pm_ra,guide_star_pm_dec,guide_star_parallax,guide_star_magnitude,passband,guide_star_color,agc_camera_id,agc_target_x_pix,agc_target_y_pix,comments FROM pfs_design_agc WHERE pfs_design_id=%s',
+        #     (pfs_design_id,)
+        # )
         return opDB.fetchall(
-            'SELECT guide_star_id,guide_star_ra,guide_star_dec,guide_star_magnitude FROM guide_object WHERE pfs_design_id=%s',
+            'SELECT guide_star_id,guide_star_ra,guide_star_dec,guide_star_magnitude,agc_camera_id,agc_target_x_pix,agc_target_y_pix FROM pfs_design_agc WHERE pfs_design_id=%s',
             (pfs_design_id,)
         )
-
-    query_guide_star = query_guide_object
 
     @staticmethod
     def query_agc_exposure(agc_exposure_id):
@@ -97,7 +99,7 @@ class opDB:
         return opDB.fetchone(statement, params)[0]
 
     @staticmethod
-    def insert_guide_object(pfs_design_id, data):
+    def insert_pfs_design_agc(pfs_design_id, data):
 
         for x in data:
             params = dict(
@@ -105,11 +107,12 @@ class opDB:
                 guide_star_id=int(x[0]),
                 guide_star_ra=float(x[1]),
                 guide_star_dec=float(x[2]),
-                guide_star_magnitude=float(x[3])
+                guide_star_magnitude=float(x[3]),
+                agc_camera_id=int(x[4]),
+                agc_target_x_pix=float(x[5]),
+                agc_target_y_pix=float(x[6])
             )
-            opDB.insert('guide_object', **params)
-
-    insert_guide_star = insert_guide_object
+            opDB.insert('pfs_design_agc', **params)
 
     @staticmethod
     def insert_agc_exposure(agc_exposure_id, **params):
@@ -156,14 +159,12 @@ class opDB:
         opDB.execute(statement, params)
 
     @staticmethod
-    def update_guide_object(pfs_design_id, guide_star_id, **params):
+    def update_pfs_design_agc(pfs_design_id, guide_star_id, **params):
 
         column_values = ','.join(['{}=%({})s'.format(x, x) for x in params])
-        statement = 'UPDATE guide_object SET {} WHERE pfs_design_id=%(pfs_design_id)s AND guide_star_id=%(guide_star_id)s'.format(column_values)
+        statement = 'UPDATE pfs_design_agc SET {} WHERE pfs_design_id=%(pfs_design_id)s AND guide_star_id=%(guide_star_id)s'.format(column_values)
         params.update(pfs_design_id=pfs_design_id, guide_star_id=guide_star_id)
         opDB.execute(statement, params)
-
-    update_guide_star = update_guide_object
 
     @staticmethod
     def update_agc_exposure(agc_exposure_id, **params):

@@ -10,7 +10,7 @@ def acquire_field(design_id, frame_id, obswl=0.62, altazimuth=False, verbose=Fal
     _, ra, dec, *_ = opdb.query_pfs_design(design_id)
     logger and logger.info('ra={},dec={}'.format(ra, dec))
 
-    guide_objects = opdb.query_guide_star(design_id)
+    guide_objects = opdb.query_pfs_design_agc(design_id)
 
     _, _, taken_at, _, _, inr, adc, _, _, _, m2_pos3 = opdb.query_agc_exposure(frame_id)
     logger and logger.info('taken_at={},inr={},adc={},m2_pos3={}'.format(taken_at, inr, adc, m2_pos3))
