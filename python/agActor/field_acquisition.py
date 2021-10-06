@@ -1,16 +1,24 @@
 import numpy
 import coordinates
 from opdb import opDB as opdb
+from pfs_design import pfsDesign as pfs_design
 import to_altaz
 import kawanomoto
 
 
-def acquire_field(design_id, frame_id, obswl=0.62, altazimuth=False, verbose=False, logger=None):
+def acquire_field(design_id=None, frame_id=None, obswl=0.62, altazimuth=False, verbose=False, design_path=None, logger=None):
 
-    _, ra, dec, *_ = opdb.query_pfs_design(design_id)
-    logger and logger.info('ra={},dec={}'.format(ra, dec))
+    if design_path is not None:
 
-    guide_objects = opdb.query_pfs_design_agc(design_id)
+        guide_objects, ra, dec, *_ = pfs_design(design_id, design_path).guide_stars
+        logger and logger.info('ra={},dec={}'.format(ra, dec))
+
+    else:
+
+        _, ra, dec, *_ = opdb.query_pfs_design(design_id)
+        logger and logger.info('ra={},dec={}'.format(ra, dec))
+
+        guide_objects = opdb.query_pfs_design_agc(design_id)
 
     _, _, taken_at, _, _, inr, adc, _, _, _, m2_pos3 = opdb.query_agc_exposure(frame_id)
     logger and logger.info('taken_at={},inr={},adc={},m2_pos3={}'.format(taken_at, inr, adc, m2_pos3))
@@ -32,16 +40,19 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
 
     _guide_objects = numpy.array([(x[1], x[2], x[3]) for x in guide_objects])
 
-    _detected_objects = numpy.array([
-        (
-            x[0],
-            x[1],
-            *coordinates.det2dp(int(x[0]), x[3], x[4]),
-            x[10],
-            *semi_axes(x[5], x[6], x[7]),
-            x[-1]
-        ) for x in detected_objects
-    ])
+    _detected_objects = numpy.array(
+        [
+            (
+                x[0],
+                x[1],
+                *coordinates.det2dp(int(x[0]), x[3], x[4]),
+                x[10],
+                *semi_axes(x[5], x[6], x[7]),
+                x[-1]
+            )
+            for x in detected_objects
+        ]
+    )
 
     pfs = kawanomoto.FieldAcquisitionAndFocusing.PFS()
     dra, ddec, dinr, *diags = pfs.FA(_guide_objects, _detected_objects, ra, dec, taken_at, adc, inr, m2_pos3, obswl)
@@ -71,7 +82,8 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
                 float(x[1]), float(x[2]),  # detector plane coordinates of detected object
                 float(x[3]), float(x[4]),  # detector plane coordinates of identified guide object
                 *coordinates.dp2det(detected_objects[k][0], float(x[3]), float(x[4]))  # detector coordinates of identified guide object
-            ) for k, x in ((int(index_v[int(index_f[i])]), x) for i, x in enumerate(zip(min_dist_index_f, obj_x, obj_y, cat_x, cat_y)))
+            )
+            for k, x in ((int(index_v[int(index_f[i])]), x) for i, x in enumerate(zip(min_dist_index_f, obj_x, obj_y, cat_x, cat_y)))
         ]
 
         # find "representative" spot size, peak intensity, and flux by "median" of pointing errors
@@ -84,8 +96,8 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
         n = len(esq) - numpy.isnan(esq).sum()
         if n > 0:
             i = numpy.argpartition(esq, n // 2)[n // 2]  # index of "median" of identified objects
-            dx = (identified_objects[i][2] - identified_objects[i][4])
-            dy = (identified_objects[i][3] - identified_objects[i][5])
+            dx = identified_objects[i][2] - identified_objects[i][4]
+            dy = identified_objects[i][3] - identified_objects[i][5]
             k = identified_objects[i][0]  # index of "median" of detected objects
             a, b = semi_axes(*detected_objects[k][5:8])
             size = (a * b) ** 0.5
@@ -102,18 +114,22 @@ if __name__ == '__main__':
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument('--design-id', type=int, required=True, help='design identifier')
+    parser.add_argument('--design-id', type=lambda x: int(x, 0), default=None, help='design identifier')
+    parser.add_argument('--design-path', default=None, help='design path')
     parser.add_argument('--frame-id', type=int, required=True, help='frame identifier')
     parser.add_argument('--obswl', type=float, default=0.62, help='wavelength of observation (um)')
     parser.add_argument('--altazimuth', action='store_true', help='')
     parser.add_argument('--verbose', action='store_true', help='')
     args, _ = parser.parse_known_args()
 
+    if all(x is None for x in (args.design_id, args.design_path)):
+        parser.error('at least one of the following arguments is required: --design-id, --design-path')
+
     import logging
 
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(name='field_acquisition')
-    dra, ddec, dinr, *values = acquire_field(args.design_id, args.frame_id, obswl=args.obswl, altazimuth=args.altazimuth, verbose=args.verbose, logger=logger)
+    dra, ddec, dinr, *values = acquire_field(design_id=args.design_id, frame_id=args.frame_id, obswl=args.obswl, altazimuth=args.altazimuth, verbose=args.verbose, design_path=args.design_path, logger=logger)
     print('dra={},ddec={},dinr={}'.format(dra, ddec, dinr))
     if args.altazimuth:
         dalt, daz, *values = values

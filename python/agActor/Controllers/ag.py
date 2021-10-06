@@ -33,19 +33,19 @@ class ag:
 
             self.set(**kwargs)
 
-        def set(self, mode=None, design_id=None, visit_id=None, exposure_time=None, cadence=None, focus=None):
+        def set(self, mode=None, design=None, visit_id=None, exposure_time=None, cadence=None, focus=None):
 
             self.mode = mode
-            self.design_id = design_id
+            self.design = design
             self.visit_id = visit_id
             self.exposure_time = exposure_time
             self.cadence = cadence
             self.focus = focus
 
-        def reset(self, mode=None, design_id=None, visit_id=None, exposure_time=None, cadence=None, focus=None):
+        def reset(self, mode=None, design=None, visit_id=None, exposure_time=None, cadence=None, focus=None):
 
             if mode is not None: self.mode = mode
-            if design_id is not None: self.design_id = design_id
+            if design is not None: self.design = design
             if visit_id is not None: self.visit_id = visit_id
             if exposure_time is not None: self.exposure_time = exposure_time
             if cadence is not None: self.cadence = cadence
@@ -57,7 +57,7 @@ class ag:
 
         def get(self):
 
-            return self.mode, self.design_id, self.visit_id, self.exposure_time, self.cadence, self.focus
+            return self.mode, self.design, self.visit_id, self.exposure_time, self.cadence, self.focus
 
     def __init__(self, actor, name, logLevel=logging.DEBUG):
 
@@ -90,17 +90,17 @@ class ag:
         mode, _, _, _, _, _ = self.thread.get_params()
         return mode
 
-    def start_autoguide(self, cmd=None, design_id=None, visit_id=None, from_sky=None, exposure_time=EXPOSURE_TIME, cadence=CADENCE, focus=FOCUS):
+    def start_autoguide(self, cmd=None, design=None, visit_id=None, from_sky=None, exposure_time=EXPOSURE_TIME, cadence=CADENCE, focus=FOCUS):
 
         #cmd = cmd if cmd else self.actor.bcast
-        mode = ag.Mode.AUTO if from_sky else ag.Mode.ON if design_id is None else ag.Mode.AUTO_DB
-        self.thread.set_params(mode=mode, design_id=design_id, visit_id=visit_id, exposure_time=exposure_time, cadence=cadence, focus=focus)
+        mode = ag.Mode.AUTO if from_sky else ag.Mode.ON if design is None else ag.Mode.AUTO_DB
+        self.thread.set_params(mode=mode, design=design, visit_id=visit_id, exposure_time=exposure_time, cadence=cadence, focus=focus)
 
-    def initialize_autoguide(self, cmd=None, design_id=None, visit_id=None, from_sky=None, exposure_time=EXPOSURE_TIME):
+    def initialize_autoguide(self, cmd=None, design=None, visit_id=None, from_sky=None, exposure_time=EXPOSURE_TIME):
 
         #cmd = cmd if cmd else self.actor.bcast
         mode = ag.Mode.REF if from_sky else ag.Mode.REF_DB
-        self.thread.set_params(mode=mode, design_id=design_id, visit_id=visit_id, exposure_time=exposure_time)
+        self.thread.set_params(mode=mode, design=design, visit_id=visit_id, exposure_time=exposure_time)
 
     def stop_autoguide(self, cmd=None):
 
@@ -112,10 +112,10 @@ class ag:
         #cmd = cmd if cmd else self.actor.bcast
         self.thread.set_params(exposure_time=exposure_time, cadence=cadence, focus=focus)
 
-    def acquire_field(self, cmd=None, design_id=None, visit_id=None, exposure_time=EXPOSURE_TIME, focus=None):
+    def acquire_field(self, cmd=None, design=None, visit_id=None, exposure_time=EXPOSURE_TIME, focus=None):
 
         #cmd = cmd if cmd else self.actor.bcast
-        self.thread.set_params(mode=ag.Mode.AUTO_ONCE_DB, design_id=design_id, visit_id=visit_id, exposure_time=exposure_time, focus=focus)
+        self.thread.set_params(mode=ag.Mode.AUTO_ONCE_DB, design=design, visit_id=visit_id, exposure_time=exposure_time, focus=focus)
 
 
 class AgThread(threading.Thread):
@@ -180,13 +180,14 @@ class AgThread(threading.Thread):
                 self.__stop.clear()
                 break
             start = time.time()
-            mode, design_id, visit_id, exposure_time, cadence, focus = self._get_params()
-            self.logger.info('AgThread.run: mode={},design_id={},visit_id={},exposure_time={},cadence={},focus={}'.format(mode, design_id, visit_id, exposure_time, cadence, focus))
+            mode, design, visit_id, exposure_time, cadence, focus = self._get_params()
+            design_id, design_path = design if design is not None else (None, None)
+            self.logger.info('AgThread.run: mode={},design={},visit_id={},exposure_time={},cadence={},focus={}'.format(mode, design, visit_id, exposure_time, cadence, focus))
             try:
                 if mode & ag.Mode.REF:
-                    autoguide.set_design(design_id=design_id, logger=self.logger)
+                    autoguide.set_design(design_id=design_id, design_path=design_path, logger=self.logger)
                     if mode & ag.Mode.DB:
-                        autoguide.set_catalog(logger=self.logger)
+                        autoguide.set_design_agc(logger=self.logger)
                         mode &= ~(ag.Mode.REF | ag.Mode.DB)
                         self._set_params(mode=mode)
                 if mode & (ag.Mode.ON | ag.Mode.ONCE | ag.Mode.REF):
@@ -205,7 +206,7 @@ class AgThread(threading.Thread):
                     # retrieve detected objects from opdb
                     if mode & ag.Mode.REF:
                         # store initial conditions
-                        autoguide.set_catalog(frame_id=frame_id, logger=self.logger)
+                        autoguide.set_design_agc(frame_id=frame_id, logger=self.logger)
                         self._set_params(mode=mode & ~ag.Mode.REF)
                     else:  # mode & (ag.Mode.ON | ag.Mode.ONCE)
                         cmd.inform('detectionState=1')
