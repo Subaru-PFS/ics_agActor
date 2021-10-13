@@ -114,7 +114,7 @@ class AgCmd:
             if guide:
                 cmd.inform('detectionState=1')
                 # convert equatorial coordinates to horizontal coordinates
-                dra, ddec, dinr, dalt, daz = field_acquisition.acquire_field(design_id=design_id, frame_id=frame_id, altazimuth=True, design_path=design_path, logger=self.actor.logger)
+                _, _, _, dra, ddec, dinr, dalt, daz = field_acquisition.acquire_field(design=(design_id, design_path), frame_id=frame_id, altazimuth=True, logger=self.actor.logger)
                 cmd.inform('text="dra={},ddec={},dinr={},dalt={},daz={}"'.format(dra, ddec, dinr, dalt, daz))
                 cmd.inform('detectionState=0')
                 # send corrections to mlp1 and gen2 (or iic)
@@ -126,7 +126,7 @@ class AgCmd:
                 #cmd.inform('guideReady=1')
             else:
                 cmd.inform('detectionState=1')
-                dra, ddec, dinr = field_acquisition.acquire_field(design_id=design_id, frame_id=frame_id, design_path=design_path, logger=self.actor.logger)
+                _, _, _, dra, ddec, dinr = field_acquisition.acquire_field(design=(design_id, design_path), frame_id=frame_id, logger=self.actor.logger)
                 cmd.inform('text="dra={},ddec={},dinr={}"'.format(dra, ddec, dinr))
                 cmd.inform('detectionState=0')
                 # send corrections to gen2 (or iic)

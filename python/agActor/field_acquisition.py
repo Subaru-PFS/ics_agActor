@@ -6,26 +6,29 @@ import to_altaz
 import kawanomoto
 
 
-def acquire_field(design_id=None, frame_id=None, obswl=0.62, altazimuth=False, verbose=False, design_path=None, logger=None):
-
-    if design_path is not None:
-
-        guide_objects, ra, dec, *_ = pfs_design(design_id, design_path).guide_stars
-        logger and logger.info('ra={},dec={}'.format(ra, dec))
-
-    else:
-
-        _, ra, dec, *_ = opdb.query_pfs_design(design_id)
-        logger and logger.info('ra={},dec={}'.format(ra, dec))
-
-        guide_objects = opdb.query_pfs_design_agc(design_id)
+def acquire_field(design=None, frame_id=None, obswl=0.62, altazimuth=False, verbose=False, logger=None):
 
     _, _, taken_at, _, _, inr, adc, _, _, _, m2_pos3 = opdb.query_agc_exposure(frame_id)
     logger and logger.info('taken_at={},inr={},adc={},m2_pos3={}'.format(taken_at, inr, adc, m2_pos3))
 
     detected_objects = opdb.query_agc_data(frame_id)
 
-    return _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, m2_pos3=m2_pos3, obswl=obswl, altazimuth=altazimuth, verbose=verbose, logger=logger)
+    design_id, design_path = design
+    logger and logger.info('design_id={},design_path={}'.format(design_id, design_path))
+
+    if design_path is not None:
+
+        guide_objects, ra, dec, pa = pfs_design(design_id, design_path).guide_stars
+        logger and logger.info('ra={},dec={},pa={}'.format(ra, dec, pa))
+
+    else:
+
+        _, ra, dec, pa, *_ = opdb.query_pfs_design(design_id)
+        logger and logger.info('ra={},dec={},pa={}'.format(ra, dec, pa))
+
+        guide_objects = opdb.query_pfs_design_agc(design_id)
+
+    return (ra, dec, pa, *_acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, m2_pos3=m2_pos3, obswl=obswl, altazimuth=altazimuth, verbose=verbose, logger=logger))
 
 
 def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, m2_pos3=6.0, obswl=0.62, altazimuth=False, verbose=False, logger=None):
@@ -129,8 +132,8 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(name='field_acquisition')
-    dra, ddec, dinr, *values = acquire_field(design_id=args.design_id, frame_id=args.frame_id, obswl=args.obswl, altazimuth=args.altazimuth, verbose=args.verbose, design_path=args.design_path, logger=logger)
-    print('dra={},ddec={},dinr={}'.format(dra, ddec, dinr))
+    ra, dec, pa, dra, ddec, dinr, *values = acquire_field(design=(args.design_id, args.design_path), frame_id=args.frame_id, obswl=args.obswl, altazimuth=args.altazimuth, verbose=args.verbose, logger=logger)
+    print('ra={},dec={},pa={},dra={},ddec={},dinr={}'.format(ra, dec, pa, dra, ddec, dinr))
     if args.altazimuth:
         dalt, daz, *values = values
         print('dalt={},daz={}'.format(dalt, daz))
