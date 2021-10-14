@@ -6,15 +6,15 @@ from pfs_design import pfsDesign as pfs_design
 
 class Field:
 
-    design_id = None
-    design_path = None
+    design = None
     ra = None
     dec = None
     guide_objects = None
 
 
-def set_design(design_id=None, design_path=None, logger=None):
+def set_design(design=None, logger=None):
 
+    design_id, design_path = design
     logger and logger.info('design_id={},design_path={}'.format(design_id, design_path))
 
     if design_path is not None:
@@ -27,11 +27,10 @@ def set_design(design_id=None, design_path=None, logger=None):
 
     logger and logger.info('ra={},dec={}'.format(ra, dec))
 
-    Field.design_id = design_id
-    Field.design_path = design_path
+    Field.design = design
     Field.ra = ra
     Field.dec = dec
-    Field.guide_objects = []
+    Field.guide_objects = []  # delay loading of guide objects
 
 
 def set_design_agc(frame_id=None, obswl=0.62, logger=None):
@@ -56,8 +55,7 @@ def set_design_agc(frame_id=None, obswl=0.62, logger=None):
 
         # use guide object table from operational database or pfs design file
 
-        design_id = Field.design_id
-        design_path = Field.design_path
+        design_id, design_path = Field.design
 
         if design_path is not None:
 
@@ -112,7 +110,7 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(name='autoguide')
-    set_design(design_id=args.design_id, design_path=args.design_path, logger=logger)
+    set_design(design=(args.design_id, args.design_path), logger=logger)
     set_design_agc(frame_id=args.ref_frame_id, obswl=args.obswl, logger=logger)
     dalt, daz, dinr, *values = autoguide(frame_id=args.frame_id, obswl=args.obswl, verbose=args.verbose, logger=logger)
     print('dalt={},daz={},dinr={}'.format(dalt, daz, dinr))

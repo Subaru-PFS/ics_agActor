@@ -185,7 +185,7 @@ class AgThread(threading.Thread):
             self.logger.info('AgThread.run: mode={},design={},visit_id={},exposure_time={},cadence={},focus={}'.format(mode, design, visit_id, exposure_time, cadence, focus))
             try:
                 if mode & ag.Mode.REF:
-                    autoguide.set_design(design_id=design_id, design_path=design_path, logger=self.logger)
+                    autoguide.set_design(design=(design_id, design_path), logger=self.logger)
                     if mode & ag.Mode.DB:
                         autoguide.set_design_agc(logger=self.logger)
                         mode &= ~(ag.Mode.REF | ag.Mode.DB)
