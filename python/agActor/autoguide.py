@@ -7,8 +7,7 @@ from pfs_design import pfsDesign as pfs_design
 class Field:
 
     design = None
-    ra = None
-    dec = None
+    center = None
     guide_objects = None
 
 
@@ -19,17 +18,16 @@ def set_design(design=None, logger=None):
 
     if design_path is not None:
 
-        _, ra, dec, *_ = pfs_design(design_id, design_path).guide_stars
+        _, ra, dec, pa = pfs_design(design_id, design_path).guide_stars
 
     else:
 
-        _, ra, dec, *_ = opdb.query_pfs_design(design_id)
+        _, ra, dec, pa, *_ = opdb.query_pfs_design(design_id)
 
     logger and logger.info('ra={},dec={}'.format(ra, dec))
 
     Field.design = design
-    Field.ra = ra
-    Field.dec = dec
+    Field.center = ra, dec, pa
     Field.guide_objects = []  # delay loading of guide objects
 
 
@@ -41,8 +39,7 @@ def set_design_agc(frame_id=None, obswl=0.62, logger=None):
 
         # create guide object table from frame
 
-        ra = Field.ra
-        dec = Field.dec
+        ra, dec, _ = Field.center
 
         _, _, taken_at, _, _, inr, adc, _, _, _, m2_pos3 = opdb.query_agc_exposure(frame_id)
         logger and logger.info('taken_at={},inr={},adc={},m2_pos3={}'.format(taken_at, inr, adc, m2_pos3))
@@ -68,16 +65,12 @@ def set_design_agc(frame_id=None, obswl=0.62, logger=None):
     Field.guide_objects = guide_objects
 
 
-def autoguide(frame_id, guide_objects=None, ra=None, dec=None, obswl=0.62, verbose=False, logger=None):
+def autoguide(frame_id, obswl=0.62, verbose=False, logger=None):
 
     logger and logger.info('frame_id={}'.format(frame_id))
 
-    if guide_objects is None:
-        guide_objects = Field.guide_objects
-    if ra is None:
-        ra = Field.ra
-    if dec is None:
-        dec = Field.dec
+    guide_objects = Field.guide_objects
+    ra, dec, _ = Field.center
     logger and logger.info('ra={},dec={}'.format(ra, dec))
 
     _, _, taken_at, _, _, inr, adc, _, _, _, m2_pos3 = opdb.query_agc_exposure(frame_id)
