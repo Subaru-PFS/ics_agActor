@@ -212,7 +212,7 @@ class AgThread(threading.Thread):
                     else:  # mode & (ag.Mode.ON | ag.Mode.ONCE)
                         cmd.inform('detectionState=1')
                         # compute guide errors
-                        dalt, daz, _, *values = autoguide.autoguide(frame_id=frame_id, verbose=True, logger=self.logger)
+                        dalt, daz, _, *values = autoguide.autoguide(frame_id=frame_id, logger=self.logger)
                         filename = '/dev/shm/guide_objects.npy'
                         numpy.save(filename, values[0])
                         cmd.inform('guideObjects={}'.format(filename))

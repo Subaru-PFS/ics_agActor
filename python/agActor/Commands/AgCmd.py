@@ -114,7 +114,7 @@ class AgCmd:
             if guide:
                 cmd.inform('detectionState=1')
                 # convert equatorial coordinates to horizontal coordinates
-                _, _, _, dra, ddec, dinr, dalt, daz, *values = field_acquisition.acquire_field(design=(design_id, design_path), frame_id=frame_id, altazimuth=True, verbose=True, logger=self.actor.logger)
+                _, _, _, dra, ddec, dinr, dalt, daz, *values = field_acquisition.acquire_field(design=(design_id, design_path), frame_id=frame_id, altazimuth=True, logger=self.actor.logger)
                 cmd.inform('text="dra={},ddec={},dinr={},dalt={},daz={}"'.format(dra, ddec, dinr, dalt, daz))
                 filename = '/dev/shm/guide_objects.npy'
                 numpy.save(filename, values[0])
@@ -137,7 +137,7 @@ class AgCmd:
                 #cmd.inform('guideReady=1')
             else:
                 cmd.inform('detectionState=1')
-                _, _, _, dra, ddec, dinr, *values = field_acquisition.acquire_field(design=(design_id, design_path), frame_id=frame_id, verbose=True, logger=self.actor.logger)
+                _, _, _, dra, ddec, dinr, *values = field_acquisition.acquire_field(design=(design_id, design_path), frame_id=frame_id, logger=self.actor.logger)
                 cmd.inform('text="dra={},ddec={},dinr={}"'.format(dra, ddec, dinr))
                 filename = '/dev/shm/guide_objects.npy'
                 numpy.save(filename, values[0])
@@ -187,7 +187,7 @@ class AgCmd:
             self.actor.logger.info('AgCmd.focus: frameId={}'.format(frame_id))
             # retrieve detected objects from agcc (or opdb)
             # compute focus offset and tilt
-            dz = focus.focus(frame_id, verbose=True, logger=self.actor.logger)
+            dz = focus.focus(frame_id, logger=self.actor.logger)
             if numpy.isnan(dz):
                 cmd.fail('text="AgCmd.focus: dz={}'.format(dz))
                 return
