@@ -100,8 +100,8 @@ class AgCmd:
                 cmdStr='expose object pfsVisitId={} exptime={} centroid=1'.format(visit_id, exposure_time / 1000),
                 timeLim=(exposure_time // 1000 + 5)
             )
-            telescope_state = self.actor.mlp1.telescopeState
-            self.actor.logger.info('AgCmd.acquire_field: telescopeState={}'.format(telescope_state))
+            #telescope_state = self.actor.mlp1.telescopeState
+            #self.actor.logger.info('AgCmd.acquire_field: telescopeState={}'.format(telescope_state))
             frame_id = self.actor.agcc.frameId
             self.actor.logger.info('AgCmd.acquire_field: frameId={}'.format(frame_id))
             data_time = self.actor.agcc.dataTime
@@ -114,17 +114,12 @@ class AgCmd:
             if guide:
                 cmd.inform('detectionState=1')
                 # convert equatorial coordinates to horizontal coordinates
-                _, _, _, dra, ddec, dinr, dalt, daz, *values = field_acquisition.acquire_field(design=(design_id, design_path), frame_id=frame_id, altazimuth=True, logger=self.actor.logger)
+                ra, dec, pa, dra, ddec, dinr, dalt, daz, *values = field_acquisition.acquire_field(design=(design_id, design_path), frame_id=frame_id, altazimuth=True, logger=self.actor.logger)
                 cmd.inform('text="dra={},ddec={},dinr={},dalt={},daz={}"'.format(dra, ddec, dinr, dalt, daz))
-                filename = '/dev/shm/guide_objects.npy'
-                numpy.save(filename, values[0])
-                cmd.inform('guideObjects={}'.format(filename))
-                filename = '/dev/shm/detected_objects.npy'
-                numpy.save(filename, values[1])
-                cmd.inform('detectedObjects={}'.format(filename))
-                filename = '/dev/shm/identified_objects.npy'
-                numpy.save(filename, values[2])
-                cmd.inform('identifiedObjects={}'.format(filename))
+                filenames = ('/dev/shm/guide_objects.npy', '/dev/shm/detected_objects.npy', '/dev/shm/identified_objects.npy')
+                for filename, value in zip(filenames, values):
+                    numpy.save(filename, value)
+                cmd.inform('data={},{},{},"{}","{}","{}"'.format(ra, dec, pa, *filenames))
                 cmd.inform('detectionState=0')
                 dx, dy, size, peak, flux = values[3], values[4], values[5], values[6], values[7]
                 # send corrections to mlp1 and gen2 (or iic)
@@ -137,17 +132,12 @@ class AgCmd:
                 #cmd.inform('guideReady=1')
             else:
                 cmd.inform('detectionState=1')
-                _, _, _, dra, ddec, dinr, *values = field_acquisition.acquire_field(design=(design_id, design_path), frame_id=frame_id, logger=self.actor.logger)
+                ra, dec, pa, dra, ddec, dinr, *values = field_acquisition.acquire_field(design=(design_id, design_path), frame_id=frame_id, logger=self.actor.logger)
                 cmd.inform('text="dra={},ddec={},dinr={}"'.format(dra, ddec, dinr))
-                filename = '/dev/shm/guide_objects.npy'
-                numpy.save(filename, values[0])
-                cmd.inform('guideObjects={}'.format(filename))
-                filename = '/dev/shm/detected_objects.npy'
-                numpy.save(filename, values[1])
-                cmd.inform('detectedObjects={}'.format(filename))
-                filename = '/dev/shm/identified_objects.npy'
-                numpy.save(filename, values[2])
-                cmd.inform('identifiedObjects={}'.format(filename))
+                filenames = ('/dev/shm/guide_objects.npy', '/dev/shm/detected_objects.npy', '/dev/shm/identified_objects.npy')
+                for filename, value in zip(filenames, values):
+                    numpy.save(filename, value)
+                cmd.inform('data={},{},{},"{}","{}","{}"'.format(ra, dec, pa, *filenames))
                 cmd.inform('detectionState=0')
                 # send corrections to gen2 (or iic)
             # store results in opdb

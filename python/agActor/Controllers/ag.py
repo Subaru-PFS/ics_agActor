@@ -198,8 +198,8 @@ class AgThread(threading.Thread):
                         cmdStr='expose object pfsVisitId={} exptime={} centroid=1'.format(visit_id, exposure_time / 1000),
                         timeLim=(exposure_time // 1000 + 5)
                     )
-                    telescope_state = self.actor.mlp1.telescopeState
-                    self.logger.info('AgThread.run: telescopeState={}'.format(telescope_state))
+                    #telescope_state = self.actor.mlp1.telescopeState
+                    #self.logger.info('AgThread.run: telescopeState={}'.format(telescope_state))
                     frame_id = self.actor.agcc.frameId
                     self.actor.logger.info('AgThread.run: frameId={}'.format(frame_id))
                     data_time = self.actor.agcc.dataTime
@@ -213,15 +213,11 @@ class AgThread(threading.Thread):
                         cmd.inform('detectionState=1')
                         # compute guide errors
                         dalt, daz, _, *values = autoguide.autoguide(frame_id=frame_id, logger=self.logger)
-                        filename = '/dev/shm/guide_objects.npy'
-                        numpy.save(filename, values[0])
-                        cmd.inform('guideObjects={}'.format(filename))
-                        filename = '/dev/shm/detected_objects.npy'
-                        numpy.save(filename, values[1])
-                        cmd.inform('detectedObjects={}'.format(filename))
-                        filename = '/dev/shm/identified_objects.npy'
-                        numpy.save(filename, values[2])
-                        cmd.inform('identifiedObjects={}'.format(filename))
+                        ra, dec, pa = autoguide.Field.center
+                        filenames = ('/dev/shm/guide_objects.npy', '/dev/shm/detected_objects.npy', '/dev/shm/identified_objects.npy')
+                        for filename, value in zip(filenames, values):
+                            numpy.save(filename, value)
+                        cmd.inform('data={},{},{},"{}","{}","{}"'.format(ra, dec, pa, *filenames))
                         cmd.inform('detectionState=0')
                         dx, dy, size, peak, flux = values[3], values[4], values[5], values[6], values[7]
                         result = self.actor.sendCommand(
