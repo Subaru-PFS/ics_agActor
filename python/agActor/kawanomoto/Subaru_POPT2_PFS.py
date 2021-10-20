@@ -21,7 +21,7 @@ Unknown_Scale_Factor = 1.0
 wfc_scale_M2POS3_coeff = 1.01546e-4
 
 ### constants proper to PFS camera
-pfs_inr_zero_offset = 0.00  # in degree
+pfs_inr_zero_offset = -90.00  # in degree
 pfs_detector_zero_offset_x = 0.00  # in mm
 pfs_detector_zero_offset_y = 0.00  # in mm
 
@@ -483,14 +483,14 @@ class POPT2:
 class PFS:
 
     def fp2dp(self, xt, yt, inr_deg):
-        inr = np.deg2rad(inr_deg)
+        inr = np.deg2rad(inr_deg + pfs_inr_zero_offset)
         x = (xt * np.cos(inr) + yt * np.sin(inr)) + pfs_detector_zero_offset_x
         y = (xt * np.sin(inr) - yt * np.cos(inr)) + pfs_detector_zero_offset_y
 
         return x, y
 
     def dp2fp(self, xc, yc, inr_deg):
-        inr = np.deg2rad(inr_deg)
+        inr = np.deg2rad(inr_deg + pfs_inr_zero_offset)
         x = (xc - pfs_detector_zero_offset_x) * np.cos(inr) + (yc - pfs_detector_zero_offset_y) * np.sin(inr)
         y = (xc - pfs_detector_zero_offset_x) * np.sin(inr) - (yc - pfs_detector_zero_offset_y) * np.cos(inr)
 
