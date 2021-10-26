@@ -64,7 +64,7 @@ class opDB:
         #     (pfs_design_id,)
         # )
         return opDB.fetchall(
-            'SELECT guide_star_id,guide_star_ra,guide_star_dec,guide_star_magnitude,agc_camera_id,agc_target_x_pix,agc_target_y_pix FROM pfs_design_agc WHERE pfs_design_id=%s',
+            'SELECT guide_star_id,guide_star_ra,guide_star_dec,guide_star_magnitude,agc_camera_id,agc_target_x_pix,agc_target_y_pix FROM pfs_design_agc WHERE pfs_design_id=%s ORDER BY guide_star_id',
             (pfs_design_id,)
         )
 
@@ -79,8 +79,12 @@ class opDB:
     @staticmethod
     def query_agc_data(agc_exposure_id):
 
+        # return opDB.fetchall(
+        #     'SELECT agc_camera_id,spot_id,image_moment_00_pix,centroid_x_pix,centroid_y_pix,central_image_moment_11_pix,central_image_moment_20_pix,central_image_moment_02_pix,peak_pixel_x_pix,peak_pixel_y_pix,peak_intensity,background,flags FROM agc_data WHERE agc_exposure_id=%s',
+        #     (agc_exposure_id,)
+        # )
         return opDB.fetchall(
-            'SELECT agc_camera_id,spot_id,image_moment_00_pix,centroid_x_pix,centroid_y_pix,central_image_moment_11_pix,central_image_moment_20_pix,central_image_moment_02_pix,peak_pixel_x_pix,peak_pixel_y_pix,peak_intensity,background,flags FROM agc_data WHERE agc_exposure_id=%s',
+            'SELECT agc_camera_id,spot_id,image_moment_00_pix,centroid_x_pix,centroid_y_pix,central_image_moment_11_pix,central_image_moment_20_pix,central_image_moment_02_pix,peak_pixel_x_pix,peak_pixel_y_pix,peak_intensity,background,CAST(centroid_x_pix>=511.5+24 AS INTEGER) AS flags FROM agc_data WHERE agc_exposure_id=%s ORDER BY agc_camera_id,spot_id',
             (agc_exposure_id,)
         )
 
