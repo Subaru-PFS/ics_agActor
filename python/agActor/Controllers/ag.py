@@ -97,11 +97,11 @@ class ag:
         mode = ag.Mode.AUTO if from_sky else ag.Mode.ON if design is None else ag.Mode.AUTO_DB
         self.thread.set_params(mode=mode, design=design, visit_id=visit_id, exposure_time=exposure_time, cadence=cadence, focus=focus)
 
-    def initialize_autoguide(self, cmd=None, design=None, visit_id=None, from_sky=None, exposure_time=EXPOSURE_TIME):
+    def initialize_autoguide(self, cmd=None, design=None, visit_id=None, from_sky=None, exposure_time=EXPOSURE_TIME, cadence=CADENCE, focus=FOCUS):
 
         #cmd = cmd if cmd else self.actor.bcast
         mode = ag.Mode.REF if from_sky else ag.Mode.REF_DB
-        self.thread.set_params(mode=mode, design=design, visit_id=visit_id, exposure_time=exposure_time)
+        self.thread.set_params(mode=mode, design=design, visit_id=visit_id, exposure_time=exposure_time, cadence=cadence, focus=focus)
 
     def stop_autoguide(self, cmd=None):
 

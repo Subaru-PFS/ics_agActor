@@ -19,7 +19,8 @@ class AgCmd:
             ('acquire_field', '[<design_id>] [<design_path>] [<visit_id>] [<exposure_time>] [<guide>]', self.acquire_field),
             ('focus', '[<visit_id>] [<exposure_time>]', self.focus),
             ('autoguide', '@start [<design_id>] [<design_path>] [<visit_id>] [<from_sky>] [<exposure_time>] [<cadence>] [<focus>]', self.start_autoguide),
-            ('autoguide', '@initialize [<design_id>] [<design_path>] [<visit_id>] [<from_sky>] [<exposure_time>]', self.initialize_autoguide),
+            ('autoguide', '@initialize [<design_id>] [<design_path>] [<visit_id>] [<from_sky>] [<exposure_time>] [<cadence>] [<focus>]', self.initialize_autoguide),
+            ('autoguide', '@restart', self.restart_autoguide),
             ('autoguide', '@stop', self.stop_autoguide),
             ('autoguide', '@reconfigure [<exposure_time>] [<cadence>] [<focus>]', self.reconfigure_autoguide),
         ]
@@ -79,6 +80,7 @@ class AgCmd:
         if all(x is None for x in (design_id, design_path)):
             cmd.fail('text="AgCmd.acquire_field: <design_id> and/or <design_path> required"')
             return
+        design = (design_id, design_path)
         visit_id = self.visit_id
         if 'visit_id' in cmd.cmd.keywords:
             visit_id = int(cmd.cmd.keywords['visit_id'].values[0])
@@ -114,7 +116,7 @@ class AgCmd:
             if guide:
                 cmd.inform('detectionState=1')
                 # convert equatorial coordinates to horizontal coordinates
-                ra, dec, pa, dra, ddec, dinr, dalt, daz, *values = field_acquisition.acquire_field(design=(design_id, design_path), frame_id=frame_id, altazimuth=True, logger=self.actor.logger)
+                ra, dec, pa, dra, ddec, dinr, dalt, daz, *values = field_acquisition.acquire_field(design=design, frame_id=frame_id, altazimuth=True, logger=self.actor.logger)
                 cmd.inform('text="dra={},ddec={},dinr={},dalt={},daz={}"'.format(dra, ddec, dinr, dalt, daz))
                 filenames = ('/dev/shm/guide_objects.npy', '/dev/shm/detected_objects.npy', '/dev/shm/identified_objects.npy')
                 for filename, value in zip(filenames, values):
@@ -132,7 +134,7 @@ class AgCmd:
                 #cmd.inform('guideReady=1')
             else:
                 cmd.inform('detectionState=1')
-                ra, dec, pa, dra, ddec, dinr, *values = field_acquisition.acquire_field(design=(design_id, design_path), frame_id=frame_id, logger=self.actor.logger)
+                ra, dec, pa, dra, ddec, dinr, *values = field_acquisition.acquire_field(design=design, frame_id=frame_id, logger=self.actor.logger)
                 cmd.inform('text="dra={},ddec={},dinr={}"'.format(dra, ddec, dinr))
                 filenames = ('/dev/shm/guide_objects.npy', '/dev/shm/detected_objects.npy', '/dev/shm/identified_objects.npy')
                 for filename, value in zip(filenames, values):
@@ -201,7 +203,7 @@ class AgCmd:
         if 'design_path' in cmd.cmd.keywords:
             design_path = str(cmd.cmd.keywords['design_path'].values[0])
         design = None if all(x is None for x in (design_id, design_path)) else (design_id, design_path)
-        visit_id = None
+        visit_id = self.visit_id
         if 'visit_id' in cmd.cmd.keywords:
             visit_id = int(cmd.cmd.keywords['visit_id'].values[0])
             self.visit_id = visit_id
@@ -256,11 +258,31 @@ class AgCmd:
             exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
             if exposure_time < 100:
                 exposure_time = 100
+        cadence = 0 # ms
+        if 'cadence' in cmd.cmd.keywords:
+            cadence = int(cmd.cmd.keywords['cadence'].values[0])
+            if cadence < 0:
+                cadence = 0
+        focus = False
+        if 'focus' in cmd.cmd.keywords:
+            focus = bool(cmd.cmd.keywords['focus'].values[0])
 
         try:
-            controller.initialize_autoguide(cmd=cmd, design=design, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time)
+            controller.initialize_autoguide(cmd=cmd, design=design, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time, cadence=cadence, focus=focus)
         except Exception as e:
             cmd.fail('text="AgCmd.initialize_autoguide: {}"'.format(e))
+            return
+        cmd.finish()
+
+    def restart_autoguide(self, cmd):
+
+        controller = self.actor.controllers['ag']
+        #self.actor.logger.info('controller={}'.format(controller))
+
+        try:
+            controller.start_autoguide(cmd=cmd, exposure_time=None, cadence=None, focus=None)
+        except Exception as e:
+            cmd.fail('text="AgCmd.restart_autoguide: {}"'.format(e))
             return
         cmd.finish()
 
