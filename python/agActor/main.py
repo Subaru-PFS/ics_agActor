@@ -66,28 +66,42 @@ class AgActor(ICC):
 
         pass
 
-    def sendCommand(self, actor=None, cmdStr=None, timeLim=0, callFunc=None, **kwargs):
+    def queueCommand(self, actor=None, cmdStr=None, timeLim=0, **kwargs):
 
-        if callFunc is None:
-            self.logger.info('calling Cmdr.cmdq...')
-            q = self.cmdr.cmdq(actor=actor, cmdStr=cmdStr, timeLim=timeLim, **kwargs)
-            while True:
-                try:
-                    result = q.get(timeout=1)
-                    break
-                except queue.Empty:
-                    if not self.cmdr.connector.activeConnection:
-                        raise Exception('connection lost: actor={},cmdStr="{}",timeLim={},kwargs={}'.format(actor, cmdStr, timeLim, str(kwargs)))
-            for reply in result.replyList:
-                self.logger.info('reply={}'.format(reply.canonical()))
-            self.logger.info('didFail={}'.format(result.didFail))
-            if result.didFail:
-                raise Exception('command failed: actor={},cmdStr="{}",timeLim={},kwargs={}'.format(actor, cmdStr, timeLim, str(kwargs)))
-            return result
-        else:
-            self.logger.info('calling Cmdr.bgCall...')
-            self.cmdr.bgCall(callFunc=callFunc, actor=actor, cmdStr=cmdStr, timeLim=timeLim, **kwargs)
-            return None
+        params = {k: v for k, v in locals().items() if k not in ('self',)}
+        result = self.cmdr.cmdq(actor=actor, cmdStr=cmdStr, timeLim=timeLim, **kwargs)
+
+        class _Result:
+
+            def __init__(self, cmdr, logger):
+
+                self.connector = cmdr.connector
+                self.logger = logger
+                self.params = params
+                self.result = result
+
+            def __del__(self):
+
+                #self.logger.info('_Result.__del__:')
+                del self.connector
+
+            def get(self):
+
+                while True:
+                    try:
+                        result = self.result.get(timeout=0.1)
+                        break
+                    except queue.Empty:
+                        if not self.connector.isConnected():
+                            raise Exception('connection lost: params={}'.format(self.params))
+                for reply in result.replyList:
+                    self.logger.info('reply={}'.format(reply.canonical()))
+                self.logger.info('didFail={}'.format(result.didFail))
+                if result.didFail:
+                    raise Exception('command failed: params={}'.format(self.params))
+                return result
+
+        return _Result(self.cmdr, self.logger)
 
 
 def main():

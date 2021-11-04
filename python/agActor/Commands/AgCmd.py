@@ -97,11 +97,12 @@ class AgCmd:
         try:
             cmd.inform('exposureTime={}'.format(exposure_time))
             # start an exposure
-            result = self.actor.sendCommand(
+            result = self.actor.queueCommand(
                 actor='agcc',
                 cmdStr='expose object pfsVisitId={} exptime={} centroid=1'.format(visit_id, exposure_time / 1000),
                 timeLim=(exposure_time // 1000 + 5)
             )
+            result.get()
             #telescope_state = self.actor.mlp1.telescopeState
             #self.actor.logger.info('AgCmd.acquire_field: telescopeState={}'.format(telescope_state))
             frame_id = self.actor.agcc.frameId
@@ -125,12 +126,13 @@ class AgCmd:
                 cmd.inform('detectionState=0')
                 dx, dy, size, peak, flux = values[3], values[4], values[5], values[6], values[7]
                 # send corrections to mlp1 and gen2 (or iic)
-                result = self.actor.sendCommand(
+                result = self.actor.queueCommand(
                     actor='mlp1',
                     # daz, dalt: arcsec, positive feedback; dx, dy: mas, HSC -> PFS; size: mas; peak, flux: adu
                     cmdStr='guide azel={},{} ready=1 time={} delay=0 xy={},{} size={} intensity={} flux={}'.format(- daz, - dalt, data_time, dx / 98e-6, - dy / 98e-6, size * 13 / 98e-3, peak, flux),
                     timeLim=5
                 )
+                result.get()
                 #cmd.inform('guideReady=1')
             else:
                 cmd.inform('detectionState=1')
@@ -170,11 +172,12 @@ class AgCmd:
         try:
             cmd.inform('exposureTime={}'.format(exposure_time))
             # start an exposure
-            result = self.actor.sendCommand(
+            result = self.actor.queueCommand(
                 actor='agcc',
                 cmdStr='expose object pfsVisitId={} exptime={} centroid=1'.format(visit_id, exposure_time / 1000),
                 timeLim=(exposure_time // 1000 + 5)
             )
+            result.get()
             frame_id = self.actor.agcc.frameId
             self.actor.logger.info('AgCmd.focus: frameId={}'.format(frame_id))
             # retrieve detected objects from agcc (or opdb)
