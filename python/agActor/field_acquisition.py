@@ -6,9 +6,12 @@ import to_altaz
 import kawanomoto
 
 
-def acquire_field(design=None, frame_id=None, obswl=0.62, altazimuth=False, logger=None):
+def acquire_field(*, design=None, frame_id=None, tel_status=None, obswl=0.62, altazimuth=False, logger=None):
 
-    _, _, taken_at, _, _, inr, adc, _, _, _, m2_pos3 = opdb.query_agc_exposure(frame_id)
+    if tel_status is not None:
+        _, _, inr, adc, m2_pos3, _, _, _, taken_at = tel_status
+    else:
+        _, _, taken_at, _, _, inr, adc, _, _, _, m2_pos3 = opdb.query_agc_exposure(frame_id)
     logger and logger.info('taken_at={},inr={},adc={},m2_pos3={}'.format(taken_at, inr, adc, m2_pos3))
     detected_objects = opdb.query_agc_data(frame_id)
     design_id, design_path = design

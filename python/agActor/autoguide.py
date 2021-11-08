@@ -11,7 +11,7 @@ class Field:
     guide_objects = None
 
 
-def set_design(design=None, logger=None):
+def set_design(*, design=None, logger=None):
 
     design_id, design_path = design
     logger and logger.info('design_id={},design_path={}'.format(design_id, design_path))
@@ -25,13 +25,16 @@ def set_design(design=None, logger=None):
     Field.guide_objects = []  # delay loading of guide objects
 
 
-def set_design_agc(frame_id=None, obswl=0.62, logger=None):
+def set_design_agc(*, frame_id=None, tel_status=None, obswl=0.62, logger=None):
 
     logger and logger.info('frame_id={}'.format(frame_id))
     if frame_id is not None:
         # create guide object table from frame
         ra, dec, _ = Field.center
-        _, _, taken_at, _, _, inr, adc, _, _, _, m2_pos3 = opdb.query_agc_exposure(frame_id)
+        if tel_status is not None:
+            _, _, inr, adc, m2_pos3, _, _, _, taken_at = tel_status
+        else:
+            _, _, taken_at, _, _, inr, adc, _, _, _, m2_pos3 = opdb.query_agc_exposure(frame_id)
         logger and logger.info('taken_at={},inr={},adc={},m2_pos3={}'.format(taken_at, inr, adc, m2_pos3))
         detected_objects = opdb.query_agc_data(frame_id)
         guide_objects = astrometry.measure(detected_objects, ra, dec, taken_at, inr, adc, m2_pos3=m2_pos3, obswl=obswl, logger=logger)
@@ -45,13 +48,16 @@ def set_design_agc(frame_id=None, obswl=0.62, logger=None):
     Field.guide_objects = guide_objects
 
 
-def autoguide(frame_id, obswl=0.62, logger=None):
+def autoguide(*, frame_id, tel_status=None, obswl=0.62, logger=None):
 
     logger and logger.info('frame_id={}'.format(frame_id))
     guide_objects = Field.guide_objects
     ra, dec, _ = Field.center
     logger and logger.info('ra={},dec={}'.format(ra, dec))
-    _, _, taken_at, _, _, inr, adc, _, _, _, m2_pos3 = opdb.query_agc_exposure(frame_id)
+    if tel_status is not None:
+        _, _, inr, adc, m2_pos3, _, _, _, taken_at = tel_status
+    else:
+        _, _, taken_at, _, _, inr, adc, _, _, _, m2_pos3 = opdb.query_agc_exposure(frame_id)
     logger and logger.info('taken_at={},inr={},adc={},m2_pos3={}'.format(taken_at, inr, adc, m2_pos3))
     detected_objects = opdb.query_agc_data(frame_id)
     _, _, dinr, dalt, daz, *values = field_acquisition._acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, m2_pos3=m2_pos3, obswl=obswl, altazimuth=True, logger=logger)
