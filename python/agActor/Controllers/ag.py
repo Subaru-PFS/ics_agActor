@@ -193,14 +193,21 @@ class AgThread(threading.Thread):
                         self._set_params(mode=mode)
                 if mode & (ag.Mode.ON | ag.Mode.ONCE | ag.Mode.REF):
                     cmd.inform('exposureTime={}'.format(exposure_time))
+                    # start an exposure
                     result = self.actor.queueCommand(
                         actor='agcc',
                         cmdStr='expose object pfsVisitId={} exptime={} centroid=1'.format(visit_id, exposure_time / 1000),
                         timeLim=(exposure_time // 1000 + 5)
                     )
-                    result.get()
+                    # update gen2 status values
+                    self.actor.queueCommand(actor='gen2', cmdStr='updateTelStatus', timeLim=5).get()
+                    tel_status = self.actor.gen2.tel_status
+                    self.actor.logger.info('AgThread.run: tel_status={}'.format(tel_status))
+                    ra, dec, pa, taken_at = tel_status[5:]
                     #telescope_state = self.actor.mlp1.telescopeState
                     #self.logger.info('AgThread.run: telescopeState={}'.format(telescope_state))
+                    # wait for an exposure to complete
+                    result.get()
                     frame_id = self.actor.agcc.frameId
                     self.actor.logger.info('AgThread.run: frameId={}'.format(frame_id))
                     data_time = self.actor.agcc.dataTime

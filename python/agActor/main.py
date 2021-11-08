@@ -5,6 +5,7 @@ import queue
 from actorcore.ICC import ICC
 from agActor.agcc import Agcc
 from agActor.mlp1 import Mlp1
+from agActor.gen2 import Gen2
 
 
 class AgActor(ICC):
@@ -50,11 +51,13 @@ class AgActor(ICC):
 
             self.agcc = Agcc(actor=self, logger=self.logger)
             self.mlp1 = Mlp1(actor=self, logger=self.logger)
+            self.gen2 = Gen2(actor=self, logger=self.logger)
 
-            _models = ('agcc', 'mlp1',)
+            _models = ('agcc', 'mlp1', 'gen2',)
             self.addModels(_models)
             #self.models['agcc'].keyVarDict[''].addCallback(self.agcc.receiveStatusKeys, callNow=False)
             #self.models['mlp1'].keyVarDict[''].addCallback(self.mlp1.receiveStatusKeys, callNow=False)
+            self.models['gen2'].keyVarDict['tel_axes'].addCallback(self.gen2.receiveStatusKeys, callNow=False)  # for timestamp only
 
     # override
     def connectionLost(self, reason):

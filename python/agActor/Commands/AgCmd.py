@@ -3,7 +3,7 @@
 import numpy
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from agActor import field_acquisition, focus
+from agActor import field_acquisition, field_acquisition_otf, focus
 
 
 class AgCmd:
@@ -17,6 +17,7 @@ class AgCmd:
             ('status', '', self.status),
             ('show', '', self.show),
             ('acquire_field', '[<design_id>] [<design_path>] [<visit_id>] [<exposure_time>] [<guide>]', self.acquire_field),
+            ('acquire_field', '@otf [<visit_id>] [<exposure_time>] [<guide>]', self.acquire_field_otf),
             ('focus', '[<visit_id>] [<exposure_time>]', self.focus),
             ('autoguide', '@start [<design_id>] [<design_path>] [<visit_id>] [<from_sky>] [<exposure_time>] [<cadence>] [<focus>]', self.start_autoguide),
             ('autoguide', '@initialize [<design_id>] [<design_path>] [<visit_id>] [<from_sky>] [<exposure_time>] [<cadence>] [<focus>]', self.initialize_autoguide),
@@ -47,7 +48,7 @@ class AgCmd:
         """Return status keywords."""
 
         self.actor.sendVersionKey(cmd)
-        # self.actor.ag.sendStatusKeys(cmd, force=True)
+        #self.actor.ag.sendStatusKeys(cmd, force=True)
         cmd.finish()
 
     def show(self, cmd):
@@ -85,7 +86,7 @@ class AgCmd:
         if 'visit_id' in cmd.cmd.keywords:
             visit_id = int(cmd.cmd.keywords['visit_id'].values[0])
             self.visit_id = visit_id
-        exposure_time = 2000 # ms
+        exposure_time = 2000  # ms
         if 'exposure_time' in cmd.cmd.keywords:
             exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
             if exposure_time < 100:
@@ -102,9 +103,15 @@ class AgCmd:
                 cmdStr='expose object pfsVisitId={} exptime={} centroid=1'.format(visit_id, exposure_time / 1000),
                 timeLim=(exposure_time // 1000 + 5)
             )
-            result.get()
+            # update gen2 status values
+            self.actor.queueCommand(actor='gen2', cmdStr='updateTelStatus', timeLim=5).get()
+            tel_status = self.actor.gen2.tel_status
+            self.actor.logger.info('AgCmd.acquire_field: tel_status={}'.format(tel_status))
+            ra, dec, pa, taken_at = tel_status[5:]
             #telescope_state = self.actor.mlp1.telescopeState
             #self.actor.logger.info('AgCmd.acquire_field: telescopeState={}'.format(telescope_state))
+            # wait for an exposure to complete
+            result.get()
             frame_id = self.actor.agcc.frameId
             self.actor.logger.info('AgCmd.acquire_field: frameId={}'.format(frame_id))
             data_time = self.actor.agcc.dataTime
@@ -150,6 +157,85 @@ class AgCmd:
             return
         cmd.finish()
 
+    def acquire_field_otf(self, cmd):
+
+        controller = self.actor.controllers['ag']
+        #self.actor.logger.info('controller={}'.format(controller))
+        mode = controller.get_mode()
+        if mode != controller.Mode.OFF:
+            cmd.fail('text="AgCmd.acquire_field_otf: mode={}'.format(mode))
+            return
+
+        visit_id = self.visit_id
+        if 'visit_id' in cmd.cmd.keywords:
+            visit_id = int(cmd.cmd.keywords['visit_id'].values[0])
+            self.visit_id = visit_id
+        exposure_time = 2000  # ms
+        if 'exposure_time' in cmd.cmd.keywords:
+            exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
+            if exposure_time < 100:
+                exposure_time = 100
+        guide = False
+        if 'guide' in cmd.cmd.keywords:
+            guide = bool(cmd.cmd.keywords['guide'].values[0])
+
+        try:
+            cmd.inform('exposureTime={}'.format(exposure_time))
+            # start an exposure
+            result = self.actor.queueCommand(
+                actor='agcc',
+                cmdStr='expose object pfsVisitId={} exptime={} centroid=1'.format(visit_id, exposure_time / 1000),
+                timeLim=(exposure_time // 1000 + 5)
+            )
+            # update gen2 status values
+            self.actor.queueCommand(actor='gen2', cmdStr='updateTelStatus', timeLim=5).get()
+            tel_status = self.actor.gen2.tel_status
+            self.actor.logger.info('AgCmd.acquire_field_otf: tel_status={}'.format(tel_status))
+            ra, dec, pa, taken_at = tel_status[5:]
+            #telescope_state = self.actor.mlp1.telescopeState
+            #self.actor.logger.info('AgCmd.acquire_field_otf: telescopeState={}'.format(telescope_state))
+            # wait for an exposure to complete
+            result.get()
+            frame_id = self.actor.agcc.frameId
+            self.actor.logger.info('AgCmd.acquire_field_otf: frameId={}'.format(frame_id))
+            data_time = self.actor.agcc.dataTime
+            self.actor.logger.info('AgCmd.acquire_field_otf: dataTime={}'.format(data_time))
+            if guide:
+                cmd.inform('detectionState=1')
+                # convert equatorial coordinates to horizontal coordinates
+                dra, ddec, dinr, dalt, daz, *values = field_acquisition_otf.acquire_field(ra=ra, dec=dec, tel_status=tel_status, frame_id=frame_id, altazimuth=True, logger=self.actor.logger)
+                cmd.inform('text="dra={},ddec={},dinr={},dalt={},daz={}"'.format(dra, ddec, dinr, dalt, daz))
+                filenames = ('/dev/shm/guide_objects.npy', '/dev/shm/detected_objects.npy', '/dev/shm/identified_objects.npy')
+                for filename, value in zip(filenames, values):
+                    numpy.save(filename, value)
+                cmd.inform('data={},{},{},"{}","{}","{}"'.format(ra, dec, pa, *filenames))
+                cmd.inform('detectionState=0')
+                dx, dy, size, peak, flux = values[3], values[4], values[5], values[6], values[7]
+                # send corrections to mlp1 and gen2 (or iic)
+                result = self.actor.queueCommand(
+                    actor='mlp1',
+                    # daz, dalt: arcsec, positive feedback; dx, dy: mas, HSC -> PFS; size: mas; peak, flux: adu
+                    cmdStr='guide azel={},{} ready=1 time={} delay=0 xy={},{} size={} intensity={} flux={}'.format(- daz, - dalt, data_time, dx / 98e-6, - dy / 98e-6, size * 13 / 98e-3, peak, flux),
+                    timeLim=5
+                )
+                result.get()
+                #cmd.inform('guideReady=1')
+            else:
+                cmd.inform('detectionState=1')
+                dra, ddec, dinr, *values = field_acquisition_otf.acquire_field(ra=ra, dec=dec, tel_status=tel_status, frame_id=frame_id, logger=self.actor.logger)
+                cmd.inform('text="dra={},ddec={},dinr={}"'.format(dra, ddec, dinr))
+                filenames = ('/dev/shm/guide_objects.npy', '/dev/shm/detected_objects.npy', '/dev/shm/identified_objects.npy')
+                for filename, value in zip(filenames, values):
+                    numpy.save(filename, value)
+                cmd.inform('data={},{},{},"{}","{}","{}"'.format(ra, dec, pa, *filenames))
+                cmd.inform('detectionState=0')
+                # send corrections to gen2 (or iic)
+            # store results in opdb
+        except Exception as e:
+            cmd.fail('text="AgCmd.acquire_field_otf: {}'.format(e))
+            return
+        cmd.finish()
+
     def focus(self, cmd):
 
         controller = self.actor.controllers['ag']
@@ -163,7 +249,7 @@ class AgCmd:
         if 'visit_id' in cmd.cmd.keywords:
             visit_id = int(cmd.cmd.keywords['visit_id'].values[0])
             self.visit_id = visit_id
-        exposure_time = 2000 # ms
+        exposure_time = 2000  # ms
         if 'exposure_time' in cmd.cmd.keywords:
             exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
             if exposure_time < 100:
@@ -177,6 +263,7 @@ class AgCmd:
                 cmdStr='expose object pfsVisitId={} exptime={} centroid=1'.format(visit_id, exposure_time / 1000),
                 timeLim=(exposure_time // 1000 + 5)
             )
+            # wait for an exposure to complete
             result.get()
             frame_id = self.actor.agcc.frameId
             self.actor.logger.info('AgCmd.focus: frameId={}'.format(frame_id))
@@ -213,12 +300,12 @@ class AgCmd:
         from_sky = None
         if 'from_sky' in cmd.cmd.keywords:
             from_sky = bool(cmd.cmd.keywords['from_sky'].values[0])
-        exposure_time = 2000 # ms
+        exposure_time = 2000  # ms
         if 'exposure_time' in cmd.cmd.keywords:
             exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
             if exposure_time < 100:
                 exposure_time = 100
-        cadence = 0 # ms
+        cadence = 0  # ms
         if 'cadence' in cmd.cmd.keywords:
             cadence = int(cmd.cmd.keywords['cadence'].values[0])
             if cadence < 0:
@@ -256,12 +343,12 @@ class AgCmd:
         from_sky = None
         if 'from_sky' in cmd.cmd.keywords:
             from_sky = bool(cmd.cmd.keywords['from_sky'].values[0])
-        exposure_time = 2000 # ms
+        exposure_time = 2000  # ms
         if 'exposure_time' in cmd.cmd.keywords:
             exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
             if exposure_time < 100:
                 exposure_time = 100
-        cadence = 0 # ms
+        cadence = 0  # ms
         if 'cadence' in cmd.cmd.keywords:
             cadence = int(cmd.cmd.keywords['cadence'].values[0])
             if cadence < 0:
