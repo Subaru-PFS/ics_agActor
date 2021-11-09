@@ -77,6 +77,14 @@ class opDB:
         )
 
     @staticmethod
+    def query_tel_status(pfs_visit_id, status_sequence_id):
+
+        return opDB.fetchone(
+            'SELECT altitude,azimuth,insrot,adc_pa,m2_pos3,tel_ra,tel_dec,dome_shutter_status,dome_light_status,created_at FROM tel_status WHERE pfs_visit_id=%s AND status_sequence_id=%s',
+            (pfs_visit_id, status_sequence_id,)
+        )
+
+    @staticmethod
     def query_agc_data(agc_exposure_id):
 
         # return opDB.fetchall(
@@ -131,6 +139,12 @@ class opDB:
 
         params.update(agc_exposure_id=agc_exposure_id)
         opDB.insert('agc_exposure', **params)
+
+    @staticmethod
+    def insert_tel_status(pfs_visit_id, status_sequence_id, **params):
+
+        params.update(pfs_visit_id=pfs_visit_id, status_sequence_id=status_sequence_id)
+        opDB.insert('tel_status', **params)
 
     @staticmethod
     def insert_agc_data(agc_exposure_id, data):
@@ -202,6 +216,14 @@ class opDB:
         column_values = ','.join(['{}=%({})s'.format(x, x) for x in params])
         statement = 'UPDATE agc_exposure SET {} WHERE agc_exposure_id=%(agc_exposure_id)s'.format(column_values)
         params.update(agc_exposure_id=agc_exposure_id)
+        opDB.execute(statement, params)
+
+    @staticmethod
+    def update_tel_status(pfs_visit_id, status_sequence_id, **params):
+
+        column_values = ','.join(['{}=%({})s'.format(x, x) for x in params])
+        statement = 'UPDATE tel_status SET {} WHERE pfs_visit_id=%(pfs_visit_id)s AND status_sequence_id=%(status_sequence_id)s'.format(column_values)
+        params.update(pfs_visit_id=pfs_visit_id, status_sequence_id=status_sequence_id)
         opDB.execute(statement, params)
 
     @staticmethod
