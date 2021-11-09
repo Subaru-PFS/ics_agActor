@@ -89,6 +89,14 @@ class opDB:
         )
 
     @staticmethod
+    def query_agc_match(agc_exposure_id):
+
+        return opDB.fetchall(
+            'SELECT agc_camera_id,spot_id,pfs_design_id,guide_star_id,agc_nominal_x_mm,agc_nominal_y_mm,agc_center_x_mm,agc_center_y_mm,flags FROM agc_match WHERE agc_exposure_id=%s ORDER BY agc_camera_id,spot_id',
+            (agc_exposure_id,)
+        )
+
+    @staticmethod
     def insert_pfs_design(pfs_design_id, tile_id, **params):
 
         params.update(pfs_design_id=pfs_design_id, tile_id=tile_id)
@@ -147,6 +155,24 @@ class opDB:
             opDB.insert('agc_data', **params)
 
     @staticmethod
+    def insert_agc_match(agc_exposure_id, pfs_design_id, data):
+
+        for x in data:
+            params = dict(
+                agc_exposure_id=agc_exposure_id,
+                agc_camera_id=int(x[0]),
+                spot_id=int(x[1]),
+                pfs_design_id=pfs_design_id,
+                guide_star_id=int(x[2]),
+                agc_nominal_x_mm=float(x[3]),
+                agc_nominal_y_mm=float(x[4]),
+                agc_center_x_mm=float(x[5]),
+                agc_center_y_mm=float(x[6]),
+                flags=int(x[7])
+            )
+            opDB.insert('agc_match', **params)
+
+    @staticmethod
     def update_pfs_design(pfs_design_id, **params):
 
         column_values = ','.join(['{}=%({})s'.format(x, x) for x in params])
@@ -183,5 +209,13 @@ class opDB:
 
         column_values = ','.join(['{}=%({})s'.format(x, x) for x in params])
         statement = 'UPDATE agc_data SET {} WHERE agc_exposure_id=%(agc_exposure_id)s AND agc_camera_id=%(agc_camera_id)s AND spot_id=%(spot_id)s'.format(column_values)
+        params.update(agc_exposure_id=agc_exposure_id, agc_camera_id=agc_camera_id, spot_id=spot_id)
+        opDB.execute(statement, params)
+
+    @staticmethod
+    def update_agc_match(agc_exposure_id, agc_camera_id, spot_id, **params):
+
+        column_values = ','.join(['{}=%({})s'.format(x, x) for x in params])
+        statement = 'UPDATE agc_match SET {} WHERE agc_exposure_id=%(agc_exposure_id)s AND agc_camera_id=%(agc_camera_id)s AND spot_id=%(spot_id)s'.format(column_values)
         params.update(agc_exposure_id=agc_exposure_id, agc_camera_id=agc_camera_id, spot_id=spot_id)
         opDB.execute(statement, params)
