@@ -203,7 +203,6 @@ class AgThread(threading.Thread):
                     self.actor.queueCommand(actor='gen2', cmdStr='updateTelStatus', timeLim=5).get()
                     tel_status = self.actor.gen2.tel_status
                     self.actor.logger.info('AgThread.run: tel_status={}'.format(tel_status))
-                    ra, dec, pa, taken_at = tel_status[5:]
                     #telescope_state = self.actor.mlp1.telescopeState
                     #self.logger.info('AgThread.run: telescopeState={}'.format(telescope_state))
                     # wait for an exposure to complete

@@ -107,7 +107,6 @@ class AgCmd:
             self.actor.queueCommand(actor='gen2', cmdStr='updateTelStatus', timeLim=5).get()
             tel_status = self.actor.gen2.tel_status
             self.actor.logger.info('AgCmd.acquire_field: tel_status={}'.format(tel_status))
-            ra, dec, pa, taken_at = tel_status[5:]
             #telescope_state = self.actor.mlp1.telescopeState
             #self.actor.logger.info('AgCmd.acquire_field: telescopeState={}'.format(telescope_state))
             # wait for an exposure to complete
@@ -191,7 +190,7 @@ class AgCmd:
             self.actor.queueCommand(actor='gen2', cmdStr='updateTelStatus', timeLim=5).get()
             tel_status = self.actor.gen2.tel_status
             self.actor.logger.info('AgCmd.acquire_field_otf: tel_status={}'.format(tel_status))
-            ra, dec, pa, taken_at = tel_status[5:]
+            ra, dec, pa, *_ = tel_status[5:]
             #telescope_state = self.actor.mlp1.telescopeState
             #self.actor.logger.info('AgCmd.acquire_field_otf: telescopeState={}'.format(telescope_state))
             # wait for an exposure to complete
@@ -203,7 +202,7 @@ class AgCmd:
             if guide:
                 cmd.inform('detectionState=1')
                 # convert equatorial coordinates to horizontal coordinates
-                dra, ddec, dinr, dalt, daz, *values = field_acquisition_otf.acquire_field(ra=ra, dec=dec, tel_status=tel_status, frame_id=frame_id, altazimuth=True, logger=self.actor.logger)
+                dra, ddec, dinr, dalt, daz, *values = field_acquisition_otf.acquire_field(frame_id=frame_id, tel_status=tel_status, altazimuth=True, logger=self.actor.logger)
                 cmd.inform('text="dra={},ddec={},dinr={},dalt={},daz={}"'.format(dra, ddec, dinr, dalt, daz))
                 filenames = ('/dev/shm/guide_objects.npy', '/dev/shm/detected_objects.npy', '/dev/shm/identified_objects.npy')
                 for filename, value in zip(filenames, values):
@@ -222,7 +221,7 @@ class AgCmd:
                 #cmd.inform('guideReady=1')
             else:
                 cmd.inform('detectionState=1')
-                dra, ddec, dinr, *values = field_acquisition_otf.acquire_field(ra=ra, dec=dec, tel_status=tel_status, frame_id=frame_id, logger=self.actor.logger)
+                dra, ddec, dinr, *values = field_acquisition_otf.acquire_field(frame_id=frame_id, tel_status=tel_status, logger=self.actor.logger)
                 cmd.inform('text="dra={},ddec={},dinr={}"'.format(dra, ddec, dinr))
                 filenames = ('/dev/shm/guide_objects.npy', '/dev/shm/detected_objects.npy', '/dev/shm/identified_objects.npy')
                 for filename, value in zip(filenames, values):
