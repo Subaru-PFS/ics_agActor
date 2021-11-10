@@ -129,6 +129,11 @@ class Gen2:
         return self._getValues('header')
 
     @property
+    def statusUpdate(self):
+
+        return self._getValues('statusUpdate')
+
+    @property
     def tel_status(self):
 
         taken_at = datetime.fromtimestamp(self.timestamp)
