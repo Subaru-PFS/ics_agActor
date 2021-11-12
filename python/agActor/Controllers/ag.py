@@ -3,7 +3,7 @@ import logging
 import threading
 import time
 import numpy
-from agActor import autoguide
+from agActor import autoguide, data_utils, pfs_design
 
 
 class ag:
@@ -257,6 +257,14 @@ class AgThread(threading.Thread):
                         if focus:
                             # compute focus error
                             pass
+                        if self.with_opdb_agc_match:
+                            data_utils.write_agc_match(
+                                design_id=design_id if design_id is not None else pfs_design.to_design_id(design_path),
+                                frame_id=frame_id,
+                                guide_objects=values[0],
+                                detected_objects=values[1],
+                                identified_objects=values[2]
+                            )
                 if mode & ag.Mode.ONCE:
                     self._set_params(mode=ag.Mode.OFF)
                 if mode == ag.Mode.STOP:

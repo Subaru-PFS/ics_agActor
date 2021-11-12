@@ -16,7 +16,7 @@ class pfsDesign:
                 path = '/data/pfsDesign'
             elif not os.path.isdir(path):
                 raise ValueError('__init__() \'path\' not an existing directory: \'{}\''.format(path))
-            path = os.path.join(path, 'pfsDesign-0x{:016x}.fits'.format(design_id))
+            path = self.to_design_path(design_id, path)
         self.path = path
 
     @property
@@ -35,6 +35,17 @@ class pfsDesign:
         #guide_stars.dtype.names = ('source_id', 'ra', 'dec', 'mag', 'camera_id', 'x', 'y')
 
         return guide_stars, ra, dec, pa
+
+    @staticmethod
+    def to_design_id(design_path):
+
+        filename = os.path.splitext(os.path.basename(design_path))[0]
+        return int(filename[10:], 0) if filename.startswith('pfsDesign-') else 0
+
+    @staticmethod
+    def to_design_path(design_id, path=''):
+
+        return os.path.join(path, 'pfsDesign-0x{:016x}.fits'.format(design_id))
 
 
 if __name__ == '__main__':

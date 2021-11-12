@@ -3,7 +3,7 @@
 import numpy
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from agActor import field_acquisition, field_acquisition_otf, focus
+from agActor import field_acquisition, field_acquisition_otf, focus, data_utils, pfs_design
 
 
 class AgCmd:
@@ -169,6 +169,14 @@ class AgCmd:
                 cmd.inform('detectionState=0')
                 # send corrections to gen2 (or iic)
             # store results in opdb
+            if self.with_opdb_agc_match:
+                data_utils.write_agc_match(
+                    design_id=design_id if design_id is not None else pfs_design.to_design_id(design_path),
+                    frame_id=frame_id,
+                    guide_objects=values[0],
+                    detected_objects=values[1],
+                    identified_objects=values[2]
+                )
         except Exception as e:
             cmd.fail('text="AgCmd.acquire_field: {}'.format(e))
             return
@@ -254,6 +262,14 @@ class AgCmd:
                 cmd.inform('detectionState=0')
                 # send corrections to gen2 (or iic)
             # store results in opdb
+            if self.with_opdb_agc_match:
+                data_utils.write_agc_match(
+                    design_id=design_id if design_id is not None else pfs_design.to_design_id(design_path),
+                    frame_id=frame_id,
+                    guide_objects=values[0],
+                    detected_objects=values[1],
+                    identified_objects=values[2]
+                )
         except Exception as e:
             cmd.fail('text="AgCmd.acquire_field_otf: {}'.format(e))
             return
