@@ -121,7 +121,7 @@ class POPT2:
         return tel_ra, tel_de, datetime, adcstr, inrstr, m2pos3, wl
 
     def celestial2focalplane(self, sep, zpa, adc, m2pos3, wl, flag):
-        f = flag.astype(int)
+        f = np.where(flag, 0, 1)
 
         xfp_wisp, yfp_wisp = POPT2.celestial2focalplane_wisp(self, sep, zpa, adc, m2pos3, wl)
         xfp_wosp, yfp_wosp = POPT2.celestial2focalplane_wosp(self, sep, zpa, adc, m2pos3, wl)
@@ -132,7 +132,7 @@ class POPT2:
         return xfp, yfp
 
     def focalplane2celestial(self, xt, yt, adc, m2pos3, wl, flag):
-        f = flag.astype(int)
+        f = np.where(flag, 0, 1)
 
         r_wisp, t_wisp = POPT2.focalplane2celestial_wisp(self, xt, yt, adc, m2pos3, wl)
         r_wosp, t_wosp = POPT2.focalplane2celestial_wosp(self, xt, yt, adc, m2pos3, wl)
