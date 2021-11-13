@@ -264,7 +264,7 @@ class AgCmd:
             # store results in opdb
             if self.with_opdb_agc_match:
                 data_utils.write_agc_match(
-                    design_id=design_id if design_id is not None else pfs_design.to_design_id(design_path),
+                    design_id=0,
                     frame_id=frame_id,
                     guide_objects=values[0],
                     detected_objects=values[1],
