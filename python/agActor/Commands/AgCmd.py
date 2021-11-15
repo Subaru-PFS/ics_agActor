@@ -308,7 +308,7 @@ class AgCmd:
             self.actor.logger.info('AgCmd.focus: frameId={}'.format(frame_id))
             # retrieve detected objects from agcc (or opdb)
             # compute focus offset and tilt
-            dz = focus.focus(frame_id, logger=self.actor.logger)
+            dz, _ = focus.focus(frame_id=frame_id, logger=self.actor.logger)
             if numpy.isnan(dz):
                 cmd.fail('text="AgCmd.focus: dz={}'.format(dz))
                 return

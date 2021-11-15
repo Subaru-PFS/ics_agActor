@@ -3,7 +3,7 @@ from opdb import opDB as opdb
 import kawanomoto
 
 
-def focus(frame_id, logger=None):
+def focus(*, frame_id, logger=None):
 
     logger and logger.info('frame_id={}'.format(frame_id))
     detected_objects = opdb.query_agc_data(frame_id)
@@ -41,7 +41,7 @@ def _focus(detected_objects, logger=None):
     logger and logger.info('dzs={}'.format(dzs))
     dz = numpy.nanmedian(dzs)
     logger and logger.info('dz={}'.format(dz))
-    return dz
+    return dz, dzs
 
 
 if __name__ == '__main__':
@@ -56,5 +56,5 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(name='focus')
-    dz = focus(args.frame_id, logger=logger)
+    dz, _ = focus(frame_id=args.frame_id, logger=logger)
     print('dz={}'.format(dz))
