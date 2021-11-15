@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import time
 import numpy
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
@@ -112,6 +113,7 @@ class AgCmd:
             status_id = None
             if self.with_gen2_status or self.with_opdb_tel_status:
                 # update gen2 status values
+                time.sleep(exposure_time / 1000 / 2)
                 self.actor.queueCommand(
                     actor='gen2',
                     cmdStr='updateTelStatus caller={}'.format(self.actor.name) if self.with_opdb_tel_status else 'updateTelStatus',
@@ -213,6 +215,7 @@ class AgCmd:
                 timeLim=(exposure_time // 1000 + 5)
             )
             # update gen2 status values
+            time.sleep(exposure_time / 1000 / 2)
             self.actor.queueCommand(
                 actor='gen2',
                 cmdStr='updateTelStatus',

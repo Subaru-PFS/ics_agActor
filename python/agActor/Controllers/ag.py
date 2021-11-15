@@ -209,6 +209,7 @@ class AgThread(threading.Thread):
                     status_id = None
                     if self.with_gen2_status or self.with_opdb_tel_status:
                         # update gen2 status values
+                        time.sleep(exposure_time / 1000 / 2)
                         self.actor.queueCommand(
                             actor='gen2',
                             cmdStr='updateTelStatus caller={}'.format(self.actor.name) if self.with_opdb_tel_status else 'updateTelStatus',
