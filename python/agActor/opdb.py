@@ -97,6 +97,14 @@ class opDB:
         )
 
     @staticmethod
+    def query_agc_guide_offset(agc_exposure_id):
+
+        return opDB.fetchone(
+            'SELECT guide_ra,guide_dec,guide_pa,guide_delta_ra,guide_delta_dec,guide_delta_insrot,guide_delta_az,guide_delta_el,guide_delta_z,guide_delta_z1,guide_delta_z2,guide_delta_z3,guide_delta_z4,guide_delta_z5,guide_delta_z6 FROM agc_guide_offset WHERE agc_exposure_id=%s',
+            (agc_exposure_id,)
+        )
+
+    @staticmethod
     def query_agc_match(agc_exposure_id):
 
         return opDB.fetchall(
@@ -169,6 +177,12 @@ class opDB:
             opDB.insert('agc_data', **params)
 
     @staticmethod
+    def insert_agc_guide_offset(agc_exposure_id, **params):
+
+        params.update(agc_exposure_id=agc_exposure_id)
+        opDB.insert('agc_guide_offset', **params)
+
+    @staticmethod
     def insert_agc_match(agc_exposure_id, pfs_design_id, data):
 
         for x in data:
@@ -232,6 +246,14 @@ class opDB:
         column_values = ','.join(['{}=%({})s'.format(x, x) for x in params])
         statement = 'UPDATE agc_data SET {} WHERE agc_exposure_id=%(agc_exposure_id)s AND agc_camera_id=%(agc_camera_id)s AND spot_id=%(spot_id)s'.format(column_values)
         params.update(agc_exposure_id=agc_exposure_id, agc_camera_id=agc_camera_id, spot_id=spot_id)
+        opDB.execute(statement, params)
+
+    @staticmethod
+    def update_agc_guide_offset(agc_exposure_id, **params):
+
+        column_values = ','.join(['{}=%({})s'.format(x, x) for x in params])
+        statement = 'UPDATE agc_guide_offset SET {} WHERE agc_exposure_id=%(agc_exposure_id)s'.format(column_values)
+        params.update(agc_exposure_id=agc_exposure_id)
         opDB.execute(statement, params)
 
     @staticmethod

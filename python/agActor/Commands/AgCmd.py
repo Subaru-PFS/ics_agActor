@@ -38,6 +38,7 @@ class AgCmd:
             keys.Key('visit_id', types.Int(), help=''),
             keys.Key('from_sky', types.Bool('no', 'yes'), help=''),
         )
+        self.with_opdb_agc_guide_offset = actor.config.getboolean(actor.name, 'agc_guide_offset', fallback=False)
         self.with_opdb_agc_match = actor.config.getboolean(actor.name, 'agc_match', fallback=False)
         tel_status = [x.strip() for x in actor.config.get(actor.name, 'tel_status', fallback='agc_exposure').split(',')]
         self.with_gen2_status = 'gen2' in tel_status
@@ -171,6 +172,16 @@ class AgCmd:
                 cmd.inform('detectionState=0')
                 # send corrections to gen2 (or iic)
             # store results in opdb
+            if self.with_opdb_agc_guide_offset:
+                data_utils.write_agc_guide_offset(
+                    frame_id=frame_id,
+                    ra=ra,
+                    dec=dec,
+                    pa=pa,
+                    delta_ra=dra,
+                    delta_dec=ddec,
+                    delta_insrot=dinr
+                )
             if self.with_opdb_agc_match:
                 data_utils.write_agc_match(
                     design_id=design_id if design_id is not None else pfs_design.to_design_id(design_path),
@@ -265,6 +276,16 @@ class AgCmd:
                 cmd.inform('detectionState=0')
                 # send corrections to gen2 (or iic)
             # store results in opdb
+            if self.with_opdb_agc_guide_offset:
+                data_utils.write_agc_guide_offset(
+                    frame_id=frame_id,
+                    ra=ra,
+                    dec=dec,
+                    pa=pa,
+                    delta_ra=dra,
+                    delta_dec=ddec,
+                    delta_insrot=dinr
+                )
             if self.with_opdb_agc_match:
                 data_utils.write_agc_match(
                     design_id=0,
