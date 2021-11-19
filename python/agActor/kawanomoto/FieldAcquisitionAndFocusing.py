@@ -17,7 +17,7 @@ class PFS:
 
         str_xdp, str_ydp, dxra, dyra, dxde, dyde, dxinr, dyinr = popt2.makeBasis(tel_ra, tel_de, catalogarray[:, 0], catalogarray[:, 1], dt, adc, inr, m2pos3, wl)
         maxellip = 0.2
-        maxsize = 10.0
+        maxsize = 12.0
         minsize = 1.5
         filtered_detectarray, v = popt2.sourceFilter(detectarray, maxellip, maxsize, minsize)
         ra_offset, de_offset, inr_offset, f, min_dist_index_f, obj_xdp, obj_ydp, cat_xdp, cat_ydp = popt2.RADECInRShift(filtered_detectarray[:, 2], filtered_detectarray[:, 3], filtered_detectarray[:, 4], str_xdp, str_ydp, catalogarray[:, 2], dxra, dyra, dxde, dyde, dxinr, dyinr)
@@ -27,7 +27,7 @@ class PFS:
     def Focus(self, agarray):
         pfs = Subaru_POPT2_PFS.PFS()
         maxellip = 0.2
-        maxsize = 10.0
+        maxsize = 12.0
         minsize = 1.5
         md = pfs.agarray2momentdifference(agarray, maxellip, maxsize, minsize)
 
