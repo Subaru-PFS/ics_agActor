@@ -3,7 +3,7 @@ import logging
 import threading
 import time
 import numpy
-from agActor import autoguide, data_utils, pfs_design
+from agActor import autoguide, focus as _focus, data_utils, pfs_design
 
 
 class ag:
@@ -218,7 +218,7 @@ class AgThread(threading.Thread):
                         ).get()
                         if self.with_gen2_status:
                             tel_status = self.actor.gen2.tel_status
-                            self.actor.logger.info('AgThread.run: tel_status={}'.format(tel_status))
+                            self.logger.info('AgThread.run: tel_status={}'.format(tel_status))
                         if self.with_opdb_tel_status:
                             status_update = self.actor.gen2.statusUpdate
                             status_id = (status_update['visit'], status_update['sequence'])
@@ -229,7 +229,7 @@ class AgThread(threading.Thread):
                     # wait for an exposure to complete
                     result.get()
                     frame_id = self.actor.agcc.frameId
-                    self.actor.logger.info('AgThread.run: frameId={}'.format(frame_id))
+                    self.logger.info('AgThread.run: frameId={}'.format(frame_id))
                     data_time = self.actor.agcc.dataTime
                     self.logger.info('AgThread.run: dataTime={}'.format(data_time))
                     # retrieve detected objects from opdb
@@ -240,7 +240,7 @@ class AgThread(threading.Thread):
                     else:  # mode & (ag.Mode.ON | ag.Mode.ONCE)
                         cmd.inform('detectionState=1')
                         # compute guide errors
-                        dalt, daz, _, *values = autoguide.autoguide(frame_id=frame_id, status_id=status_id, tel_status=tel_status, logger=self.logger)
+                        dalt, daz, dinr, *values = autoguide.autoguide(frame_id=frame_id, status_id=status_id, tel_status=tel_status, logger=self.logger)
                         ra, dec, pa = autoguide.Field.center
                         filenames = ('/dev/shm/guide_objects.npy', '/dev/shm/detected_objects.npy', '/dev/shm/identified_objects.npy')
                         for filename, value in zip(filenames, values):
@@ -256,8 +256,10 @@ class AgThread(threading.Thread):
                         )
                         result.get()
                         #cmd.inform('guideReady=1')
+                        # always compute focus offset and tilt
+                        dz, dzs = _focus._focus(detected_objects=values[1], logger=self.logger)
                         if focus:
-                            # compute focus error
+                            # send corrections to gen2 (or iic)
                             pass
                         if self.with_opdb_agc_guide_offset:
                             data_utils.write_agc_guide_offset(
@@ -265,8 +267,11 @@ class AgThread(threading.Thread):
                                 ra=ra,
                                 dec=dec,
                                 pa=pa,
+                                delta_insrot=dinr,
                                 delta_az=daz,
-                                delta_el=dalt
+                                delta_el=dalt,
+                                delta_z=dz,
+                                delta_zs=dzs
                             )
                         if self.with_opdb_agc_match:
                             data_utils.write_agc_match(

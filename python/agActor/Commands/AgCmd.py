@@ -4,7 +4,7 @@ import time
 import numpy
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from agActor import field_acquisition, field_acquisition_otf, focus, data_utils, pfs_design
+from agActor import field_acquisition, field_acquisition_otf, focus as _focus, data_utils, pfs_design
 
 
 class AgCmd:
@@ -141,6 +141,7 @@ class AgCmd:
             # retrieve guide star coordinates from opdb
             # retrieve metrics of detected objects from opdb
             # compute offsets, scale, transparency, and seeing
+            dalt = daz = None
             if guide:
                 cmd.inform('detectionState=1')
                 # convert equatorial coordinates to horizontal coordinates
@@ -173,6 +174,8 @@ class AgCmd:
                 # send corrections to gen2 (or iic)
             # store results in opdb
             if self.with_opdb_agc_guide_offset:
+                # always compute focus offset and tilt
+                dz, dzs = _focus._focus(detected_objects=values[1], logger=self.actor.logger)
                 data_utils.write_agc_guide_offset(
                     frame_id=frame_id,
                     ra=ra,
@@ -180,7 +183,11 @@ class AgCmd:
                     pa=pa,
                     delta_ra=dra,
                     delta_dec=ddec,
-                    delta_insrot=dinr
+                    delta_insrot=dinr,
+                    delta_az=daz,
+                    delta_el=dalt,
+                    delta_z=dz,
+                    delta_zs=dzs
                 )
             if self.with_opdb_agc_match:
                 data_utils.write_agc_match(
@@ -245,6 +252,7 @@ class AgCmd:
             self.actor.logger.info('AgCmd.acquire_field_otf: frameId={}'.format(frame_id))
             data_time = self.actor.agcc.dataTime
             self.actor.logger.info('AgCmd.acquire_field_otf: dataTime={}'.format(data_time))
+            dalt = daz = None
             if guide:
                 cmd.inform('detectionState=1')
                 # convert equatorial coordinates to horizontal coordinates
@@ -277,6 +285,8 @@ class AgCmd:
                 # send corrections to gen2 (or iic)
             # store results in opdb
             if self.with_opdb_agc_guide_offset:
+                # always compute focus offset and tilt
+                dz, dzs = _focus._focus(detected_objects=values[1], logger=self.actor.logger)
                 data_utils.write_agc_guide_offset(
                     frame_id=frame_id,
                     ra=ra,
@@ -284,7 +294,11 @@ class AgCmd:
                     pa=pa,
                     delta_ra=dra,
                     delta_dec=ddec,
-                    delta_insrot=dinr
+                    delta_insrot=dinr,
+                    delta_az=daz,
+                    delta_el=dalt,
+                    delta_z=dz,
+                    delta_zs=dzs
                 )
             if self.with_opdb_agc_match:
                 data_utils.write_agc_match(
@@ -332,13 +346,19 @@ class AgCmd:
             self.actor.logger.info('AgCmd.focus: frameId={}'.format(frame_id))
             # retrieve detected objects from agcc (or opdb)
             # compute focus offset and tilt
-            dz, _ = focus.focus(frame_id=frame_id, logger=self.actor.logger)
+            dz, dzs = _focus.focus(frame_id=frame_id, logger=self.actor.logger)
             if numpy.isnan(dz):
                 cmd.fail('text="AgCmd.focus: dz={}'.format(dz))
                 return
             cmd.inform('text="dz={}"'.format(dz))
             # send corrections to gen2 (or iic)
             # store results in opdb
+            if self.with_opdb_agc_guide_offset:
+                data_utils.write_agc_guide_offset(
+                    frame_id=frame_id,
+                    delta_z=dz,
+                    delta_zs=dzs
+                )
         except Exception as e:
             cmd.fail('text="AgCmd.focus: {}'.format(e))
             return
