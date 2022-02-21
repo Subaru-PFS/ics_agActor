@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from astropy import units
 from astropy.coordinates import AltAz, Angle, SkyCoord, solar_system_ephemeris
 from astropy.time import Time
@@ -22,7 +23,7 @@ def to_altaz(
 
     ra = Angle(ra, unit=units.deg)
     dec = Angle(dec, unit=units.deg)
-    obstime = Time(obstime) if obstime is not None else Time.now()
+    obstime = Time(obstime.astimezone(tz=timezone.utc) if isinstance(obstime, datetime) else obstime) if obstime is not None else Time.now()
 
     temperature *= units.deg_C
     relative_humidity /= 100

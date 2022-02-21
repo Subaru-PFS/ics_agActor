@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import itertools
 import numpy
 from astropy import units
@@ -33,7 +34,7 @@ def measure(
     logger and logger.info('ra={},dec={},obstime={},inr={},adc={},m2_pos3={},obswl={}'.format(ra, dec, obstime, inr, adc, m2_pos3, obswl))
     ra = Angle(ra, unit=units.deg)
     dec = Angle(dec, unit=units.deg)
-    obstime = Time(obstime)
+    obstime = Time(obstime.astimezone(tz=timezone.utc) if isinstance(obstime, datetime) else obstime)
 
     import subaru
 

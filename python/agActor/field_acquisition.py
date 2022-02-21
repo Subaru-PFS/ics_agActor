@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import numpy
 import coordinates
 from opdb import opDB as opdb
@@ -55,15 +56,15 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
         ]
     )
     pfs = kawanomoto.FieldAcquisitionAndFocusing.PFS()
-    dra, ddec, dinr, *diags = pfs.FA(_guide_objects, _detected_objects, ra, dec, taken_at, adc, inr, m2_pos3, obswl)
+    dra, ddec, dinr, *diags = pfs.FA(_guide_objects, _detected_objects, ra, dec, taken_at.astimezone(tz=timezone.utc) if isinstance(taken_at, datetime) else taken_at, adc, inr, m2_pos3, obswl)
     dra *= 3600
     ddec *= 3600
     dinr *= 3600
     logger and logger.info('dra={},ddec={},dinr={}'.format(dra, ddec, dinr))
     values = ()
     if altazimuth:
-        _, _, dalt, daz = to_altaz.to_altaz(ra, dec, taken_at, dra=dra, ddec=ddec)
-        logger and logger.info('dalt={},daz={}'.format(dalt, daz))
+        alt, az, dalt, daz = to_altaz.to_altaz(ra, dec, taken_at, dra=dra, ddec=ddec)
+        logger and logger.info('alt={},az={},dalt={},daz={}'.format(alt, az, dalt, daz))
         values = dalt, daz
     guide_objects = numpy.array(
         [(x[0], x[1], x[2], x[3]) for x in guide_objects],

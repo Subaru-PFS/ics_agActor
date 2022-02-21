@@ -276,7 +276,7 @@ def z2adc(z, filter_id):
     return numpy.clip(y_adc, 0, 22)
 
 
-def search(ra, dec, radius=96, tolerance=1):
+def search(ra, dec, inner_radius=0.7325 - 0.03, outer_radius=0.7325 + 0.03, tolerance=1):
     """
     Search guide stellar objects from Gaia DR2 sources.
 
@@ -302,7 +302,7 @@ def search(ra, dec, radius=96, tolerance=1):
     #memory = Memory(location='.', verbose=0)
 
     #@memory.cache
-    def _search(ra, dec, radius):
+    def _search(ra, dec, inner_radius, outer_radius):
         """Perform caching search of Gaia DR2."""
 
         if numpy.isscalar(ra):
@@ -325,7 +325,7 @@ def search(ra, dec, radius=96, tolerance=1):
             with connection.cursor() as cursor:
                 # default cone search radius of 96 arcsec encircles each detector
                 query = 'SELECT {} FROM gaia WHERE ('.format(','.join(columns)) \
-                    + ' OR '.join(['q3c_radial_query(ra,dec,{},{},{})'.format(_ra, _dec, radius) for _ra, _dec in zip(ra, dec)]) \
+                    + ' OR '.join(['(q3c_radial_query(ra,dec,{},{},{}) AND NOT q3c_radial_query(ra,dec,{},{},{}))'.format(_ra, _dec, outer_radius, _ra, _dec, inner_radius) for _ra, _dec in zip(ra, dec)]) \
                     + ') AND phot_g_mean_mag<=20 AND parallax<=1 ORDER BY phot_g_mean_mag'
                 cursor.execute(query)
                 objects = cursor.fetchall()
@@ -333,8 +333,7 @@ def search(ra, dec, radius=96, tolerance=1):
 
     #ra = numpy.round(ra * 3600 / tolerance) * tolerance / 3600  # deg
     #dec = numpy.round(dec * 3600 / tolerance) * tolerance / 3600  # deg
-    radius /= 3600  # deg
-    return _search(ra, dec, radius)
+    return _search(ra, dec, inner_radius, outer_radius)
 
 
 def get_objects(
@@ -414,22 +413,12 @@ def get_objects(
         if inr >= 270:
             inr -= 360
 
-    # centers of the detectors in the detector plane coordinates
-    x_dp, y_dp = det2dp(numpy.asarray(cameras), (511.5 + 24), (511.5 + 9))
-
-    # centers of the detectors in the focal plane coordinates
-    x_fp, y_fp = dp2fp(x_dp, y_dp, inr)
-
     if adc is None:
         if filter_id is None:
             filter_id = 107  # wideband, uniform weighting
         adc = z2adc(altaz_c.zen.to(units.deg).value, filter_id=filter_id)  # mm
 
-    separation, position_angle = fp2sky(x_fp, y_fp, adc, m2pos3, obswl)
-    altaz = altaz_c.directional_offset_by(- position_angle * units.deg, separation * units.deg)
-    icrs = altaz.transform_to('icrs')
-
-    _objects = search(icrs.ra.deg, icrs.dec.deg)
+    _objects = search(icrs_c.ra.deg, icrs_c.dec.deg)
     _objects['parallax'][numpy.where(_objects['parallax'] < 1e-6)] = 1e-6
     _icrs = SkyCoord(
         ra=_objects['ra'], dec=_objects['dec'], frame='icrs',
@@ -444,9 +433,6 @@ def get_objects(
     x_fp, y_fp = sky2fp(separation, - position_angle, adc, m2pos3, obswl)
     x_dp, y_dp = fp2dp(x_fp, y_fp, inr)
     icam, x_det, y_det = dp2idet(x_dp, y_dp)
-
-    # filter out those that are outside of the detectors' footprint
-    filter = ((-0.5 + 24) < x_det) & (x_det < (1023.5 + 24)) & ((-0.5 + 9) < y_det) & (y_det < (1023.5 + 9))
 
     objects = numpy.array(
         [
@@ -465,16 +451,16 @@ def get_objects(
             )
             for _source_id, _skycoord, _mag, _camera_id, _x_det, _y_det, _x_dp, _y_dp, _x_fp, _y_fp
             in zip(
-                _objects['source_id'][filter],
-                _icrs_d[filter],
-                _objects['phot_g_mean_mag'][filter],
-                icam[filter],
-                x_det[filter],
-                y_det[filter],
-                x_dp[filter],
-                y_dp[filter],
-                x_fp[filter],
-                y_fp[filter]
+                _objects['source_id'],
+                _icrs_d,
+                _objects['phot_g_mean_mag'],
+                icam,
+                x_det,
+                y_det,
+                x_dp,
+                y_dp,
+                x_fp,
+                y_fp
             )
         ],
         dtype=[

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from astropy import units
 from astropy.coordinates import Angle
 
@@ -136,7 +136,7 @@ class Gen2:
     @property
     def tel_status(self):
 
-        taken_at = datetime.fromtimestamp(self.timestamp)
+        taken_at = datetime.fromtimestamp(self.timestamp, tz=timezone.utc)
         tel_axes = self.tel_axes
         altitude = tel_axes['alt']
         azimuth = tel_axes['az']

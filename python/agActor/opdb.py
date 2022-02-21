@@ -44,7 +44,7 @@ class opDB:
     def query_pfs_design(pfs_design_id):
 
         return opDB.fetchone(
-            'SELECT tile_id,ra_center_designed,dec_center_designed,pa_designed,num_sci_designed,num_cal_designed,num_sky_designed,num_guide_stars,exptime_tot,exptime_min,ets_version,ets_assigner,designed_at,to_be_observed_at,is_obsolete FROM pfs_design WHERE pfs_design_id=%s',
+            'SET TIME ZONE \'UTC\';SELECT tile_id,ra_center_designed,dec_center_designed,pa_designed,num_sci_designed,num_cal_designed,num_sky_designed,num_guide_stars,exptime_tot,exptime_min,ets_version,ets_assigner,designed_at AT TIME ZONE \'HST\',to_be_observed_at AT TIME ZONE \'HST\',is_obsolete FROM pfs_design WHERE pfs_design_id=%s',
             (pfs_design_id,)
         )
 
@@ -72,7 +72,7 @@ class opDB:
     def query_agc_exposure(agc_exposure_id):
 
         return opDB.fetchone(
-            'SELECT pfs_visit_id,agc_exptime,taken_at,azimuth,altitude,insrot,adc_pa,outside_temperature,outside_humidity,outside_pressure,m2_pos3 FROM agc_exposure WHERE agc_exposure_id=%s',
+            'SET TIME ZONE \'UTC\';SELECT pfs_visit_id,agc_exptime,taken_at AT TIME ZONE \'HST\',azimuth,altitude,insrot,adc_pa,outside_temperature,outside_humidity,outside_pressure,m2_pos3 FROM agc_exposure WHERE agc_exposure_id=%s',
             (agc_exposure_id,)
         )
 
@@ -80,7 +80,7 @@ class opDB:
     def query_tel_status(pfs_visit_id, status_sequence_id):
 
         return opDB.fetchone(
-            'SELECT altitude,azimuth,insrot,adc_pa,m2_pos3,tel_ra,tel_dec,dome_shutter_status,dome_light_status,created_at FROM tel_status WHERE pfs_visit_id=%s AND status_sequence_id=%s',
+            'SET TIME ZONE \'UTC\';SELECT altitude,azimuth,insrot,adc_pa,m2_pos3,tel_ra,tel_dec,dome_shutter_status,dome_light_status,created_at AT TIME ZONE \'HST\' FROM tel_status WHERE pfs_visit_id=%s AND status_sequence_id=%s',
             (pfs_visit_id, status_sequence_id,)
         )
 
