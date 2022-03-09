@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from numbers import Number
 import numpy
 import coordinates
 from opdb import opDB as opdb
@@ -56,7 +57,7 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
         ]
     )
     pfs = kawanomoto.FieldAcquisitionAndFocusing.PFS()
-    dra, ddec, dinr, *diags = pfs.FA(_guide_objects, _detected_objects, ra, dec, taken_at.astimezone(tz=timezone.utc) if isinstance(taken_at, datetime) else taken_at, adc, inr, m2_pos3, obswl)
+    dra, ddec, dinr, *diags = pfs.FA(_guide_objects, _detected_objects, ra, dec, taken_at.astimezone(tz=timezone.utc) if isinstance(taken_at, datetime) else datetime.fromtimestamp(taken_at, tz=timezone.utc) if isinstance(taken_at, Number) else taken_at, adc, inr, m2_pos3, obswl)
     dra *= 3600
     ddec *= 3600
     dinr *= 3600

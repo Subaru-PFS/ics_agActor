@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from numbers import Number
 import numpy
 from astropy import units
 from astropy.coordinates import AltAz, Angle, Distance, SkyCoord, solar_system_ephemeris
@@ -393,7 +394,7 @@ def get_objects(
 
     ra = Angle(ra, unit=units.deg)
     dec = Angle(dec, unit=units.deg)
-    obstime = Time(obstime.astimezone(tz=timezone.utc) if isinstance(obstime, datetime) else obstime) if obstime is not None else Time.now()
+    obstime = Time(obstime.astimezone(tz=timezone.utc)) if isinstance(obstime, datetime) else Time(obstime, format='unix') if isinstance(obstime, Number) else Time(obstime) if obstime is not None else Time.now()
 
     import subaru
     frame_tc = AltAz(obstime=obstime, location=subaru.location, temperature=temperature * units.deg_C, relative_humidity=relative_humidity / 100, pressure=pressure * units.hPa, obswl=obswl * units.micron)

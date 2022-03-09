@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 import itertools
+from numbers import Number
 import numpy
 from astropy import units
 from astropy.coordinates import AltAz, Angle, SkyCoord, solar_system_ephemeris
@@ -34,7 +35,7 @@ def measure(
     logger and logger.info('ra={},dec={},obstime={},inr={},adc={},m2_pos3={},obswl={}'.format(ra, dec, obstime, inr, adc, m2_pos3, obswl))
     ra = Angle(ra, unit=units.deg)
     dec = Angle(dec, unit=units.deg)
-    obstime = Time(obstime.astimezone(tz=timezone.utc) if isinstance(obstime, datetime) else obstime)
+    obstime = Time(obstime.astimezone(tz=timezone.utc)) if isinstance(obstime, datetime) else Time(obstime, format='unix') if isinstance(obstime, Number) else Time(obstime)
 
     import subaru
 
