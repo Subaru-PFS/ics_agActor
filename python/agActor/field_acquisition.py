@@ -8,8 +8,10 @@ import to_altaz
 import kawanomoto
 
 
-def acquire_field(*, design=None, frame_id, status_id=None, tel_status=None, obswl=0.62, altazimuth=False, logger=None):
+def acquire_field(*, design=None, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwargs):
 
+    tel_status = kwargs.get('tel_status')
+    status_id = kwargs.get('status_id')
     if tel_status is not None:
         _, _, inr, adc, m2_pos3, _, _, _, taken_at = tel_status
     elif status_id is not None:

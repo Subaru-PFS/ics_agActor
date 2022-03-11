@@ -40,6 +40,7 @@ class AgCmd:
         )
         self.with_opdb_agc_guide_offset = actor.config.getboolean(actor.name, 'agc_guide_offset', fallback=False)
         self.with_opdb_agc_match = actor.config.getboolean(actor.name, 'agc_match', fallback=False)
+        self.with_agcc_timestamp = actor.config.getboolean(actor.name, 'agcc_timestamp', fallback=False)
         tel_status = [x.strip() for x in actor.config.get(actor.name, 'tel_status', fallback='agc_exposure').split(',')]
         self.with_gen2_status = 'gen2' in tel_status
         self.with_mlp1_status = 'mlp1' in tel_status
@@ -110,8 +111,7 @@ class AgCmd:
                 cmdStr='expose object pfsVisitId={} exptime={} centroid=1'.format(visit_id, exposure_time / 1000),
                 timeLim=(exposure_time // 1000 + 5)
             )
-            tel_status = None
-            status_id = None
+            kwargs = {}
             if self.with_gen2_status or self.with_opdb_tel_status:
                 # update gen2 status values
                 time.sleep(exposure_time / 1000 / 2)
@@ -123,9 +123,12 @@ class AgCmd:
                 if self.with_gen2_status:
                     tel_status = self.actor.gen2.tel_status
                     self.actor.logger.info('AgCmd.acquire_field: tel_status={}'.format(tel_status))
+                    kwargs['tel_status'] = tel_status
                 if self.with_opdb_tel_status:
                     status_update = self.actor.gen2.statusUpdate
                     status_id = (status_update['visit'], status_update['sequence'])
+                    self.actor.logger.info('AgCmd.acquire_field: status_id={}'.format(status_id))
+                    kwargs['status_id'] = status_id
             telescope_state = None
             if self.with_mlp1_status:
                 telescope_state = self.actor.mlp1.telescopeState
@@ -136,6 +139,8 @@ class AgCmd:
             self.actor.logger.info('AgCmd.acquire_field: frameId={}'.format(frame_id))
             data_time = self.actor.agcc.dataTime
             self.actor.logger.info('AgCmd.acquire_field: dataTime={}'.format(data_time))
+            if self.with_agcc_timestamp:
+                kwargs['taken_at'] = data_time  # unix timestamp, not timezone-aware datetime
             # retrieve field center coordinates from opdb
             # retrieve exposure information from opdb
             # retrieve guide star coordinates from opdb
@@ -145,7 +150,7 @@ class AgCmd:
             if guide:
                 cmd.inform('detectionState=1')
                 # convert equatorial coordinates to horizontal coordinates
-                ra, dec, pa, dra, ddec, dinr, dalt, daz, *values = field_acquisition.acquire_field(design=design, frame_id=frame_id, status_id=status_id, tel_status=tel_status, altazimuth=True, logger=self.actor.logger)
+                ra, dec, pa, dra, ddec, dinr, dalt, daz, *values = field_acquisition.acquire_field(design=design, frame_id=frame_id, altazimuth=True, logger=self.actor.logger, **kwargs)
                 cmd.inform('text="dra={},ddec={},dinr={},dalt={},daz={}"'.format(dra, ddec, dinr, dalt, daz))
                 filenames = ('/dev/shm/guide_objects.npy', '/dev/shm/detected_objects.npy', '/dev/shm/identified_objects.npy')
                 for filename, value in zip(filenames, values):
@@ -164,7 +169,7 @@ class AgCmd:
                 #cmd.inform('guideReady=1')
             else:
                 cmd.inform('detectionState=1')
-                ra, dec, pa, dra, ddec, dinr, *values = field_acquisition.acquire_field(design=design, frame_id=frame_id, status_id=status_id, tel_status=tel_status, logger=self.actor.logger)
+                ra, dec, pa, dra, ddec, dinr, *values = field_acquisition.acquire_field(design=design, frame_id=frame_id, logger=self.actor.logger, **kwargs)
                 cmd.inform('text="dra={},ddec={},dinr={}"'.format(dra, ddec, dinr))
                 filenames = ('/dev/shm/guide_objects.npy', '/dev/shm/detected_objects.npy', '/dev/shm/identified_objects.npy')
                 for filename, value in zip(filenames, values):
@@ -232,6 +237,7 @@ class AgCmd:
                 cmdStr='expose object pfsVisitId={} exptime={} centroid=1'.format(visit_id, exposure_time / 1000),
                 timeLim=(exposure_time // 1000 + 5)
             )
+            kwargs = {}
             # update gen2 status values
             time.sleep(exposure_time / 1000 / 2)
             self.actor.queueCommand(
@@ -241,7 +247,9 @@ class AgCmd:
             ).get()
             tel_status = self.actor.gen2.tel_status
             self.actor.logger.info('AgCmd.acquire_field_otf: tel_status={}'.format(tel_status))
+            kwargs['tel_status'] = tel_status
             ra, dec, pa, *_ = tel_status[5:]
+            kwargs['center'] = ra, dec, pa
             telescope_state = None
             if self.with_mlp1_status:
                 telescope_state = self.actor.mlp1.telescopeState
@@ -252,11 +260,13 @@ class AgCmd:
             self.actor.logger.info('AgCmd.acquire_field_otf: frameId={}'.format(frame_id))
             data_time = self.actor.agcc.dataTime
             self.actor.logger.info('AgCmd.acquire_field_otf: dataTime={}'.format(data_time))
+            if self.with_agcc_timestamp:
+                kwargs['taken_at'] = data_time  # unix timestamp, not timezone-aware datetime
             dalt = daz = None
             if guide:
                 cmd.inform('detectionState=1')
                 # convert equatorial coordinates to horizontal coordinates
-                dra, ddec, dinr, dalt, daz, *values = field_acquisition_otf.acquire_field(frame_id=frame_id, tel_status=tel_status, altazimuth=True, logger=self.actor.logger)
+                dra, ddec, dinr, dalt, daz, *values = field_acquisition_otf.acquire_field(frame_id=frame_id, altazimuth=True, logger=self.actor.logger, **kwargs)
                 cmd.inform('text="dra={},ddec={},dinr={},dalt={},daz={}"'.format(dra, ddec, dinr, dalt, daz))
                 filenames = ('/dev/shm/guide_objects.npy', '/dev/shm/detected_objects.npy', '/dev/shm/identified_objects.npy')
                 for filename, value in zip(filenames, values):
@@ -275,7 +285,7 @@ class AgCmd:
                 #cmd.inform('guideReady=1')
             else:
                 cmd.inform('detectionState=1')
-                dra, ddec, dinr, *values = field_acquisition_otf.acquire_field(frame_id=frame_id, tel_status=tel_status, logger=self.actor.logger)
+                dra, ddec, dinr, *values = field_acquisition_otf.acquire_field(frame_id=frame_id, logger=self.actor.logger, **kwargs)
                 cmd.inform('text="dra={},ddec={},dinr={}"'.format(dra, ddec, dinr))
                 filenames = ('/dev/shm/guide_objects.npy', '/dev/shm/detected_objects.npy', '/dev/shm/identified_objects.npy')
                 for filename, value in zip(filenames, values):

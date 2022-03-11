@@ -11,8 +11,9 @@ class Field:
     guide_objects = None
 
 
-def set_design(*, design=None, logger=None):
+def set_design(*, logger=None, **kwargs):
 
+    design = kwargs.get('design')
     design_id, design_path = design
     logger and logger.info('design_id={},design_path={}'.format(design_id, design_path))
     if design_path is not None:
@@ -25,8 +26,10 @@ def set_design(*, design=None, logger=None):
     Field.guide_objects = []  # delay loading of guide objects
 
 
-def set_design_agc(*, frame_id=None, status_id=None, tel_status=None, obswl=0.62, logger=None):
+def set_design_agc(*, frame_id=None, obswl=0.62, logger=None, **kwargs):
 
+    tel_status = kwargs.get('tel_status')
+    status_id = kwargs.get('status_id')
     logger and logger.info('frame_id={}'.format(frame_id))
     if frame_id is not None:
         # create guide object table from frame
@@ -52,8 +55,10 @@ def set_design_agc(*, frame_id=None, status_id=None, tel_status=None, obswl=0.62
     Field.guide_objects = guide_objects
 
 
-def autoguide(*, frame_id, status_id=None, tel_status=None, obswl=0.62, logger=None):
+def autoguide(*, frame_id, obswl=0.62, logger=None, **kwargs):
 
+    tel_status = kwargs.get('tel_status')
+    status_id = kwargs.get('status_id')
     logger and logger.info('frame_id={}'.format(frame_id))
     guide_objects = Field.guide_objects
     ra, dec, _ = Field.center

@@ -3,8 +3,11 @@ import _gen2_gaia as gaia
 import field_acquisition
 
 
-def acquire_field(*, frame_id, center=None, status_id=None, tel_status=None, obswl=0.62, altazimuth=False, logger=None):
+def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwargs):
 
+    tel_status = kwargs.get('tel_status')
+    status_id = kwargs.get('status_id')
+    center = kwargs.get('center')
     if tel_status is not None:
         _, _, inr, adc, m2_pos3, ra, dec, _, taken_at = tel_status
     elif status_id is not None:
@@ -12,7 +15,7 @@ def acquire_field(*, frame_id, center=None, status_id=None, tel_status=None, obs
         visit_id, sequence_id = status_id
         _, _, inr, adc, m2_pos3, ra, dec, _, _, taken_at = opdb.query_tel_status(visit_id, sequence_id)
     else:
-        ra, dec = center
+        ra, dec, *_ = center
         _, _, taken_at, _, _, inr, adc, _, _, _, m2_pos3 = opdb.query_agc_exposure(frame_id)
     logger and logger.info('taken_at={},inr={},adc={},m2_pos3={}'.format(taken_at, inr, adc, m2_pos3))
     detected_objects = opdb.query_agc_data(frame_id)

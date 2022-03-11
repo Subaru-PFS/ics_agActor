@@ -135,6 +135,7 @@ class AgThread(threading.Thread):
 
         self.with_opdb_agc_guide_offset = actor.config.getboolean(actor.name, 'agc_guide_offset', fallback=False)
         self.with_opdb_agc_match = actor.config.getboolean(actor.name, 'agc_match', fallback=False)
+        self.with_agcc_timestamp = actor.config.getboolean(actor.name, 'agcc_timestamp', fallback=False)
         tel_status = [x.strip() for x in actor.config.get(actor.name, 'tel_status', fallback='agc_exposure').split(',')]
         self.with_gen2_status = 'gen2' in tel_status
         self.with_mlp1_status = 'mlp1' in tel_status
@@ -206,8 +207,7 @@ class AgThread(threading.Thread):
                         cmdStr='expose object pfsVisitId={} exptime={} centroid=1'.format(visit_id, exposure_time / 1000),
                         timeLim=(exposure_time // 1000 + 5)
                     )
-                    tel_status = None
-                    status_id = None
+                    kwargs = {}
                     if self.with_gen2_status or self.with_opdb_tel_status:
                         # update gen2 status values
                         time.sleep(exposure_time / 1000 / 2)
@@ -219,9 +219,12 @@ class AgThread(threading.Thread):
                         if self.with_gen2_status:
                             tel_status = self.actor.gen2.tel_status
                             self.logger.info('AgThread.run: tel_status={}'.format(tel_status))
+                            kwargs['tel_status'] = tel_status
                         if self.with_opdb_tel_status:
                             status_update = self.actor.gen2.statusUpdate
                             status_id = (status_update['visit'], status_update['sequence'])
+                            self.logger.info('AgThread.run: status_id={}'.format(status_id))
+                            kwargs['status_id'] = status_id
                     telescope_state = None
                     if self.with_mlp1_status:
                         telescope_state = self.actor.mlp1.telescopeState
@@ -232,15 +235,17 @@ class AgThread(threading.Thread):
                     self.logger.info('AgThread.run: frameId={}'.format(frame_id))
                     data_time = self.actor.agcc.dataTime
                     self.logger.info('AgThread.run: dataTime={}'.format(data_time))
+                    if self.with_agcc_timestamp:
+                        kwargs['taken_at'] = data_time  # unix timestamp, not timezone-aware datetime
                     # retrieve detected objects from opdb
                     if mode & ag.Mode.REF:
                         # store initial conditions
-                        autoguide.set_design_agc(frame_id=frame_id, status_id=status_id, tel_status=tel_status, logger=self.logger)
+                        autoguide.set_design_agc(frame_id=frame_id, logger=self.logger, **kwargs)
                         self._set_params(mode=mode & ~ag.Mode.REF)
                     else:  # mode & (ag.Mode.ON | ag.Mode.ONCE)
                         cmd.inform('detectionState=1')
                         # compute guide errors
-                        dalt, daz, dinr, *values = autoguide.autoguide(frame_id=frame_id, status_id=status_id, tel_status=tel_status, logger=self.logger)
+                        dalt, daz, dinr, *values = autoguide.autoguide(frame_id=frame_id, logger=self.logger, **kwargs)
                         ra, dec, pa = autoguide.Field.center
                         filenames = ('/dev/shm/guide_objects.npy', '/dev/shm/detected_objects.npy', '/dev/shm/identified_objects.npy')
                         for filename, value in zip(filenames, values):
