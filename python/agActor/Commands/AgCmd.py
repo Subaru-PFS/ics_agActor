@@ -4,7 +4,7 @@ import time
 import numpy
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from agActor import field_acquisition, field_acquisition_otf, focus as _focus, data_utils, pfs_design
+from agActor import field_acquisition, focus as _focus, data_utils, pfs_design
 
 
 class AgCmd:
@@ -266,7 +266,7 @@ class AgCmd:
             if guide:
                 cmd.inform('detectionState=1')
                 # convert equatorial coordinates to horizontal coordinates
-                dra, ddec, dinr, dalt, daz, *values = field_acquisition_otf.acquire_field(frame_id=frame_id, altazimuth=True, logger=self.actor.logger, **kwargs)
+                _, _, _, dra, ddec, dinr, dalt, daz, *values = field_acquisition.acquire_field(frame_id=frame_id, altazimuth=True, logger=self.actor.logger, **kwargs)
                 cmd.inform('text="dra={},ddec={},dinr={},dalt={},daz={}"'.format(dra, ddec, dinr, dalt, daz))
                 filenames = ('/dev/shm/guide_objects.npy', '/dev/shm/detected_objects.npy', '/dev/shm/identified_objects.npy')
                 for filename, value in zip(filenames, values):
@@ -285,7 +285,7 @@ class AgCmd:
                 #cmd.inform('guideReady=1')
             else:
                 cmd.inform('detectionState=1')
-                dra, ddec, dinr, *values = field_acquisition_otf.acquire_field(frame_id=frame_id, logger=self.actor.logger, **kwargs)
+                _, _, _, dra, ddec, dinr, *values = field_acquisition.acquire_field(frame_id=frame_id, logger=self.actor.logger, **kwargs)
                 cmd.inform('text="dra={},ddec={},dinr={}"'.format(dra, ddec, dinr))
                 filenames = ('/dev/shm/guide_objects.npy', '/dev/shm/detected_objects.npy', '/dev/shm/identified_objects.npy')
                 for filename, value in zip(filenames, values):

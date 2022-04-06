@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 from numbers import Number
 import numpy
+#import _gen2_gaia as gaia
+import _gen2_gaia_annulus as gaia
 import coordinates
 from opdb import opDB as opdb
 from pfs_design import pfsDesign as pfs_design
@@ -8,30 +10,70 @@ import to_altaz
 import kawanomoto
 
 
-def acquire_field(*, design=None, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwargs):
+def _parse_kwargs(kwargs):
 
-    tel_status = kwargs.get('tel_status')
-    status_id = kwargs.get('status_id')
-    if tel_status is not None:
-        _, _, inr, adc, m2_pos3, _, _, _, taken_at = tel_status
-    elif status_id is not None:
-        # visit_id can be obtained from agc_exposure table
+    if (center := kwargs.pop('center', None)) is not None:
+        ra, dec, *optional = center
+        kwargs.setdefault('ra', ra)
+        kwargs.setdefault('dec', dec)
+        if len(optional) > 0:
+            kwargs.setdefault('inst_pa', optional[0])
+    if (design := kwargs.pop('design', None)) is not None:
+        design_id, design_path = design
+        kwargs.setdefault('design_id', design_id)
+        kwargs.setdefault('design_path', design_path)
+    if (status_id := kwargs.pop('status_id', None)) is not None:
         visit_id, sequence_id = status_id
-        _, _, inr, adc, m2_pos3, _, _, _, _, taken_at = opdb.query_tel_status(visit_id, sequence_id)
-    else:
-        _, _, taken_at, _, _, inr, adc, _, _, _, m2_pos3 = opdb.query_agc_exposure(frame_id)
+        kwargs.setdefault('visit_id', visit_id)
+        kwargs.setdefault('sequence_id', sequence_id)
+    if (tel_status := kwargs.pop('tel_status', None)) is not None:
+        _, _, inr, adc, m2_pos3, _, _, _, taken_at = tel_status
+        kwargs.setdefault('taken_at', taken_at)
+        kwargs.setdefault('inr', inr)
+        kwargs.setdefault('adc', adc)
+        kwargs.setdefault('m2_pos3', m2_pos3)
+
+
+def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwargs):
+
+    logger and logger.info('frame_id={}'.format(frame_id))
+    _parse_kwargs(kwargs)
+    taken_at = kwargs.get('taken_at')
+    inr = kwargs.get('inr')
+    adc = kwargs.get('adc')
+    m2_pos3 = kwargs.get('m2_pos3')
+    if any(x is None for x in (taken_at, inr, adc, m2_pos3)):
+        visit_id, _, _taken_at, _, _, _inr, _adc, _, _, _, _m2_pos3 = opdb.query_agc_exposure(frame_id)
+        if (sequence_id := kwargs.get('sequence_id')) is not None:
+            # use visit_id from agc_exposure table
+            _, _, _inr, _adc, _m2_pos3, _, _, _, _, _taken_at = opdb.query_tel_status(visit_id, sequence_id)
+        if taken_at is None: taken_at = _taken_at
+        if inr is None: inr = _inr
+        if adc is None: adc = _adc
+        if m2_pos3 is None: m2_pos3 = _m2_pos3
     logger and logger.info('taken_at={},inr={},adc={},m2_pos3={}'.format(taken_at, inr, adc, m2_pos3))
     detected_objects = opdb.query_agc_data(frame_id)
-    design_id, design_path = design
+    #logger and logger.info('detected_objects={}'.format(detected_objects))
+    design_id = kwargs.get('design_id')
+    design_path = kwargs.get('design_path')
     logger and logger.info('design_id={},design_path={}'.format(design_id, design_path))
-    if design_path is not None:
-        guide_objects, ra, dec, pa = pfs_design(design_id, design_path).guide_stars
-        logger and logger.info('ra={},dec={},pa={}'.format(ra, dec, pa))
+    ra = kwargs.get('ra')
+    dec = kwargs.get('dec')
+    inst_pa = kwargs.get('inst_pa')
+    if all(x is None for x in (design_id, design_path)):
+        guide_objects, *_ = gaia.get_objects(ra=ra, dec=dec, obstime=taken_at, inr=inr, adc=adc, m2pos3=m2_pos3, obswl=obswl)
     else:
-        _, ra, dec, pa, *_ = opdb.query_pfs_design(design_id)
-        logger and logger.info('ra={},dec={},pa={}'.format(ra, dec, pa))
-        guide_objects = opdb.query_pfs_design_agc(design_id)
-    return (ra, dec, pa, *_acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, m2_pos3=m2_pos3, obswl=obswl, altazimuth=altazimuth, logger=logger))
+        if design_path is not None:
+            guide_objects, _ra, _dec, _inst_pa = pfs_design(design_id, design_path).guide_stars
+        else:
+            _, _ra, _dec, _inst_pa, *_ = opdb.query_pfs_design(design_id)
+            guide_objects = opdb.query_pfs_design_agc(design_id)
+        if ra is None: ra = _ra
+        if dec is None: dec = _dec
+        if inst_pa is None: inst_pa = _inst_pa
+    logger and logger.info('ra={},dec={},inst_pa={}'.format(ra, dec, inst_pa))
+    #logger and logger.info('guide_objects={}'.format(guide_objects))
+    return (ra, dec, inst_pa, *_acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, m2_pos3=m2_pos3, obswl=obswl, altazimuth=altazimuth, logger=logger))
 
 
 def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, m2_pos3=6.0, obswl=0.62, altazimuth=False, logger=None):
@@ -161,13 +203,13 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(name='field_acquisition')
-    ra, dec, pa, dra, ddec, dinr, *values = acquire_field(design=(args.design_id, args.design_path), frame_id=args.frame_id, obswl=args.obswl, altazimuth=args.altazimuth, logger=logger)
-    print('ra={},dec={},pa={},dra={},ddec={},dinr={}'.format(ra, dec, pa, dra, ddec, dinr))
+    ra, dec, inst_pa, dra, ddec, dinr, *values = acquire_field(design=(args.design_id, args.design_path), frame_id=args.frame_id, obswl=args.obswl, altazimuth=args.altazimuth, logger=logger)
+    print('ra={},dec={},inst_pa={},dra={},ddec={},dinr={}'.format(ra, dec, inst_pa, dra, ddec, dinr))
     if args.altazimuth:
         dalt, daz, *values = values
         print('dalt={},daz={}'.format(dalt, daz))
     guide_objects, detected_objects, identified_objects, dx, dy, size, peak, flux = values
-    print('guide_objects={}'.format(guide_objects))
-    print('detected_objects={}'.format(detected_objects))
-    print('identified_objects={}'.format(identified_objects))
+    #print('guide_objects={}'.format(guide_objects))
+    #print('detected_objects={}'.format(detected_objects))
+    #print('identified_objects={}'.format(identified_objects))
     print('dx={},dy={},size={},peak={},flux={}'.format(dx, dy, size, peak, flux))

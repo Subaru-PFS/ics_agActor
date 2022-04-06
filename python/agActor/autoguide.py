@@ -13,67 +13,94 @@ class Field:
 
 def set_design(*, logger=None, **kwargs):
 
-    design = kwargs.get('design')
-    design_id, design_path = design
+    field_acquisition._parse_kwargs(kwargs)
+    design_id = kwargs.get('design_id')
+    design_path = kwargs.get('design_path')
     logger and logger.info('design_id={},design_path={}'.format(design_id, design_path))
-    if design_path is not None:
-        _, ra, dec, pa = pfs_design(design_id, design_path).guide_stars
-    else:
-        _, ra, dec, pa, *_ = opdb.query_pfs_design(design_id)
-    logger and logger.info('ra={},dec={}'.format(ra, dec))
-    Field.design = design
-    Field.center = ra, dec, pa
+    ra = kwargs.get('ra')
+    dec = kwargs.get('dec')
+    inst_pa = kwargs.get('inst_pa')
+    if any(x is None for x in (ra, dec, inst_pa)):
+        if any(x is not None for x in (design_id, design_path)):
+            if design_path is not None:
+                _, _ra, _dec, _inst_pa = pfs_design(design_id, design_path).guide_stars
+            else:
+                _, _ra, _dec, _inst_pa, *_ = opdb.query_pfs_design(design_id)
+            if ra is None: ra = _ra
+            if dec is None: dec = _dec
+            if inst_pa is None: inst_pa = _inst_pa
+    logger and logger.info('ra={},dec={},inst_pa={}'.format(ra, dec, inst_pa))
+    Field.design = design_id, design_path
+    Field.center = ra, dec, inst_pa
     Field.guide_objects = []  # delay loading of guide objects
 
 
 def set_design_agc(*, frame_id=None, obswl=0.62, logger=None, **kwargs):
 
-    tel_status = kwargs.get('tel_status')
-    status_id = kwargs.get('status_id')
     logger and logger.info('frame_id={}'.format(frame_id))
+    field_acquisition._parse_kwargs(kwargs)
     if frame_id is not None:
-        # create guide object table from frame
-        ra, dec, _ = Field.center
-        if tel_status is not None:
-            _, _, inr, adc, m2_pos3, _, _, _, taken_at = tel_status
-        elif status_id is not None:
-            # visit_id can be obtained from agc_exposure table
-            visit_id, sequence_id = status_id
-            _, _, inr, adc, m2_pos3, _, _, _, _, taken_at = opdb.query_tel_status(visit_id, sequence_id)
-        else:
-            _, _, taken_at, _, _, inr, adc, _, _, _, m2_pos3 = opdb.query_agc_exposure(frame_id)
+        # generate guide objects from frame
+        ra, dec, *_ = Field.center
+        logger and logger.info('ra={},dec={}'.format(ra, dec))
+        taken_at = kwargs.get('taken_at')
+        inr = kwargs.get('inr')
+        adc = kwargs.get('adc')
+        m2_pos3 = kwargs.get('m2_pos3')
+        if any(x is None for x in (taken_at, inr, adc, m2_pos3)):
+            visit_id, _, _taken_at, _, _, _inr, _adc, _, _, _, _m2_pos3 = opdb.query_agc_exposure(frame_id)
+            if (sequence_id := kwargs.get('sequence_id')) is not None:
+                # use visit_id from agc_exposure table
+                _, _, _inr, _adc, _m2_pos3, _, _, _, _, _taken_at = opdb.query_tel_status(visit_id, sequence_id)
+            if taken_at is None: taken_at = _taken_at
+            if inr is None: inr = _inr
+            if adc is None: adc = _adc
+            if m2_pos3 is None: m2_pos3 = _m2_pos3
         logger and logger.info('taken_at={},inr={},adc={},m2_pos3={}'.format(taken_at, inr, adc, m2_pos3))
         detected_objects = opdb.query_agc_data(frame_id)
-        guide_objects = astrometry.measure(detected_objects, ra, dec, taken_at, inr, adc, m2_pos3=m2_pos3, obswl=obswl, logger=logger)
+        #logger and logger.info('detected_objects={}'.format(detected_objects))
+        guide_objects = astrometry.measure(detected_objects=detected_objects, ra=ra, dec=dec, taken_at=taken_at, inr=inr, adc=adc, m2_pos3=m2_pos3, obswl=obswl, logger=logger)
     else:
-        # use guide object table from operational database or pfs design file
+        # use guide objects from pfs design file or operational database, or generate on-the-fly
         design_id, design_path = Field.design
+        logger and logger.info('design_id={},design_path={}'.format(design_id, design_path))
         if design_path is not None:
             guide_objects, *_ = pfs_design(design_id, design_path).guide_stars
-        else:
+        elif design_id is not None:
             guide_objects = opdb.query_pfs_design_agc(design_id)
+        else:
+            ra, dec, *_ = Field.center
+            logger and logger.info('ra={},dec={}'.format(ra, dec))
+            guide_objects, *_ = gaia.get_objects(ra=ra, dec=dec, obstime=taken_at, inr=inr, adc=adc, m2pos3=m2_pos3, obswl=obswl)
+    #logger and logger.info('guide_objects={}'.format(guide_objects))
     Field.guide_objects = guide_objects
 
 
 def autoguide(*, frame_id, obswl=0.62, logger=None, **kwargs):
 
-    tel_status = kwargs.get('tel_status')
-    status_id = kwargs.get('status_id')
     logger and logger.info('frame_id={}'.format(frame_id))
+    field_acquisition._parse_kwargs(kwargs)
     guide_objects = Field.guide_objects
-    ra, dec, _ = Field.center
+    #logger and logger.info('guide_objects={}'.format(guide_objects))
+    ra, dec, *_ = Field.center
     logger and logger.info('ra={},dec={}'.format(ra, dec))
-    if tel_status is not None:
-        _, _, inr, adc, m2_pos3, _, _, _, taken_at = tel_status
-    elif status_id is not None:
-        # visit_id can be obtained from agc_exposure table
-        visit_id, sequence_id = status_id
-        _, _, inr, adc, m2_pos3, _, _, _, _, taken_at = opdb.query_tel_status(visit_id, sequence_id)
-    else:
-        _, _, taken_at, _, _, inr, adc, _, _, _, m2_pos3 = opdb.query_agc_exposure(frame_id)
+    taken_at = kwargs.get('taken_at')
+    inr = kwargs.get('inr')
+    adc = kwargs.get('adc')
+    m2_pos3 = kwargs.get('m2_pos3')
+    if None in (taken_at, inr, adc, m2_pos3):
+        visit_id, _, _taken_at, _, _, _inr, _adc, _, _, _, _m2_pos3 = opdb.query_agc_exposure(frame_id)
+        if (sequence_id := kwargs.get('sequence_id')) is not None:
+            # use visit_id from agc_exposure table
+            _, _, _inr, _adc, _m2_pos3, _, _, _, _, _taken_at = opdb.query_tel_status(visit_id, sequence_id)
+        if taken_at is None: taken_at = _taken_at
+        if inr is None: inr = _inr
+        if adc is None: adc = _adc
+        if m2_pos3 is None: m2_pos3 = _m2_pos3
     logger and logger.info('taken_at={},inr={},adc={},m2_pos3={}'.format(taken_at, inr, adc, m2_pos3))
     detected_objects = opdb.query_agc_data(frame_id)
-    _, _, dinr, dalt, daz, *values = field_acquisition._acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, m2_pos3=m2_pos3, obswl=obswl, altazimuth=True, logger=logger)
+    #logger and logger.info('detected_objects={}'.format(detected_objects))
+    _, _, dinr, dalt, daz, *values = field_acquisition._acquire_field(guide_objects=guide_objects, detected_objects=detected_objects, ra=ra, dec=dec, taken_at=taken_at, adc=adc, inr=inr, m2_pos3=m2_pos3, obswl=obswl, altazimuth=True, logger=logger)
     return (dalt, daz, dinr, *values)
 
 
@@ -101,6 +128,6 @@ if __name__ == '__main__':
     dalt, daz, dinr, *values = autoguide(frame_id=args.frame_id, obswl=args.obswl, logger=logger)
     print('dalt={},daz={},dinr={}'.format(dalt, daz, dinr))
     guide_objects, detected_objects, identified_objects, *_ = values
-    print(guide_objects)
-    print(detected_objects)
-    print(identified_objects)
+    #print(guide_objects)
+    #print(detected_objects)
+    #print(identified_objects)
