@@ -277,7 +277,7 @@ def z2adc(z, filter_id):
     return numpy.clip(y_adc, 0, 22)
 
 
-def search(ra, dec, radius=96, tolerance=1):
+def search(ra, dec, radius=96 + 12, tolerance=1):
     """
     Search guide stellar objects from Gaia DR2 sources.
 
@@ -446,9 +446,6 @@ def get_objects(
     x_dp, y_dp = fp2dp(x_fp, y_fp, inr)
     icam, x_det, y_det = dp2idet(x_dp, y_dp)
 
-    # filter out those that are outside of the detectors' footprint
-    filter = ((-0.5 + 24) < x_det) & (x_det < (1023.5 + 24)) & ((-0.5 + 9) < y_det) & (y_det < (1023.5 + 9))
-
     objects = numpy.array(
         [
             (
@@ -466,16 +463,16 @@ def get_objects(
             )
             for _source_id, _skycoord, _mag, _camera_id, _x_det, _y_det, _x_dp, _y_dp, _x_fp, _y_fp
             in zip(
-                _objects['source_id'][filter],
-                _icrs_d[filter],
-                _objects['phot_g_mean_mag'][filter],
-                icam[filter],
-                x_det[filter],
-                y_det[filter],
-                x_dp[filter],
-                y_dp[filter],
-                x_fp[filter],
-                y_fp[filter]
+                _objects['source_id'],
+                _icrs_d,
+                _objects['phot_g_mean_mag'],
+                icam,
+                x_det,
+                y_det,
+                x_dp,
+                y_dp,
+                x_fp,
+                y_fp
             )
         ],
         dtype=[
