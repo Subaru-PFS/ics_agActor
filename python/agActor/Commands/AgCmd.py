@@ -33,7 +33,7 @@ class AgCmd:
             keys.Key('cadence', types.Int(), help=''),
             keys.Key('focus', types.Bool('no', 'yes'), help=''),
             keys.Key('guide', types.Bool('no', 'yes'), help=''),
-            keys.Key('design_id', types.Int(), help=''),
+            keys.Key('design_id', types.String(), help=''),
             keys.Key('design_path', types.String(), help=''),
             keys.Key('visit_id', types.Int(), help=''),
             keys.Key('from_sky', types.Bool('no', 'yes'), help=''),
@@ -82,7 +82,7 @@ class AgCmd:
 
         design_id = None
         if 'design_id' in cmd.cmd.keywords:
-            design_id = int(cmd.cmd.keywords['design_id'].values[0])
+            design_id = int(cmd.cmd.keywords['design_id'].values[0], 0)
         design_path = None
         if 'design_path' in cmd.cmd.keywords:
             design_path = str(cmd.cmd.keywords['design_path'].values[0])
@@ -381,7 +381,7 @@ class AgCmd:
 
         design_id = None
         if 'design_id' in cmd.cmd.keywords:
-            design_id = int(cmd.cmd.keywords['design_id'].values[0])
+            design_id = int(cmd.cmd.keywords['design_id'].values[0], 0)
         design_path = None
         if 'design_path' in cmd.cmd.keywords:
             design_path = str(cmd.cmd.keywords['design_path'].values[0])
@@ -421,7 +421,7 @@ class AgCmd:
 
         design_id = None
         if 'design_id' in cmd.cmd.keywords:
-            design_id = int(cmd.cmd.keywords['design_id'].values[0])
+            design_id = int(cmd.cmd.keywords['design_id'].values[0], 0)
         design_path = None
         if 'design_path' in cmd.cmd.keywords:
             design_path = str(cmd.cmd.keywords['design_path'].values[0])
