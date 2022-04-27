@@ -18,7 +18,7 @@ class AgCmd:
             ('status', '', self.status),
             ('show', '', self.show),
             ('acquire_field', '[<design_id>] [<design_path>] [<visit_id>] [<exposure_time>] [<guide>]', self.acquire_field),
-            ('acquire_field', '@otf [<visit_id>] [<exposure_time>] [<guide>] [<magnitude>]', self.acquire_field_otf),
+            ('acquire_field', '@otf [<visit_id>] [<exposure_time>] [<guide>] [<center>] [<magnitude>]', self.acquire_field_otf),
             ('focus', '[<visit_id>] [<exposure_time>]', self.focus),
             ('autoguide', '@start [<design_id>] [<design_path>] [<visit_id>] [<from_sky>] [<exposure_time>] [<cadence>] [<focus>]', self.start_autoguide),
             ('autoguide', '@initialize [<design_id>] [<design_path>] [<visit_id>] [<from_sky>] [<exposure_time>] [<cadence>] [<focus>]', self.initialize_autoguide),
@@ -28,7 +28,7 @@ class AgCmd:
         ]
         self.keys = keys.KeysDictionary(
             'ag_ag',
-            (1, 6),
+            (1, 7),
             keys.Key('exposure_time', types.Int(), help=''),
             keys.Key('cadence', types.Int(), help=''),
             keys.Key('focus', types.Bool('no', 'yes'), help=''),
@@ -37,6 +37,7 @@ class AgCmd:
             keys.Key('design_path', types.String(), help=''),
             keys.Key('visit_id', types.Int(), help=''),
             keys.Key('from_sky', types.Bool('no', 'yes'), help=''),
+            keys.Key('center', types.Float() * (2, 3), help=''),
             keys.Key('magnitude', types.Float(), help=''),
         )
         self.with_opdb_agc_guide_offset = actor.config.getboolean(actor.name, 'agc_guide_offset', fallback=False)
@@ -229,6 +230,12 @@ class AgCmd:
         guide = False
         if 'guide' in cmd.cmd.keywords:
             guide = bool(cmd.cmd.keywords['guide'].values[0])
+        ra, dec, pa = None, None, -90.0
+        if 'center' in cmd.cmd.keywords:
+            ra = float(cmd.cmd.keywords['center'].values[0])
+            dec = float(cmd.cmd.keywords['center'].values[1])
+            if len(cmd.cmd.keywords['center'].values) > 2:
+                pa = float(cmd.cmd.keywords['center'].values[2])
         magnitude = 20.0
         if 'magnitude' in cmd.cmd.keywords:
             magnitude = float(cmd.cmd.keywords['magnitude'].values[0])
@@ -252,7 +259,8 @@ class AgCmd:
             tel_status = self.actor.gen2.tel_status
             self.actor.logger.info('AgCmd.acquire_field_otf: tel_status={}'.format(tel_status))
             kwargs['tel_status'] = tel_status
-            ra, dec, pa, *_ = tel_status[5:]
+            if any(x is None for x in (ra, dec)):
+                ra, dec, pa, *_ = tel_status[5:]
             kwargs['center'] = ra, dec, pa
             telescope_state = None
             if self.with_mlp1_status:
