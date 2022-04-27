@@ -1,5 +1,7 @@
 import astrometry
 import field_acquisition
+#import _gen2_gaia as gaia
+import _gen2_gaia_annulus as gaia
 from opdb import opDB as opdb
 from pfs_design import pfsDesign as pfs_design
 
@@ -59,7 +61,7 @@ def set_design_agc(*, frame_id=None, obswl=0.62, logger=None, **kwargs):
         logger and logger.info('taken_at={},inr={},adc={},m2_pos3={}'.format(taken_at, inr, adc, m2_pos3))
         detected_objects = opdb.query_agc_data(frame_id)
         #logger and logger.info('detected_objects={}'.format(detected_objects))
-        guide_objects = astrometry.measure(detected_objects=detected_objects, ra=ra, dec=dec, taken_at=taken_at, inr=inr, adc=adc, m2_pos3=m2_pos3, obswl=obswl, logger=logger)
+        guide_objects = astrometry.measure(detected_objects=detected_objects, ra=ra, dec=dec, obstime=taken_at, inr=inr, adc=adc, m2_pos3=m2_pos3, obswl=obswl, logger=logger)
     else:
         # use guide objects from pfs design file or operational database, or generate on-the-fly
         design_id, design_path = Field.design
@@ -71,7 +73,13 @@ def set_design_agc(*, frame_id=None, obswl=0.62, logger=None, **kwargs):
         else:
             ra, dec, *_ = Field.center
             logger and logger.info('ra={},dec={}'.format(ra, dec))
-            guide_objects, *_ = gaia.get_objects(ra=ra, dec=dec, obstime=taken_at, inr=inr, adc=adc, m2pos3=m2_pos3, obswl=obswl)
+            taken_at = kwargs.get('taken_at')
+            inr = kwargs.get('inr')
+            adc = kwargs.get('adc')
+            m2_pos3 = kwargs.get('m2_pos3', 6.0)
+            magnitude = kwargs.get('magnitude', 20.0)
+            logger and logger.info('taken_at={},inr={},adc={},m2_pos3={},magnitude={}'.format(taken_at, inr, adc, m2_pos3, magnitude))
+            guide_objects, *_ = gaia.get_objects(ra=ra, dec=dec, obstime=taken_at, inr=inr, adc=adc, m2pos3=m2_pos3, obswl=obswl, magnitude=magnitude)
     #logger and logger.info('guide_objects={}'.format(guide_objects))
     Field.guide_objects = guide_objects
 
@@ -114,17 +122,25 @@ if __name__ == '__main__':
     parser.add_argument('--frame-id', type=int, required=True, help='frame identifier')
     parser.add_argument('--ref-frame-id', type=int, default=None, help='reference frame identifier')
     parser.add_argument('--obswl', type=float, default=0.62, help='wavelength of observation (um)')
+    parser.add_argument('--center', default=None, help='field center coordinates ra, dec[, pa] (deg)')
+    parser.add_argument('--magnitude', type=float, default=20.0, help='magnitude limit')
     args, _ = parser.parse_known_args()
 
-    if all(x is None for x in (args.design_id, args.design_path)):
-        parser.error('at least one of the following arguments is required: --design-id, --design-path')
+    if not (args.center is not None) ^ any(x is not None for x in (args.design_id, args.design_path)):
+        parser.error('at least one of the following arguments is required: --center, --design-id, --design-path')
+    center = design = None
+    if args.center is not None:
+        center = tuple([float(x) for x in args.center.split(',')])
+    else:
+        design = (args.design_id, args.design_path)
+    print('center={},design={}'.format(center, design))
 
     import logging
 
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(name='autoguide')
-    set_design(design=(args.design_id, args.design_path), logger=logger)
-    set_design_agc(frame_id=args.ref_frame_id, obswl=args.obswl, logger=logger)
+    set_design(design=design, logger=logger, center=center)
+    set_design_agc(frame_id=args.ref_frame_id, obswl=args.obswl, logger=logger, magnitude=args.magnitude)
     dalt, daz, dinr, *values = autoguide(frame_id=args.frame_id, obswl=args.obswl, logger=logger)
     print('dalt={},daz={},dinr={}'.format(dalt, daz, dinr))
     guide_objects, detected_objects, identified_objects, *_ = values

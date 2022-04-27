@@ -61,7 +61,8 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
     dec = kwargs.get('dec')
     inst_pa = kwargs.get('inst_pa')
     if all(x is None for x in (design_id, design_path)):
-        guide_objects, *_ = gaia.get_objects(ra=ra, dec=dec, obstime=taken_at, inr=inr, adc=adc, m2pos3=m2_pos3, obswl=obswl)
+        magnitude = kwargs.get('magnitude', 20.0)
+        guide_objects, *_ = gaia.get_objects(ra=ra, dec=dec, obstime=taken_at, inr=inr, adc=adc, m2pos3=m2_pos3, obswl=obswl, magnitude=magnitude)
     else:
         if design_path is not None:
             guide_objects, _ra, _dec, _inst_pa = pfs_design(design_id, design_path).guide_stars
@@ -194,16 +195,24 @@ if __name__ == '__main__':
     parser.add_argument('--frame-id', type=int, required=True, help='frame identifier')
     parser.add_argument('--obswl', type=float, default=0.62, help='wavelength of observation (um)')
     parser.add_argument('--altazimuth', action='store_true', help='')
+    parser.add_argument('--center', default=None, help='field center coordinates ra, dec[, pa] (deg)')
+    parser.add_argument('--magnitude', type=float, default=20.0, help='magnitude limit')
     args, _ = parser.parse_known_args()
 
-    if all(x is None for x in (args.design_id, args.design_path)):
-        parser.error('at least one of the following arguments is required: --design-id, --design-path')
+    if not (args.center is not None) ^ any(x is not None for x in (args.design_id, args.design_path)):
+        parser.error('at least one of the following arguments is required: --center, --design-id, --design-path')
+    center = design = None
+    if args.center is not None:
+        center = tuple([float(x) for x in args.center.split(',')])
+    else:
+        design = (args.design_id, args.design_path)
+    print('center={},design={}'.format(center, design))
 
     import logging
 
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(name='field_acquisition')
-    ra, dec, inst_pa, dra, ddec, dinr, *values = acquire_field(design=(args.design_id, args.design_path), frame_id=args.frame_id, obswl=args.obswl, altazimuth=args.altazimuth, logger=logger)
+    ra, dec, inst_pa, dra, ddec, dinr, *values = acquire_field(design=design, frame_id=args.frame_id, obswl=args.obswl, altazimuth=args.altazimuth, logger=logger, center=center, magnitude=args.magnitude)
     print('ra={},dec={},inst_pa={},dra={},ddec={},dinr={}'.format(ra, dec, inst_pa, dra, ddec, dinr))
     if args.altazimuth:
         dalt, daz, *values = values

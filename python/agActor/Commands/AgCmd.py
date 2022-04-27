@@ -18,7 +18,7 @@ class AgCmd:
             ('status', '', self.status),
             ('show', '', self.show),
             ('acquire_field', '[<design_id>] [<design_path>] [<visit_id>] [<exposure_time>] [<guide>]', self.acquire_field),
-            ('acquire_field', '@otf [<visit_id>] [<exposure_time>] [<guide>]', self.acquire_field_otf),
+            ('acquire_field', '@otf [<visit_id>] [<exposure_time>] [<guide>] [<magnitude>]', self.acquire_field_otf),
             ('focus', '[<visit_id>] [<exposure_time>]', self.focus),
             ('autoguide', '@start [<design_id>] [<design_path>] [<visit_id>] [<from_sky>] [<exposure_time>] [<cadence>] [<focus>]', self.start_autoguide),
             ('autoguide', '@initialize [<design_id>] [<design_path>] [<visit_id>] [<from_sky>] [<exposure_time>] [<cadence>] [<focus>]', self.initialize_autoguide),
@@ -28,7 +28,7 @@ class AgCmd:
         ]
         self.keys = keys.KeysDictionary(
             'ag_ag',
-            (1, 5),
+            (1, 6),
             keys.Key('exposure_time', types.Int(), help=''),
             keys.Key('cadence', types.Int(), help=''),
             keys.Key('focus', types.Bool('no', 'yes'), help=''),
@@ -37,6 +37,7 @@ class AgCmd:
             keys.Key('design_path', types.String(), help=''),
             keys.Key('visit_id', types.Int(), help=''),
             keys.Key('from_sky', types.Bool('no', 'yes'), help=''),
+            keys.Key('magnitude', types.Float(), help=''),
         )
         self.with_opdb_agc_guide_offset = actor.config.getboolean(actor.name, 'agc_guide_offset', fallback=False)
         self.with_opdb_agc_match = actor.config.getboolean(actor.name, 'agc_match', fallback=False)
@@ -228,6 +229,9 @@ class AgCmd:
         guide = False
         if 'guide' in cmd.cmd.keywords:
             guide = bool(cmd.cmd.keywords['guide'].values[0])
+        magnitude = 20.0
+        if 'magnitude' in cmd.cmd.keywords:
+            magnitude = float(cmd.cmd.keywords['magnitude'].values[0])
 
         try:
             cmd.inform('exposureTime={}'.format(exposure_time))
@@ -262,6 +266,7 @@ class AgCmd:
             self.actor.logger.info('AgCmd.acquire_field_otf: dataTime={}'.format(data_time))
             if self.with_agcc_timestamp:
                 kwargs['taken_at'] = data_time  # unix timestamp, not timezone-aware datetime
+            kwargs['magnitude'] = magnitude
             dalt = daz = None
             if guide:
                 cmd.inform('detectionState=1')

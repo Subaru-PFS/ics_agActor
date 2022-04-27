@@ -277,7 +277,7 @@ def z2adc(z, filter_id):
     return numpy.clip(y_adc, 0, 22)
 
 
-def search(ra, dec, radius=96 + 12, tolerance=1):
+def search(ra, dec, radius=0.027 + 0.003, magnitude=20.0):
     """
     Search guide stellar objects from Gaia DR2 sources.
 
@@ -288,23 +288,18 @@ def search(ra, dec, radius=96 + 12, tolerance=1):
     dec : array_like
         The declinations (ICRS) of the search centers (deg)
     radius : scalar
-        The radius of the cone searches (arcsec)
-    tolerance : scalar
-        The tolerance for the search centers (arcsec)
+        The radius of the cones (deg)
+    magnitude : scalar
+        The magnitude limit of the guide stellar objects
 
     Returns
     -------
     astropy.table.Table
-        The table of the Gaia DR2 sources inside the search radii
+        The table of the Gaia DR2 sources inside the search areas
     """
 
-    #from joblib import Memory
-
-    #memory = Memory(location='.', verbose=0)
-
-    #@memory.cache
-    def _search(ra, dec, radius):
-        """Perform caching search of Gaia DR2."""
+    def _search(ra, dec, radius, magnitude):
+        """Perform search of Gaia DR2."""
 
         if numpy.isscalar(ra):
             ra = (ra,)
@@ -324,18 +319,14 @@ def search(ra, dec, radius=96 + 12, tolerance=1):
         dsn = 'host={} port={} user={} dbname=star_catalog'.format(host, port, user)
         with psycopg2.connect(dsn) as connection:
             with connection.cursor() as cursor:
-                # default cone search radius of 96 arcsec encircles each detector
                 query = 'SELECT {} FROM gaia WHERE ('.format(','.join(columns)) \
                     + ' OR '.join(['q3c_radial_query(ra,dec,{},{},{})'.format(_ra, _dec, radius) for _ra, _dec in zip(ra, dec)]) \
-                    + ') AND phot_g_mean_mag<=20 AND parallax<=1 ORDER BY phot_g_mean_mag'
+                    + ') AND phot_g_mean_mag<={} AND pmra IS NOT NULL AND pmdec IS NOT NULL AND parallax IS NOT NULL ORDER BY phot_g_mean_mag'.format(magnitude)
                 cursor.execute(query)
                 objects = cursor.fetchall()
                 return Table(rows=objects, names=columns, units=_units)
 
-    #ra = numpy.round(ra * 3600 / tolerance) * tolerance / 3600  # deg
-    #dec = numpy.round(dec * 3600 / tolerance) * tolerance / 3600  # deg
-    radius /= 3600  # deg
-    return _search(ra, dec, radius)
+    return _search(ra, dec, radius, magnitude)
 
 
 def get_objects(
@@ -351,7 +342,8 @@ def get_objects(
         relative_humidity=0,
         pressure=620,
         obswl=0.62,
-        m2pos3=6.0
+        m2pos3=6.0,
+        magnitude=20.0
 ):
     """
     Get list of guide stellar objects.
@@ -384,6 +376,8 @@ def get_objects(
         The wavelength of the observation (um)
     m2pos3 : scalar
         The z position of the hexapod (mm)
+    magnitude : scalar
+        The magnitude limit of the guide stellar objects
 
     Returns
     -------
@@ -430,7 +424,7 @@ def get_objects(
     altaz = altaz_c.directional_offset_by(- position_angle * units.deg, separation * units.deg)
     icrs = altaz.transform_to('icrs')
 
-    _objects = search(icrs.ra.deg, icrs.dec.deg)
+    _objects = search(icrs.ra.deg, icrs.dec.deg, magnitude=magnitude)
     _objects['parallax'][numpy.where(_objects['parallax'] < 1e-6)] = 1e-6
     _icrs = SkyCoord(
         ra=_objects['ra'], dec=_objects['dec'], frame='icrs',
@@ -512,6 +506,7 @@ if __name__ == '__main__':
     parser.add_argument('--pressure', type=float, default=620, help='atmospheric pressure (hPa)')
     parser.add_argument('--obswl', type=float, default=0.62, help='wavelength of observation (um)')
     parser.add_argument('--m2-pos3', type=float, default=6.0, help='z position of the hexapod (mm)')
+    parser.add_argument('--magnitude', type=float, default=20.0, help='magnitude limit')
     args, _ = parser.parse_known_args()
 
     objects, az, alt, inr, adc = get_objects(
@@ -527,7 +522,8 @@ if __name__ == '__main__':
         relative_humidity=args.relative_humidity,
         pressure=args.pressure,
         obswl=args.obswl,
-        m2pos3=args.m2_pos3
+        m2pos3=args.m2_pos3,
+        magnitude=args.magnitude
     )
     print(objects)
     print(az, alt, inr, adc)
