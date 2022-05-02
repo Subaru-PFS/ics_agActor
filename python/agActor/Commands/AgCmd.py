@@ -17,10 +17,13 @@ class AgCmd:
             ('ping', '', self.ping),
             ('status', '', self.status),
             ('show', '', self.show),
-            ('acquire_field', '[<design_id>] [<design_path>] [<visit_id>] [<exposure_time>] [<guide>] [<center>] [<magnitude>]', self.acquire_field),
+            ('acquire_field', '[<design_id>] [<design_path>] [<visit_id>] [<exposure_time>] [<guide>] [<magnitude>]', self.acquire_field),
+            ('acquire_field', '@otf [<visit_id>] [<exposure_time>] [<guide>] [<center>] [<magnitude>]', self.acquire_field),
             ('focus', '[<visit_id>] [<exposure_time>]', self.focus),
-            ('autoguide', '@start [<design_id>] [<design_path>] [<visit_id>] [<from_sky>] [<exposure_time>] [<cadence>] [<focus>]', self.start_autoguide),
-            ('autoguide', '@initialize [<design_id>] [<design_path>] [<visit_id>] [<from_sky>] [<exposure_time>] [<cadence>] [<focus>]', self.initialize_autoguide),
+            ('autoguide', '@start [<design_id>] [<design_path>] [<visit_id>] [<from_sky>] [<exposure_time>] [<cadence>] [<focus>] [<center>] [<magnitude>]', self.start_autoguide),
+            ('autoguide', '@start @otf [<visit_id>] [<exposure_time>] [<cadence>] [<focus>] [<center>] [<magnitude>]', self.start_autoguide),
+            ('autoguide', '@initialize [<design_id>] [<design_path>] [<visit_id>] [<from_sky>] [<exposure_time>] [<cadence>] [<focus>] [<center>] [<magnitude>]', self.initialize_autoguide),
+            ('autoguide', '@initialize @otf [<visit_id>] [<exposure_time>] [<cadence>] [<focus>] [<center>] [<magnitude>]', self.initialize_autoguide),
             ('autoguide', '@restart', self.restart_autoguide),
             ('autoguide', '@stop', self.stop_autoguide),
             ('autoguide', '@reconfigure [<exposure_time>] [<cadence>] [<focus>]', self.reconfigure_autoguide),
@@ -36,7 +39,7 @@ class AgCmd:
             keys.Key('design_path', types.String(), help=''),
             keys.Key('visit_id', types.Int(), help=''),
             keys.Key('from_sky', types.Bool('no', 'yes'), help=''),
-            keys.Key('center', types.Float() * (2, 3), help=''),
+            keys.Key('center', types.Float() * 3, help=''),
             keys.Key('magnitude', types.Float(), help=''),
         )
         self.with_opdb_agc_guide_offset = actor.config.getboolean(actor.name, 'agc_guide_offset', fallback=False)
@@ -160,7 +163,7 @@ class AgCmd:
             if guide:
                 cmd.inform('detectionState=1')
                 # convert equatorial coordinates to horizontal coordinates
-                ra, dec, pa, dra, ddec, dinr, dalt, daz, *values = field_acquisition.acquire_field(design=design, frame_id=frame_id, altazimuth=True, logger=self.actor.logger, **kwargs)
+                ra, dec, pa, dra, ddec, dinr, dalt, daz, *values = field_acquisition.acquire_field(design=design, frame_id=frame_id, altazimuth=True, logger=self.actor.logger, **kwargs)  # design takes precedence over center
                 cmd.inform('text="dra={},ddec={},dinr={},dalt={},daz={}"'.format(dra, ddec, dinr, dalt, daz))
                 filenames = ('/dev/shm/guide_objects.npy', '/dev/shm/detected_objects.npy', '/dev/shm/identified_objects.npy')
                 for filename, value in zip(filenames, values):
@@ -179,7 +182,7 @@ class AgCmd:
                 #cmd.inform('guideReady=1')
             else:
                 cmd.inform('detectionState=1')
-                ra, dec, pa, dra, ddec, dinr, *values = field_acquisition.acquire_field(design=design, frame_id=frame_id, logger=self.actor.logger, **kwargs)
+                ra, dec, pa, dra, ddec, dinr, *values = field_acquisition.acquire_field(design=design, frame_id=frame_id, logger=self.actor.logger, **kwargs)  # design takes precedence over center
                 cmd.inform('text="dra={},ddec={},dinr={}"'.format(dra, ddec, dinr))
                 filenames = ('/dev/shm/guide_objects.npy', '/dev/shm/detected_objects.npy', '/dev/shm/identified_objects.npy')
                 for filename, value in zip(filenames, values):
@@ -206,7 +209,7 @@ class AgCmd:
                 )
             if self.with_opdb_agc_match:
                 data_utils.write_agc_match(
-                    design_id=design_id if design_id is not None else pfs_design.to_design_id(design_path) if design_path is not None else 0,
+                    design_id=design_id if design_id is not None else pfs_design.pfsDesign.to_design_id(design_path) if design_path is not None else 0,
                     frame_id=frame_id,
                     guide_objects=values[0],
                     detected_objects=values[1],
@@ -279,7 +282,7 @@ class AgCmd:
         design_path = None
         if 'design_path' in cmd.cmd.keywords:
             design_path = str(cmd.cmd.keywords['design_path'].values[0])
-        design = None if all(x is None for x in (design_id, design_path)) else (design_id, design_path)
+        design = (design_id, design_path) if any(x is not None for x in (design_id, design_path)) else None
         visit_id = self.visit_id
         if 'visit_id' in cmd.cmd.keywords:
             visit_id = int(cmd.cmd.keywords['visit_id'].values[0])
@@ -300,9 +303,15 @@ class AgCmd:
         focus = False
         if 'focus' in cmd.cmd.keywords:
             focus = bool(cmd.cmd.keywords['focus'].values[0])
+        center = None
+        if 'center' in cmd.cmd.keywords:
+            center = tuple([float(x) for x in cmd.cmd.keywords['center'].values])
+        magnitude = 20.0
+        if 'magnitude' in cmd.cmd.keywords:
+            magnitude = float(cmd.cmd.keywords['magnitude'].values[0])
 
         try:
-            controller.start_autoguide(cmd=cmd, design=design, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time, cadence=cadence, focus=focus)
+            controller.start_autoguide(cmd=cmd, design=design, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time, cadence=cadence, focus=focus, center=center, magnitude=magnitude)
         except Exception as e:
             cmd.fail('text="AgCmd.start_autoguide: {}"'.format(e))
             return
@@ -319,10 +328,7 @@ class AgCmd:
         design_path = None
         if 'design_path' in cmd.cmd.keywords:
             design_path = str(cmd.cmd.keywords['design_path'].values[0])
-        if all(x is None for x in (design_id, design_path)):
-            cmd.fail('text="AgCmd.initialize_autoguide: <design_id> and/or <design_path> required"')
-            return
-        design = (design_id, design_path)
+        design = (design_id, design_path) if any(x is not None for x in (design_id, design_path)) else None
         visit_id = self.visit_id
         if 'visit_id' in cmd.cmd.keywords:
             visit_id = int(cmd.cmd.keywords['visit_id'].values[0])
@@ -343,9 +349,15 @@ class AgCmd:
         focus = False
         if 'focus' in cmd.cmd.keywords:
             focus = bool(cmd.cmd.keywords['focus'].values[0])
+        center = None
+        if 'center' in cmd.cmd.keywords:
+            center = tuple([float(x) for x in cmd.cmd.keywords['center'].values])
+        magnitude = 20.0
+        if 'magnitude' in cmd.cmd.keywords:
+            magnitude = float(cmd.cmd.keywords['magnitude'].values[0])
 
         try:
-            controller.initialize_autoguide(cmd=cmd, design=design, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time, cadence=cadence, focus=focus)
+            controller.initialize_autoguide(cmd=cmd, design=design, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time, cadence=cadence, focus=focus, center=center, magnitude=magnitude)
         except Exception as e:
             cmd.fail('text="AgCmd.initialize_autoguide: {}"'.format(e))
             return
@@ -357,7 +369,7 @@ class AgCmd:
         #self.actor.logger.info('controller={}'.format(controller))
 
         try:
-            controller.start_autoguide(cmd=cmd, exposure_time=None, cadence=None, focus=None)
+            controller.restart_autoguide(cmd=cmd)
         except Exception as e:
             cmd.fail('text="AgCmd.restart_autoguide: {}"'.format(e))
             return
