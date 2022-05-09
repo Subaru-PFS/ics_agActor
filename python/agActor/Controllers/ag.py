@@ -308,6 +308,9 @@ class AgThread(threading.Thread):
                         if focus:
                             # send corrections to gen2 (or iic)
                             pass
+                        # send corrections to gen2 (or iic)
+                        cmd.inform('guideOffsets={},{},{},{},{},{},{}'.format(frame_id, None, None, dinr, daz, dalt, dz))
+                        cmd.inform('focusOffsets={},{},{},{},{},{},{}'.format(frame_id, *dzs))
                         if self.with_opdb_agc_guide_offset:
                             data_utils.write_agc_guide_offset(
                                 frame_id=frame_id,

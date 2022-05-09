@@ -190,10 +190,13 @@ class AgCmd:
                 cmd.inform('data={},{},{},"{}","{}","{}"'.format(ra, dec, pa, *filenames))
                 cmd.inform('detectionState=0')
                 # send corrections to gen2 (or iic)
+            # always compute focus offset and tilt
+            dz, dzs = _focus._focus(detected_objects=values[1], logger=self.actor.logger)
+            # send corrections to gen2 (or iic)
+            cmd.inform('guideOffsets={},{},{},{},{},{},{}'.format(frame_id, dra, ddec, dinr, daz, dalt, dz))
+            cmd.inform('focusOffsets={},{},{},{},{},{},{}'.format(frame_id, *dzs))
             # store results in opdb
             if self.with_opdb_agc_guide_offset:
-                # always compute focus offset and tilt
-                dz, dzs = _focus._focus(detected_objects=values[1], logger=self.actor.logger)
                 data_utils.write_agc_guide_offset(
                     frame_id=frame_id,
                     ra=ra,
@@ -259,6 +262,8 @@ class AgCmd:
                 return
             cmd.inform('text="dz={}"'.format(dz))
             # send corrections to gen2 (or iic)
+            cmd.inform('guideOffsets={},{},{},{},{},{},{}'.format(frame_id, None, None, None, None, None, dz))
+            cmd.inform('focusOffsets={},{},{},{},{},{},{}'.format(frame_id, *dzs))
             # store results in opdb
             if self.with_opdb_agc_guide_offset:
                 data_utils.write_agc_guide_offset(
