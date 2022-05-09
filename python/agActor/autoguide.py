@@ -25,7 +25,7 @@ def set_design(*, logger=None, **kwargs):
     if any(x is None for x in (ra, dec, inst_pa)):
         if any(x is not None for x in (design_id, design_path)):
             if design_path is not None:
-                _, _ra, _dec, _inst_pa = pfs_design(design_id, design_path).guide_stars
+                _ra, _dec, _inst_pa = pfs_design(design_id, design_path, logger=logger).center
             else:
                 _, _ra, _dec, _inst_pa, *_ = opdb.query_pfs_design(design_id)
             if ra is None: ra = _ra
@@ -67,7 +67,10 @@ def set_design_agc(*, frame_id=None, obswl=0.62, logger=None, **kwargs):
         design_id, design_path = Field.design
         logger and logger.info('design_id={},design_path={}'.format(design_id, design_path))
         if design_path is not None:
-            guide_objects, *_ = pfs_design(design_id, design_path).guide_stars
+            taken_at = kwargs.get('taken_at')
+            magnitude = kwargs.get('magnitude', 20.0)
+            logger and logger.info('taken_at={},magnitude={}'.format(taken_at, magnitude))
+            guide_objects, *_ = pfs_design(design_id, design_path, logger=logger).guide_objects(magnitude=magnitude, obstime=taken_at)
         elif design_id is not None:
             guide_objects = opdb.query_pfs_design_agc(design_id)
         else:

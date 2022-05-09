@@ -221,7 +221,10 @@ class AgThread(threading.Thread):
                         self._set_params(mode=mode)
                 if mode & ag.Mode.REF_DB:
                     autoguide.set_design(design=design, logger=self.logger)
-                    autoguide.set_design_agc(logger=self.logger)
+                    kwargs = {}
+                    if magnitude is not None:
+                        kwargs['magnitude'] = magnitude
+                    autoguide.set_design_agc(logger=self.logger, **kwargs)  # obstime=<current time>
                     mode &= ~ag.Mode.REF_DB
                     self._set_params(mode=mode)
                 if mode & (ag.Mode.ON | ag.Mode.ONCE | ag.Mode.REF_SKY):
