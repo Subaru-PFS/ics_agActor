@@ -12,25 +12,25 @@ class AgCmd:
     def __init__(self, actor):
 
         self.actor = actor
-        self.visit_id = None
+        self.visit_id = 0
         self.vocab = [
             ('ping', '', self.ping),
             ('status', '', self.status),
             ('show', '', self.show),
-            ('acquire_field', '[<design_id>] [<design_path>] [<visit_id>] [<exposure_time>] [<guide>] [<magnitude>]', self.acquire_field),
-            ('acquire_field', '@otf [<visit_id>] [<exposure_time>] [<guide>] [<center>] [<magnitude>]', self.acquire_field),
-            ('focus', '[<visit_id>] [<exposure_time>]', self.focus),
-            ('autoguide', '@start [<design_id>] [<design_path>] [<visit_id>] [<from_sky>] [<exposure_time>] [<cadence>] [<focus>] [<center>] [<magnitude>]', self.start_autoguide),
-            ('autoguide', '@start @otf [<visit_id>] [<exposure_time>] [<cadence>] [<focus>] [<center>] [<magnitude>]', self.start_autoguide),
-            ('autoguide', '@initialize [<design_id>] [<design_path>] [<visit_id>] [<from_sky>] [<exposure_time>] [<cadence>] [<focus>] [<center>] [<magnitude>]', self.initialize_autoguide),
-            ('autoguide', '@initialize @otf [<visit_id>] [<exposure_time>] [<cadence>] [<focus>] [<center>] [<magnitude>]', self.initialize_autoguide),
+            ('acquire_field', '[<design_id>] [<design_path>] [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<magnitude>]', self.acquire_field),
+            ('acquire_field', '@otf [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<center>] [<magnitude>]', self.acquire_field),
+            ('focus', '[<visit_id>|<visit>] [<exposure_time>]', self.focus),
+            ('autoguide', '@start [<design_id>] [<design_path>] [<visit_id>|<visit>] [<from_sky>] [<exposure_time>] [<cadence>] [<focus>] [<center>] [<magnitude>]', self.start_autoguide),
+            ('autoguide', '@start @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<focus>] [<center>] [<magnitude>]', self.start_autoguide),
+            ('autoguide', '@initialize [<design_id>] [<design_path>] [<visit_id>|<visit>] [<from_sky>] [<exposure_time>] [<cadence>] [<focus>] [<center>] [<magnitude>]', self.initialize_autoguide),
+            ('autoguide', '@initialize @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<focus>] [<center>] [<magnitude>]', self.initialize_autoguide),
             ('autoguide', '@restart', self.restart_autoguide),
             ('autoguide', '@stop', self.stop_autoguide),
             ('autoguide', '@reconfigure [<exposure_time>] [<cadence>] [<focus>]', self.reconfigure_autoguide),
         ]
         self.keys = keys.KeysDictionary(
             'ag_ag',
-            (1, 7),
+            (1, 8),
             keys.Key('exposure_time', types.Int(), help=''),
             keys.Key('cadence', types.Int(), help=''),
             keys.Key('focus', types.Bool('no', 'yes'), help=''),
@@ -38,6 +38,7 @@ class AgCmd:
             keys.Key('design_id', types.String(), help=''),
             keys.Key('design_path', types.String(), help=''),
             keys.Key('visit_id', types.Int(), help=''),
+            keys.Key('visit', types.Int(), help=''),
             keys.Key('from_sky', types.Bool('no', 'yes'), help=''),
             keys.Key('center', types.Float() * 3, help=''),
             keys.Key('magnitude', types.Float(), help=''),
@@ -95,12 +96,15 @@ class AgCmd:
         if 'visit_id' in cmd.cmd.keywords:
             visit_id = int(cmd.cmd.keywords['visit_id'].values[0])
             self.visit_id = visit_id
+        elif 'visit' in cmd.cmd.keywords:
+            visit_id = int(cmd.cmd.keywords['visit'].values[0])
+            self.visit_id = visit_id
         exposure_time = 2000  # ms
         if 'exposure_time' in cmd.cmd.keywords:
             exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
             if exposure_time < 100:
                 exposure_time = 100
-        guide = False
+        guide = True
         if 'guide' in cmd.cmd.keywords:
             guide = bool(cmd.cmd.keywords['guide'].values[0])
         center = None
@@ -236,6 +240,9 @@ class AgCmd:
         if 'visit_id' in cmd.cmd.keywords:
             visit_id = int(cmd.cmd.keywords['visit_id'].values[0])
             self.visit_id = visit_id
+        elif 'visit' in cmd.cmd.keywords:
+            visit_id = int(cmd.cmd.keywords['visit'].values[0])
+            self.visit_id = visit_id
         exposure_time = 2000  # ms
         if 'exposure_time' in cmd.cmd.keywords:
             exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
@@ -292,6 +299,9 @@ class AgCmd:
         if 'visit_id' in cmd.cmd.keywords:
             visit_id = int(cmd.cmd.keywords['visit_id'].values[0])
             self.visit_id = visit_id
+        elif 'visit' in cmd.cmd.keywords:
+            visit_id = int(cmd.cmd.keywords['visit'].values[0])
+            self.visit_id = visit_id
         from_sky = None
         if 'from_sky' in cmd.cmd.keywords:
             from_sky = bool(cmd.cmd.keywords['from_sky'].values[0])
@@ -337,6 +347,9 @@ class AgCmd:
         visit_id = self.visit_id
         if 'visit_id' in cmd.cmd.keywords:
             visit_id = int(cmd.cmd.keywords['visit_id'].values[0])
+            self.visit_id = visit_id
+        elif 'visit' in cmd.cmd.keywords:
+            visit_id = int(cmd.cmd.keywords['visit'].values[0])
             self.visit_id = visit_id
         from_sky = None
         if 'from_sky' in cmd.cmd.keywords:
