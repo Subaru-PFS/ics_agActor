@@ -401,7 +401,7 @@ class POPT2:
         min_dist_index = np.nanargmin(dist, axis=1)
         min_dist_indices = np.array(range(n_obj)), min_dist_index
 
-        f = dist[min_dist_indices] < 0.2
+        f = dist[min_dist_indices] < 1.0
 
         match_obj_xdp = obj_xdp[f]
         match_obj_ydp = obj_ydp[f]
