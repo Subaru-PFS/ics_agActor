@@ -232,7 +232,7 @@ class AgThread(threading.Thread):
                     # start an exposure
                     result = self.actor.queueCommand(
                         actor='agcc',
-                        cmdStr='expose object pfsVisitId={} exptime={} centroid=1'.format(visit_id, exposure_time / 1000),
+                        cmdStr='expose object pfsVisitId={} exptime={} centroid=1'.format(visit_id, exposure_time / 1000) if visit_id is not None else 'expose object exptime={} centroid=1'.format(exposure_time / 1000),
                         timeLim=(exposure_time // 1000 + 5)
                     )
                     kwargs = {}

@@ -12,7 +12,6 @@ class AgCmd:
     def __init__(self, actor):
 
         self.actor = actor
-        self.visit_id = 0
         self.vocab = [
             ('ping', '', self.ping),
             ('status', '', self.status),
@@ -92,13 +91,11 @@ class AgCmd:
         if 'design_path' in cmd.cmd.keywords:
             design_path = str(cmd.cmd.keywords['design_path'].values[0])
         design = (design_id, design_path) if any(x is not None for x in (design_id, design_path)) else None
-        visit_id = self.visit_id
+        visit_id = None
         if 'visit_id' in cmd.cmd.keywords:
             visit_id = int(cmd.cmd.keywords['visit_id'].values[0])
-            self.visit_id = visit_id
         elif 'visit' in cmd.cmd.keywords:
             visit_id = int(cmd.cmd.keywords['visit'].values[0])
-            self.visit_id = visit_id
         exposure_time = 2000  # ms
         if 'exposure_time' in cmd.cmd.keywords:
             exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
@@ -119,7 +116,7 @@ class AgCmd:
             # start an exposure
             result = self.actor.queueCommand(
                 actor='agcc',
-                cmdStr='expose object pfsVisitId={} exptime={} centroid=1'.format(visit_id, exposure_time / 1000),
+                cmdStr='expose object pfsVisitId={} exptime={} centroid=1'.format(visit_id, exposure_time / 1000) if visit_id is not None else 'expose object exptime={} centroid=1'.format(exposure_time / 1000),
                 timeLim=(exposure_time // 1000 + 5)
             )
             kwargs = {}
@@ -236,13 +233,11 @@ class AgCmd:
             cmd.fail('text="AgCmd.focus: mode={}'.format(mode))
             return
 
-        visit_id = self.visit_id
+        visit_id = None
         if 'visit_id' in cmd.cmd.keywords:
             visit_id = int(cmd.cmd.keywords['visit_id'].values[0])
-            self.visit_id = visit_id
         elif 'visit' in cmd.cmd.keywords:
             visit_id = int(cmd.cmd.keywords['visit'].values[0])
-            self.visit_id = visit_id
         exposure_time = 2000  # ms
         if 'exposure_time' in cmd.cmd.keywords:
             exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
@@ -254,7 +249,7 @@ class AgCmd:
             # start an exposure
             result = self.actor.queueCommand(
                 actor='agcc',
-                cmdStr='expose object pfsVisitId={} exptime={} centroid=1'.format(visit_id, exposure_time / 1000),
+                cmdStr='expose object pfsVisitId={} exptime={} centroid=1'.format(visit_id, exposure_time / 1000) if visit_id is not None else 'expose object exptime={} centroid=1'.format(exposure_time / 1000),
                 timeLim=(exposure_time // 1000 + 5)
             )
             # wait for an exposure to complete
@@ -295,13 +290,11 @@ class AgCmd:
         if 'design_path' in cmd.cmd.keywords:
             design_path = str(cmd.cmd.keywords['design_path'].values[0])
         design = (design_id, design_path) if any(x is not None for x in (design_id, design_path)) else None
-        visit_id = self.visit_id
+        visit_id = None
         if 'visit_id' in cmd.cmd.keywords:
             visit_id = int(cmd.cmd.keywords['visit_id'].values[0])
-            self.visit_id = visit_id
         elif 'visit' in cmd.cmd.keywords:
             visit_id = int(cmd.cmd.keywords['visit'].values[0])
-            self.visit_id = visit_id
         from_sky = None
         if 'from_sky' in cmd.cmd.keywords:
             from_sky = bool(cmd.cmd.keywords['from_sky'].values[0])
@@ -344,13 +337,11 @@ class AgCmd:
         if 'design_path' in cmd.cmd.keywords:
             design_path = str(cmd.cmd.keywords['design_path'].values[0])
         design = (design_id, design_path) if any(x is not None for x in (design_id, design_path)) else None
-        visit_id = self.visit_id
+        visit_id = None
         if 'visit_id' in cmd.cmd.keywords:
             visit_id = int(cmd.cmd.keywords['visit_id'].values[0])
-            self.visit_id = visit_id
         elif 'visit' in cmd.cmd.keywords:
             visit_id = int(cmd.cmd.keywords['visit'].values[0])
-            self.visit_id = visit_id
         from_sky = None
         if 'from_sky' in cmd.cmd.keywords:
             from_sky = bool(cmd.cmd.keywords['from_sky'].values[0])
