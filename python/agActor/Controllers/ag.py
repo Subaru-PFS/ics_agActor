@@ -253,7 +253,7 @@ class AgThread(threading.Thread):
                                 self.logger.info('AgThread.run: center={}'.format(center))
                         if self.with_opdb_tel_status:
                             status_update = self.actor.gen2.statusUpdate
-                            status_id = (status_update['visit'], status_update['sequence'])
+                            status_id = (status_update['visit'], status_update['sequenceNum'])
                             self.logger.info('AgThread.run: status_id={}'.format(status_id))
                             kwargs['status_id'] = status_id
                     telescope_state = None

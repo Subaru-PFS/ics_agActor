@@ -139,7 +139,7 @@ class AgCmd:
                         center = tel_status[5:8]
                 if self.with_opdb_tel_status:
                     status_update = self.actor.gen2.statusUpdate
-                    status_id = (status_update['visit'], status_update['sequence'])
+                    status_id = (status_update['visit'], status_update['sequenceNum'])
                     self.actor.logger.info('AgCmd.acquire_field: status_id={}'.format(status_id))
                     kwargs['status_id'] = status_id
             telescope_state = None
