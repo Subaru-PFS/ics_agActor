@@ -305,8 +305,8 @@ class AgThread(threading.Thread):
                         # always compute focus offset and tilt
                         dz, dzs = _focus._focus(detected_objects=values[1], logger=self.logger)
                         # send corrections to gen2 (or iic)
-                        cmd.inform('guideOffsets={},{},{},{},{},{},{}'.format(frame_id, None, None, dinr, daz, dalt, dz))
-                        cmd.inform('focusOffsets={},{},{},{},{},{},{}'.format(frame_id, *dzs))
+                        cmd.inform('guideErrors={},{},{},{},{},{},{}'.format(frame_id, None, None, dinr, daz, dalt, dz))
+                        cmd.inform('focusErrors={},{},{},{},{},{},{}'.format(frame_id, *dzs))
                         if self.with_opdb_agc_guide_offset:
                             data_utils.write_agc_guide_offset(
                                 frame_id=frame_id,
