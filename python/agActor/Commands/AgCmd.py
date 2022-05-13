@@ -308,9 +308,6 @@ class AgCmd:
             cadence = int(cmd.cmd.keywords['cadence'].values[0])
             if cadence < 0:
                 cadence = 0
-        focus = False
-        if 'focus' in cmd.cmd.keywords:
-            focus = bool(cmd.cmd.keywords['focus'].values[0])
         center = None
         if 'center' in cmd.cmd.keywords:
             center = tuple([float(x) for x in cmd.cmd.keywords['center'].values])
@@ -319,7 +316,7 @@ class AgCmd:
             magnitude = float(cmd.cmd.keywords['magnitude'].values[0])
 
         try:
-            controller.start_autoguide(cmd=cmd, design=design, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time, cadence=cadence, focus=focus, center=center, magnitude=magnitude)
+            controller.start_autoguide(cmd=cmd, design=design, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time, cadence=cadence, center=center, magnitude=magnitude)
         except Exception as e:
             cmd.fail('text="AgCmd.start_autoguide: {}"'.format(e))
             return
@@ -355,9 +352,6 @@ class AgCmd:
             cadence = int(cmd.cmd.keywords['cadence'].values[0])
             if cadence < 0:
                 cadence = 0
-        focus = False
-        if 'focus' in cmd.cmd.keywords:
-            focus = bool(cmd.cmd.keywords['focus'].values[0])
         center = None
         if 'center' in cmd.cmd.keywords:
             center = tuple([float(x) for x in cmd.cmd.keywords['center'].values])
@@ -366,7 +360,7 @@ class AgCmd:
             magnitude = float(cmd.cmd.keywords['magnitude'].values[0])
 
         try:
-            controller.initialize_autoguide(cmd=cmd, design=design, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time, cadence=cadence, focus=focus, center=center, magnitude=magnitude)
+            controller.initialize_autoguide(cmd=cmd, design=design, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time, cadence=cadence, center=center, magnitude=magnitude)
         except Exception as e:
             cmd.fail('text="AgCmd.initialize_autoguide: {}"'.format(e))
             return
@@ -411,12 +405,9 @@ class AgCmd:
             cadence = int(cmd.cmd.keywords['cadence'].values[0])
             if cadence < 0:
                 cadence = 0
-        focus = None
-        if 'focus' in cmd.cmd.keywords:
-            focus = bool(cmd.cmd.keywords['focus'].values[0])
 
         try:
-            controller.reconfigure_autoguide(cmd=cmd, exposure_time=exposure_time, cadence=cadence, focus=focus)
+            controller.reconfigure_autoguide(cmd=cmd, exposure_time=exposure_time, cadence=cadence)
         except Exception as e:
             cmd.fail('text="AgCmd.reconfigure_autoguide: {}"'.format(e))
             return

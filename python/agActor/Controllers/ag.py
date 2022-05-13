@@ -29,12 +29,11 @@ class ag:
 
     EXPOSURE_TIME = 2000  # ms
     CADENCE = 0  # ms
-    FOCUS = False
     MAGNITUDE = 20.0
 
     class Params:
 
-        _KEYS = ('mode', 'design', 'visit_id', 'exposure_time', 'cadence', 'focus', 'center', 'magnitude')
+        _KEYS = ('mode', 'design', 'visit_id', 'exposure_time', 'cadence', 'center', 'magnitude')
 
         def __init__(self, **kwargs):
 
@@ -86,11 +85,11 @@ class ag:
         mode, *_ = self.thread.get_params()
         return mode
 
-    def start_autoguide(self, cmd=None, design=None, visit_id=None, from_sky=None, exposure_time=EXPOSURE_TIME, cadence=CADENCE, focus=FOCUS, center=None, magnitude=MAGNITUDE):
+    def start_autoguide(self, cmd=None, design=None, visit_id=None, from_sky=None, exposure_time=EXPOSURE_TIME, cadence=CADENCE, center=None, magnitude=MAGNITUDE):
 
         #cmd = cmd if cmd else self.actor.bcast
         mode = ag.Mode.AUTO_SKY if from_sky else ag.Mode.AUTO_DB if design is not None else ag.Mode.AUTO_OTF
-        self.thread.set_params(mode=mode, design=design, visit_id=visit_id, exposure_time=exposure_time, cadence=cadence, focus=focus, center=center, magnitude=magnitude)
+        self.thread.set_params(mode=mode, design=design, visit_id=visit_id, exposure_time=exposure_time, cadence=cadence, center=center, magnitude=magnitude)
 
     def restart_autoguide(self, cmd=None):
 
@@ -98,27 +97,27 @@ class ag:
         mode = ag.Mode.ON
         self.thread.set_params(mode=mode)
 
-    def initialize_autoguide(self, cmd=None, design=None, visit_id=None, from_sky=None, exposure_time=EXPOSURE_TIME, cadence=CADENCE, focus=FOCUS, center=None, magnitude=MAGNITUDE):
+    def initialize_autoguide(self, cmd=None, design=None, visit_id=None, from_sky=None, exposure_time=EXPOSURE_TIME, cadence=CADENCE, center=None, magnitude=MAGNITUDE):
 
         #cmd = cmd if cmd else self.actor.bcast
         mode = ag.Mode.REF_SKY if from_sky else ag.Mode.REF_DB if design is not None else ag.Mode.REF_OTF
-        self.thread.set_params(mode=mode, design=design, visit_id=visit_id, exposure_time=exposure_time, cadence=cadence, focus=focus, center=center, magnitude=magnitude)
+        self.thread.set_params(mode=mode, design=design, visit_id=visit_id, exposure_time=exposure_time, cadence=cadence, center=center, magnitude=magnitude)
 
     def stop_autoguide(self, cmd=None):
 
         #cmd = cmd if cmd else self.actor.bcast
         self.thread.set_params(mode=ag.Mode.STOP)
 
-    def reconfigure_autoguide(self, cmd=None, exposure_time=None, cadence=None, focus=None):
+    def reconfigure_autoguide(self, cmd=None, exposure_time=None, cadence=None):
 
         #cmd = cmd if cmd else self.actor.bcast
-        self.thread.set_params(exposure_time=exposure_time, cadence=cadence, focus=focus)
+        self.thread.set_params(exposure_time=exposure_time, cadence=cadence)
 
-    def acquire_field(self, cmd=None, design=None, visit_id=None, exposure_time=EXPOSURE_TIME, focus=None, center=None, magnitude=MAGNITUDE):
+    def acquire_field(self, cmd=None, design=None, visit_id=None, exposure_time=EXPOSURE_TIME, center=None, magnitude=MAGNITUDE):
 
         #cmd = cmd if cmd else self.actor.bcast
         mode = ag.Mode.AUTO_ONCE_DB if design is not None else ag.Mode.AUTO_ONCE_OTF
-        self.thread.set_params(mode=mode, design=design, visit_id=visit_id, exposure_time=exposure_time, focus=focus, center=center, magnitude=magnitude)
+        self.thread.set_params(mode=mode, design=design, visit_id=visit_id, exposure_time=exposure_time, center=center, magnitude=magnitude)
 
 
 class AgThread(threading.Thread):
@@ -130,7 +129,7 @@ class AgThread(threading.Thread):
         self.actor = actor
         self.logger = logger
         self.input_params = {}
-        self.params = ag.Params(mode=ag.Mode.OFF, exposure_time=ag.EXPOSURE_TIME, cadence=ag.CADENCE, focus=ag.FOCUS, magnitude=ag.MAGNITUDE)
+        self.params = ag.Params(mode=ag.Mode.OFF, exposure_time=ag.EXPOSURE_TIME, cadence=ag.CADENCE, magnitude=ag.MAGNITUDE)
         self.lock = threading.Lock()
         self.__abort = threading.Event()
         self.__stop = threading.Event()
@@ -191,9 +190,9 @@ class AgThread(threading.Thread):
                 self.__stop.clear()
                 break
             start = time.time()
-            mode, design, visit_id, exposure_time, cadence, focus, center, magnitude = self._get_params()
+            mode, design, visit_id, exposure_time, cadence, center, magnitude = self._get_params()
             design_id, design_path = design if design is not None else (None, None)
-            self.logger.info('AgThread.run: mode={},design={},visit_id={},exposure_time={},cadence={},focus={},center={},magnitude={}'.format(mode, design, visit_id, exposure_time, cadence, focus, center, magnitude))
+            self.logger.info('AgThread.run: mode={},design={},visit_id={},exposure_time={},cadence={},center={},magnitude={}'.format(mode, design, visit_id, exposure_time, cadence, center, magnitude))
             try:
                 if mode & ag.Mode.REF_OTF:
                     # field center coordinates need to be specified in order to be able to select guide objects on the fly at this point
@@ -305,9 +304,6 @@ class AgThread(threading.Thread):
                         #cmd.inform('guideReady=1')
                         # always compute focus offset and tilt
                         dz, dzs = _focus._focus(detected_objects=values[1], logger=self.logger)
-                        if focus:
-                            # send corrections to gen2 (or iic)
-                            pass
                         # send corrections to gen2 (or iic)
                         cmd.inform('guideOffsets={},{},{},{},{},{},{}'.format(frame_id, None, None, dinr, daz, dalt, dz))
                         cmd.inform('focusOffsets={},{},{},{},{},{},{}'.format(frame_id, *dzs))
