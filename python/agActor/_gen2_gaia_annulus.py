@@ -6,14 +6,14 @@ from astropy.coordinates import AltAz, Angle, Distance, SkyCoord, solar_system_e
 from astropy.time import Time
 from astropy.utils import iers
 import coordinates
-import kawanomoto
+from kawanomoto import Subaru_POPT2_PFS
 
 
 iers.conf.auto_download = True
 solar_system_ephemeris.set('de430')
 
-_popt2 = kawanomoto.Subaru_POPT2_PFS.POPT2()
-_pfs = kawanomoto.Subaru_POPT2_PFS.PFS()
+_popt2 = Subaru_POPT2_PFS.POPT2()
+_pfs = Subaru_POPT2_PFS.PFS()
 
 
 def sky2fp(separation, position_angle, adc, m2pos3=6.0, obswl=0.62, flag=0):
@@ -403,7 +403,7 @@ def get_objects(
     parallactic_angle = altaz_c.position_angle(altaz_p).to(units.deg).value
 
     if inr is None:
-        inr = parallactic_angle + inst_pa - kawanomoto.Subaru_POPT2_PFS.pfs_inr_zero_offset
+        inr = parallactic_angle + inst_pa - Subaru_POPT2_PFS.pfs_inr_zero_offset
         inr %= 360
         if inr >= 270:
             inr -= 360

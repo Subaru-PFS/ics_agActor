@@ -7,7 +7,7 @@ import coordinates
 from opdb import opDB as opdb
 from pfs_design import pfsDesign as pfs_design
 import to_altaz
-import kawanomoto
+from kawanomoto import FieldAcquisitionAndFocusing
 
 
 def _parse_kwargs(kwargs):
@@ -101,7 +101,7 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
             for x in detected_objects
         ]
     )
-    pfs = kawanomoto.FieldAcquisitionAndFocusing.PFS()
+    pfs = FieldAcquisitionAndFocusing.PFS()
     dra, ddec, dinr, *diags = pfs.FA(_guide_objects, _detected_objects, ra, dec, taken_at.astimezone(tz=timezone.utc) if isinstance(taken_at, datetime) else datetime.fromtimestamp(taken_at, tz=timezone.utc) if isinstance(taken_at, Number) else taken_at, adc, inr, m2_pos3, obswl)
     dra *= 3600
     ddec *= 3600

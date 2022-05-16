@@ -1,6 +1,6 @@
 import numpy
 from opdb import opDB as opdb
-import kawanomoto
+from kawanomoto import FieldAcquisitionAndFocusing
 
 
 def focus(*, frame_id, logger=None):
@@ -36,7 +36,7 @@ def _focus(detected_objects, logger=None):
             for x in detected_objects
         ]
     )
-    pfs = kawanomoto.FieldAcquisitionAndFocusing.PFS()
+    pfs = FieldAcquisitionAndFocusing.PFS()
     dzs = pfs.Focus(_detected_objects)
     logger and logger.info('dzs={}'.format(dzs))
     dz = numpy.nanmedian(dzs)
