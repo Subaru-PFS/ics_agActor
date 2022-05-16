@@ -26,10 +26,12 @@ class AgCmd:
             ('autoguide', '@restart', self.restart_autoguide),
             ('autoguide', '@stop', self.stop_autoguide),
             ('autoguide', '@reconfigure [<exposure_time>] [<cadence>] [<focus>]', self.reconfigure_autoguide),
+            ('offset', '[@(absolute|relative)] [<dx>] [<dy>] [<dinr>]', self.offset),
+            ('offset', '@reset', self.offset),
         ]
         self.keys = keys.KeysDictionary(
             'ag_ag',
-            (1, 9),
+            (1, 10),
             keys.Key('exposure_time', types.Int(), help=''),
             keys.Key('cadence', types.Int(), help=''),
             keys.Key('focus', types.Bool('no', 'yes'), help=''),
@@ -42,6 +44,9 @@ class AgCmd:
             keys.Key('center', types.Float() * 3, help=''),
             keys.Key('magnitude', types.Float(), help=''),
             keys.Key('dry_run', types.Bool('no', 'yes'), help=''),
+            keys.Key('dx', types.Float(), help=''),
+            keys.Key('dy', types.Float(), help=''),
+            keys.Key('dinr', types.Float(), help=''),
         )
         self.with_opdb_agc_guide_offset = actor.config.getboolean(actor.name, 'agc_guide_offset', fallback=False)
         self.with_opdb_agc_match = actor.config.getboolean(actor.name, 'agc_match', fallback=False)
@@ -418,4 +423,51 @@ class AgCmd:
         except Exception as e:
             cmd.fail('text="AgCmd.reconfigure_autoguide: {}"'.format(e))
             return
+        cmd.finish()
+
+    def offset(self, cmd):
+
+        # controller = self.actor.controllers['ag']
+        # #self.actor.logger.info('controller={}'.format(controller))
+        # mode = controller.get_mode()
+        # if mode != controller.Mode.OFF:
+        #     cmd.fail('text="AgCmd.offset: mode={}'.format(mode))
+        #     return
+
+        def zero_offset(*, dx=None, dy=None, dinr=None, relative=False):
+
+            import kawanomoto.Subaru_POPT2_PFS  # *NOT* 'import agActor.kawanomoto.Subaru_POPT2_PFS'
+
+            if dx is not None:
+                if relative:
+                    kawanomoto.Subaru_POPT2_PFS.pfs_detector_zero_offset_x += dx
+                else:
+                    kawanomoto.Subaru_POPT2_PFS.pfs_detector_zero_offset_x = dx
+            if dy is not None:
+                dy = - dy  # PFS->HSC
+                if relative:
+                    kawanomoto.Subaru_POPT2_PFS.pfs_detector_zero_offset_y += dy
+                else:
+                    kawanomoto.Subaru_POPT2_PFS.pfs_detector_zero_offset_y = dy
+            if dinr is not None:
+                if relative:
+                    kawanomoto.Subaru_POPT2_PFS.pfs_inr_zero_offset += dinr
+                else:
+                    kawanomoto.Subaru_POPT2_PFS.pfs_inr_zero_offset = dinr
+            return kawanomoto.Subaru_POPT2_PFS.pfs_detector_zero_offset_x, - kawanomoto.Subaru_POPT2_PFS.pfs_detector_zero_offset_y, kawanomoto.Subaru_POPT2_PFS.pfs_inr_zero_offset  # HSC->PFS
+
+        dx = None
+        if 'dx' in cmd.cmd.keywords:
+            dx = float(cmd.cmd.keywords['dx'].values[0])
+        dy = None
+        if 'dy' in cmd.cmd.keywords:
+            dy = float(cmd.cmd.keywords['dy'].values[0])
+        dinr = None
+        if 'dinr' in cmd.cmd.keywords:
+            dinr = float(cmd.cmd.keywords['dinr'].values[0])
+        if 'reset' in cmd.cmd.keywords:
+            dx, dy, dinr = 0.0, 0.0, -90.0
+        dx, dy, dinr = zero_offset(dx=dx, dy=dy, dinr=dinr, relative='relative' in cmd.cmd.keywords)
+        self.actor.logger.info('AgCmd.offset: dx={},dy={},dinr={}'.format(dx, dy, dinr))
+        cmd.inform('guideOffsets={},{}'.format(dx, dy))
         cmd.finish()
