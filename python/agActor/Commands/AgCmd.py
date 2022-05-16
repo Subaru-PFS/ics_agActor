@@ -16,11 +16,11 @@ class AgCmd:
             ('ping', '', self.ping),
             ('status', '', self.status),
             ('show', '', self.show),
-            ('acquire_field', '[<design_id>] [<design_path>] [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<magnitude>]', self.acquire_field),
-            ('acquire_field', '@otf [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<center>] [<magnitude>]', self.acquire_field),
+            ('acquire_field', '[<design_id>] [<design_path>] [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<magnitude>] [<dry_run>]', self.acquire_field),
+            ('acquire_field', '@otf [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<center>] [<magnitude>] [<dry_run>]', self.acquire_field),
             ('focus', '[<visit_id>|<visit>] [<exposure_time>]', self.focus),
-            ('autoguide', '@start [<design_id>] [<design_path>] [<visit_id>|<visit>] [<from_sky>] [<exposure_time>] [<cadence>] [<focus>] [<center>] [<magnitude>]', self.start_autoguide),
-            ('autoguide', '@start @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<focus>] [<center>] [<magnitude>]', self.start_autoguide),
+            ('autoguide', '@start [<design_id>] [<design_path>] [<visit_id>|<visit>] [<from_sky>] [<exposure_time>] [<cadence>] [<focus>] [<center>] [<magnitude>] [<dry_run>]', self.start_autoguide),
+            ('autoguide', '@start @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<focus>] [<center>] [<magnitude>] [<dry_run>]', self.start_autoguide),
             ('autoguide', '@initialize [<design_id>] [<design_path>] [<visit_id>|<visit>] [<from_sky>] [<exposure_time>] [<cadence>] [<focus>] [<center>] [<magnitude>]', self.initialize_autoguide),
             ('autoguide', '@initialize @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<focus>] [<center>] [<magnitude>]', self.initialize_autoguide),
             ('autoguide', '@restart', self.restart_autoguide),
@@ -29,7 +29,7 @@ class AgCmd:
         ]
         self.keys = keys.KeysDictionary(
             'ag_ag',
-            (1, 8),
+            (1, 9),
             keys.Key('exposure_time', types.Int(), help=''),
             keys.Key('cadence', types.Int(), help=''),
             keys.Key('focus', types.Bool('no', 'yes'), help=''),
@@ -41,6 +41,7 @@ class AgCmd:
             keys.Key('from_sky', types.Bool('no', 'yes'), help=''),
             keys.Key('center', types.Float() * 3, help=''),
             keys.Key('magnitude', types.Float(), help=''),
+            keys.Key('dry_run', types.Bool('no', 'yes'), help=''),
         )
         self.with_opdb_agc_guide_offset = actor.config.getboolean(actor.name, 'agc_guide_offset', fallback=False)
         self.with_opdb_agc_match = actor.config.getboolean(actor.name, 'agc_match', fallback=False)
@@ -110,6 +111,9 @@ class AgCmd:
         magnitude = None
         if 'magnitude' in cmd.cmd.keywords:
             magnitude = float(cmd.cmd.keywords['magnitude'].values[0])
+        dry_run = False
+        if 'dry_run' in cmd.cmd.keywords:
+            dry_run = bool(cmd.cmd.keywords['dry_run'].values[0])
 
         try:
             cmd.inform('exposureTime={}'.format(exposure_time))
@@ -176,7 +180,7 @@ class AgCmd:
                 result = self.actor.queueCommand(
                     actor='mlp1',
                     # daz, dalt: arcsec, positive feedback; dx, dy: mas, HSC -> PFS; size: mas; peak, flux: adu
-                    cmdStr='guide azel={},{} ready=1 time={} delay=0 xy={},{} size={} intensity={} flux={}'.format(- daz, - dalt, data_time, dx / 98e-6, - dy / 98e-6, size * 13 / 98e-3, peak, flux),
+                    cmdStr='guide azel={},{} ready={} time={} delay=0 xy={},{} size={} intensity={} flux={}'.format(- daz, - dalt, int(not dry_run), data_time, dx / 98e-6, - dy / 98e-6, size * 13 / 98e-3, peak, flux),
                     timeLim=5
                 )
                 result.get()
@@ -314,9 +318,12 @@ class AgCmd:
         magnitude = 20.0
         if 'magnitude' in cmd.cmd.keywords:
             magnitude = float(cmd.cmd.keywords['magnitude'].values[0])
+        dry_run = False
+        if 'dry_run' in cmd.cmd.keywords:
+            dry_run = bool(cmd.cmd.keywords['dry_run'].values[0])
 
         try:
-            controller.start_autoguide(cmd=cmd, design=design, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time, cadence=cadence, center=center, magnitude=magnitude)
+            controller.start_autoguide(cmd=cmd, design=design, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time, cadence=cadence, center=center, magnitude=magnitude, dry_run=dry_run)
         except Exception as e:
             cmd.fail('text="AgCmd.start_autoguide: {}"'.format(e))
             return

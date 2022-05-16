@@ -18,6 +18,7 @@ class ag:
         REF_DB = 8                      # [FIS] initialize only, guide objects from opdb
         REF_OTF = 16                    # [FIS] initialize only, guide objects from catalog on the fly
         STOP = 32                       # [-I-] stop autoguide
+        DRY_RUN = 64                    # [FIS] dry-run (guide ready flag not set)
         AUTO_SKY = REF_SKY | ON         # [-IS] auto-start, guide objects from first exposure
         AUTO_DB = REF_DB | ON           # [-IS] auto-start, guide objects from opdb
         AUTO_OTF = REF_OTF | ON         # [-IS] auto-start, guide objects from catalog on the fly
@@ -30,6 +31,7 @@ class ag:
     EXPOSURE_TIME = 2000  # ms
     CADENCE = 0  # ms
     MAGNITUDE = 20.0
+    DRY_RUN = False
 
     class Params:
 
@@ -85,10 +87,12 @@ class ag:
         mode, *_ = self.thread.get_params()
         return mode
 
-    def start_autoguide(self, cmd=None, design=None, visit_id=None, from_sky=None, exposure_time=EXPOSURE_TIME, cadence=CADENCE, center=None, magnitude=MAGNITUDE):
+    def start_autoguide(self, cmd=None, design=None, visit_id=None, from_sky=None, exposure_time=EXPOSURE_TIME, cadence=CADENCE, center=None, magnitude=MAGNITUDE, dry_run=DRY_RUN):
 
         #cmd = cmd if cmd else self.actor.bcast
         mode = ag.Mode.AUTO_SKY if from_sky else ag.Mode.AUTO_DB if design is not None else ag.Mode.AUTO_OTF
+        if dry_run:
+            mode |= ag.Mode.DRY_RUN
         self.thread.set_params(mode=mode, design=design, visit_id=visit_id, exposure_time=exposure_time, cadence=cadence, center=center, magnitude=magnitude)
 
     def restart_autoguide(self, cmd=None):
@@ -113,10 +117,12 @@ class ag:
         #cmd = cmd if cmd else self.actor.bcast
         self.thread.set_params(exposure_time=exposure_time, cadence=cadence)
 
-    def acquire_field(self, cmd=None, design=None, visit_id=None, exposure_time=EXPOSURE_TIME, center=None, magnitude=MAGNITUDE):
+    def acquire_field(self, cmd=None, design=None, visit_id=None, exposure_time=EXPOSURE_TIME, center=None, magnitude=MAGNITUDE, dry_run=DRY_RUN):
 
         #cmd = cmd if cmd else self.actor.bcast
         mode = ag.Mode.AUTO_ONCE_DB if design is not None else ag.Mode.AUTO_ONCE_OTF
+        if dry_run:
+            mode |= ag.Mode.DRY_RUN
         self.thread.set_params(mode=mode, design=design, visit_id=visit_id, exposure_time=exposure_time, center=center, magnitude=magnitude)
 
 
@@ -297,7 +303,7 @@ class AgThread(threading.Thread):
                         result = self.actor.queueCommand(
                             actor='mlp1',
                             # daz, dalt: arcsec, positive feedback; dx, dy: mas, HSC -> PFS; size: mas; peak, flux: adu
-                            cmdStr='guide azel={},{} ready=1 time={} delay=0 xy={},{} size={} intensity={} flux={}'.format(- daz, - dalt, data_time, dx / 98e-6, - dy / 98e-6, size * 13 / 98e-3, peak, flux),
+                            cmdStr='guide azel={},{} ready={} time={} delay=0 xy={},{} size={} intensity={} flux={}'.format(- daz, - dalt, int(not mode & ag.Mode.DRY_RUN), data_time, dx / 98e-6, - dy / 98e-6, size * 13 / 98e-3, peak, flux),
                             timeLim=5
                         )
                         result.get()
