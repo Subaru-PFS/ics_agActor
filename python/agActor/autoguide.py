@@ -45,20 +45,7 @@ def set_design_agc(*, frame_id=None, obswl=0.62, logger=None, **kwargs):
         # generate guide objects from frame
         ra, dec, *_ = Field.center
         logger and logger.info('ra={},dec={}'.format(ra, dec))
-        taken_at = kwargs.get('taken_at')
-        inr = kwargs.get('inr')
-        adc = kwargs.get('adc')
-        m2_pos3 = kwargs.get('m2_pos3')
-        if any(x is None for x in (taken_at, inr, adc, m2_pos3)):
-            visit_id, _, _taken_at, _, _, _inr, _adc, _, _, _, _m2_pos3 = opdb.query_agc_exposure(frame_id)
-            if (sequence_id := kwargs.get('sequence_id')) is not None:
-                # use visit_id from agc_exposure table
-                _, _, _inr, _adc, _m2_pos3, _, _, _, _, _taken_at = opdb.query_tel_status(visit_id, sequence_id)
-            if taken_at is None: taken_at = _taken_at
-            if inr is None: inr = _inr
-            if adc is None: adc = _adc
-            if m2_pos3 is None: m2_pos3 = _m2_pos3
-        logger and logger.info('taken_at={},inr={},adc={},m2_pos3={}'.format(taken_at, inr, adc, m2_pos3))
+        taken_at, inr, adc, m2_pos3 = field_acquisition._get_tel_status(frame_id=frame_id, logger=logger, **kwargs)
         detected_objects = opdb.query_agc_data(frame_id)
         #logger and logger.info('detected_objects={}'.format(detected_objects))
         guide_objects = astrometry.measure(detected_objects=detected_objects, ra=ra, dec=dec, obstime=taken_at, inr=inr, adc=adc, m2_pos3=m2_pos3, obswl=obswl, logger=logger)
@@ -95,24 +82,10 @@ def autoguide(*, frame_id, obswl=0.62, logger=None, **kwargs):
     #logger and logger.info('guide_objects={}'.format(guide_objects))
     ra, dec, *_ = Field.center
     logger and logger.info('ra={},dec={}'.format(ra, dec))
-    taken_at = kwargs.get('taken_at')
-    inr = kwargs.get('inr')
-    adc = kwargs.get('adc')
-    m2_pos3 = kwargs.get('m2_pos3')
-    if None in (taken_at, inr, adc, m2_pos3):
-        visit_id, _, _taken_at, _, _, _inr, _adc, _, _, _, _m2_pos3 = opdb.query_agc_exposure(frame_id)
-        if (sequence_id := kwargs.get('sequence_id')) is not None:
-            # use visit_id from agc_exposure table
-            _, _, _inr, _adc, _m2_pos3, _, _, _, _, _taken_at = opdb.query_tel_status(visit_id, sequence_id)
-        if taken_at is None: taken_at = _taken_at
-        if inr is None: inr = _inr
-        if adc is None: adc = _adc
-        if m2_pos3 is None: m2_pos3 = _m2_pos3
-    logger and logger.info('taken_at={},inr={},adc={},m2_pos3={}'.format(taken_at, inr, adc, m2_pos3))
+    taken_at, inr, adc, m2_pos3 = field_acquisition._get_tel_status(frame_id=frame_id, logger=logger, **kwargs)
     detected_objects = opdb.query_agc_data(frame_id)
     #logger and logger.info('detected_objects={}'.format(detected_objects))
-    _, _, dinr, dalt, daz, *values = field_acquisition._acquire_field(guide_objects=guide_objects, detected_objects=detected_objects, ra=ra, dec=dec, taken_at=taken_at, adc=adc, inr=inr, m2_pos3=m2_pos3, obswl=obswl, altazimuth=True, logger=logger)
-    return (dalt, daz, dinr, *values)
+    return field_acquisition._acquire_field(guide_objects=guide_objects, detected_objects=detected_objects, ra=ra, dec=dec, taken_at=taken_at, adc=adc, inr=inr, m2_pos3=m2_pos3, obswl=obswl, altazimuth=True, logger=logger)  # (dra, ddec, dinr, dalt, daz, *values)
 
 
 if __name__ == '__main__':
@@ -129,23 +102,21 @@ if __name__ == '__main__':
     parser.add_argument('--magnitude', type=float, default=20.0, help='magnitude limit')
     args, _ = parser.parse_known_args()
 
-    if not (args.center is not None) ^ any(x is not None for x in (args.design_id, args.design_path)):
-        parser.error('at least one of the following arguments is required: --center, --design-id, --design-path')
-    center = design = None
+    kwargs = {}
+    if any(x is not None for x in (args.design_id, args.design_path)):
+        kwargs['design'] = args.design_id, args.design_path
     if args.center is not None:
-        center = tuple([float(x) for x in args.center.split(',')])
-    else:
-        design = (args.design_id, args.design_path)
-    print('center={},design={}'.format(center, design))
+        kwargs['center'] = tuple([float(x) for x in args.center.split(',')])
+    kwargs['magnitude'] = args.magnitude
 
     import logging
 
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(name='autoguide')
-    set_design(design=design, logger=logger, center=center)
-    set_design_agc(frame_id=args.ref_frame_id, obswl=args.obswl, logger=logger, magnitude=args.magnitude)
-    dalt, daz, dinr, *values = autoguide(frame_id=args.frame_id, obswl=args.obswl, logger=logger)
-    print('dalt={},daz={},dinr={}'.format(dalt, daz, dinr))
+    set_design(logger=logger, **kwargs)
+    set_design_agc(frame_id=args.ref_frame_id, obswl=args.obswl, logger=logger, **kwargs)
+    dra, ddec, dinr, dalt, daz, *values = autoguide(frame_id=args.frame_id, obswl=args.obswl, logger=logger, **kwargs)
+    print('dra={},ddec={},dinr={},dalt={},daz={}'.format(dra, ddec, dinr, dalt, daz))
     guide_objects, detected_objects, identified_objects, *_ = values
     #print(guide_objects)
     #print(detected_objects)

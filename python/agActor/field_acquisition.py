@@ -34,10 +34,8 @@ def _parse_kwargs(kwargs):
         kwargs.setdefault('m2_pos3', m2_pos3)
 
 
-def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwargs):
+def _get_tel_status(*, frame_id, logger=None, **kwargs):
 
-    logger and logger.info('frame_id={}'.format(frame_id))
-    _parse_kwargs(kwargs)
     taken_at = kwargs.get('taken_at')
     inr = kwargs.get('inr')
     adc = kwargs.get('adc')
@@ -45,6 +43,7 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
     if any(x is None for x in (taken_at, inr, adc, m2_pos3)):
         visit_id, _, _taken_at, _, _, _inr, _adc, _, _, _, _m2_pos3 = opdb.query_agc_exposure(frame_id)
         if (sequence_id := kwargs.get('sequence_id')) is not None:
+            logger and logger.info('visit_id={},sequence_id={}'.format(visit_id, sequence_id))
             # use visit_id from agc_exposure table
             _, _, _inr, _adc, _m2_pos3, _, _, _, _, _taken_at = opdb.query_tel_status(visit_id, sequence_id)
         if taken_at is None: taken_at = _taken_at
@@ -52,6 +51,14 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
         if adc is None: adc = _adc
         if m2_pos3 is None: m2_pos3 = _m2_pos3
     logger and logger.info('taken_at={},inr={},adc={},m2_pos3={}'.format(taken_at, inr, adc, m2_pos3))
+    return taken_at, inr, adc, m2_pos3
+
+
+def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwargs):
+
+    logger and logger.info('frame_id={}'.format(frame_id))
+    _parse_kwargs(kwargs)
+    taken_at, inr, adc, m2_pos3 = _get_tel_status(frame_id=frame_id, logger=logger, **kwargs)
     detected_objects = opdb.query_agc_data(frame_id)
     #logger and logger.info('detected_objects={}'.format(detected_objects))
     design_id = kwargs.get('design_id')
@@ -199,20 +206,18 @@ if __name__ == '__main__':
     parser.add_argument('--magnitude', type=float, default=20.0, help='magnitude limit')
     args, _ = parser.parse_known_args()
 
-    if not (args.center is not None) ^ any(x is not None for x in (args.design_id, args.design_path)):
-        parser.error('at least one of the following arguments is required: --center, --design-id, --design-path')
-    center = design = None
+    kwargs = {}
+    if any(x is not None for x in (args.design_id, args.design_path)):
+        kwargs['design'] = args.design_id, args.design_path
     if args.center is not None:
-        center = tuple([float(x) for x in args.center.split(',')])
-    else:
-        design = (args.design_id, args.design_path)
-    print('center={},design={}'.format(center, design))
+        kwargs['center'] = tuple([float(x) for x in args.center.split(',')])
+    kwargs['magnitude'] = args.magnitude
 
     import logging
 
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(name='field_acquisition')
-    ra, dec, inst_pa, dra, ddec, dinr, *values = acquire_field(design=design, frame_id=args.frame_id, obswl=args.obswl, altazimuth=args.altazimuth, logger=logger, center=center, magnitude=args.magnitude)
+    ra, dec, inst_pa, dra, ddec, dinr, *values = acquire_field(frame_id=args.frame_id, obswl=args.obswl, altazimuth=args.altazimuth, logger=logger, **kwargs)
     print('ra={},dec={},inst_pa={},dra={},ddec={},dinr={}'.format(ra, dec, inst_pa, dra, ddec, dinr))
     if args.altazimuth:
         dalt, daz, *values = values

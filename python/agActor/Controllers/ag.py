@@ -292,7 +292,7 @@ class AgThread(threading.Thread):
                     else:  # mode & (ag.Mode.ON | ag.Mode.ONCE)
                         cmd.inform('detectionState=1')
                         # compute guide errors
-                        dalt, daz, dinr, *values = autoguide.autoguide(frame_id=frame_id, logger=self.logger, **kwargs)
+                        dra, ddec, dinr, dalt, daz, *values = autoguide.autoguide(frame_id=frame_id, logger=self.logger, **kwargs)
                         ra, dec, pa = autoguide.Field.center
                         filenames = ('/dev/shm/guide_objects.npy', '/dev/shm/detected_objects.npy', '/dev/shm/identified_objects.npy')
                         for filename, value in zip(filenames, values):
@@ -311,7 +311,7 @@ class AgThread(threading.Thread):
                         # always compute focus offset and tilt
                         dz, dzs = _focus._focus(detected_objects=values[1], logger=self.logger)
                         # send corrections to gen2 (or iic)
-                        cmd.inform('guideErrors={},{},{},{},{},{},{}'.format(frame_id, None, None, dinr, daz, dalt, dz))
+                        cmd.inform('guideErrors={},{},{},{},{},{},{}'.format(frame_id, dra, ddec, dinr, daz, dalt, dz))
                         cmd.inform('focusErrors={},{},{},{},{},{},{}'.format(frame_id, *dzs))
                         if self.with_opdb_agc_guide_offset:
                             data_utils.write_agc_guide_offset(
