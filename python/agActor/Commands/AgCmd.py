@@ -54,6 +54,7 @@ class AgCmd:
         self.with_gen2_status = 'gen2' in tel_status
         self.with_mlp1_status = 'mlp1' in tel_status
         self.with_opdb_tel_status = 'tel_status' in tel_status
+        self.with_design_path = actor.config.get(actor.name, 'design_path', fallback='').strip() or None
 
     def ping(self, cmd):
         """Return a product name."""
@@ -92,7 +93,7 @@ class AgCmd:
         design_id = None
         if 'design_id' in cmd.cmd.keywords:
             design_id = int(cmd.cmd.keywords['design_id'].values[0], 0)
-        design_path = None
+        design_path = self.with_design_path if design_id is not None else None
         if 'design_path' in cmd.cmd.keywords:
             design_path = str(cmd.cmd.keywords['design_path'].values[0])
         design = (design_id, design_path) if any(x is not None for x in (design_id, design_path)) else None
@@ -294,7 +295,7 @@ class AgCmd:
         design_id = None
         if 'design_id' in cmd.cmd.keywords:
             design_id = int(cmd.cmd.keywords['design_id'].values[0], 0)
-        design_path = None
+        design_path = self.with_design_path if design_id is not None else None
         if 'design_path' in cmd.cmd.keywords:
             design_path = str(cmd.cmd.keywords['design_path'].values[0])
         design = (design_id, design_path) if any(x is not None for x in (design_id, design_path)) else None
@@ -341,7 +342,7 @@ class AgCmd:
         design_id = None
         if 'design_id' in cmd.cmd.keywords:
             design_id = int(cmd.cmd.keywords['design_id'].values[0], 0)
-        design_path = None
+        design_path = self.with_design_path if design_id is not None else None
         if 'design_path' in cmd.cmd.keywords:
             design_path = str(cmd.cmd.keywords['design_path'].values[0])
         design = (design_id, design_path) if any(x is not None for x in (design_id, design_path)) else None
