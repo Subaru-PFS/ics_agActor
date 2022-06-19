@@ -253,7 +253,7 @@ class AgThread(threading.Thread):
                             tel_status = self.actor.gen2.tel_status
                             self.logger.info('AgThread.run: tel_status={}'.format(tel_status))
                             kwargs['tel_status'] = tel_status
-                            if center is None:
+                            if all(x is None for x in (center, design)):
                                 center = tel_status[5:8]
                                 self.logger.info('AgThread.run: center={}'.format(center))
                         if self.with_opdb_tel_status:

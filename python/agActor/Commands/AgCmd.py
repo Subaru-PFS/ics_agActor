@@ -141,7 +141,7 @@ class AgCmd:
                     tel_status = self.actor.gen2.tel_status
                     self.actor.logger.info('AgCmd.acquire_field: tel_status={}'.format(tel_status))
                     kwargs['tel_status'] = tel_status
-                    if center is None:
+                    if all(x is None for x in (center, design)):
                         center = tel_status[5:8]
                 if self.with_opdb_tel_status:
                     status_update = self.actor.gen2.statusUpdate
