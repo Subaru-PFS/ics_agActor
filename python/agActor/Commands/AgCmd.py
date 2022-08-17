@@ -407,19 +407,20 @@ class AgCmd:
         controller = self.actor.controllers['ag']
         #self.actor.logger.info('controller={}'.format(controller))
 
-        exposure_time = None
+        kwargs = {}
         if 'exposure_time' in cmd.cmd.keywords:
             exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
             if exposure_time < 100:
                 exposure_time = 100
-        cadence = None
+            kwargs['exposure_time'] = exposure_time
         if 'cadence' in cmd.cmd.keywords:
             cadence = int(cmd.cmd.keywords['cadence'].values[0])
             if cadence < 0:
                 cadence = 0
+            kwargs['cadence'] = cadence
 
         try:
-            controller.reconfigure_autoguide(cmd=cmd, exposure_time=exposure_time, cadence=cadence)
+            controller.reconfigure_autoguide(cmd=cmd, **kwargs)
         except Exception as e:
             cmd.fail('text="AgCmd.reconfigure_autoguide: {}"'.format(e))
             return

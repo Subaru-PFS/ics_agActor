@@ -112,10 +112,10 @@ class ag:
         #cmd = cmd if cmd else self.actor.bcast
         self.thread.set_params(mode=ag.Mode.STOP)
 
-    def reconfigure_autoguide(self, cmd=None, exposure_time=None, cadence=None):
+    def reconfigure_autoguide(self, cmd=None, **kwargs):
 
         #cmd = cmd if cmd else self.actor.bcast
-        self.thread.set_params(exposure_time=exposure_time, cadence=cadence)
+        self.thread.set_params(**kwargs)
 
     def acquire_field(self, cmd=None, design=None, visit_id=None, exposure_time=EXPOSURE_TIME, center=None, magnitude=MAGNITUDE, dry_run=DRY_RUN):
 
