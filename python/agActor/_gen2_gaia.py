@@ -279,7 +279,7 @@ def z2adc(z, filter_id):
 
 def search(ra, dec, radius=0.027 + 0.003, magnitude=20.0):
     """
-    Search guide stellar objects from Gaia DR2 sources.
+    Search guide stellar objects from Gaia DR3 sources.
 
     Parameters
     ----------
@@ -295,11 +295,11 @@ def search(ra, dec, radius=0.027 + 0.003, magnitude=20.0):
     Returns
     -------
     astropy.table.Table
-        The table of the Gaia DR2 sources inside the search areas
+        The table of the Gaia DR3 sources inside the search areas
     """
 
     def _search(ra, dec, radius, magnitude):
-        """Perform search of Gaia DR2."""
+        """Perform search of Gaia DR3."""
 
         if numpy.isscalar(ra):
             ra = (ra,)
@@ -319,7 +319,7 @@ def search(ra, dec, radius=0.027 + 0.003, magnitude=20.0):
         dsn = 'host={} port={} user={} dbname=star_catalog'.format(host, port, user)
         with psycopg2.connect(dsn) as connection:
             with connection.cursor() as cursor:
-                query = 'SELECT {} FROM gaia WHERE ('.format(','.join(columns)) \
+                query = 'SELECT {} FROM gaia3 WHERE ('.format(','.join(columns)) \
                     + ' OR '.join(['q3c_radial_query(ra,dec,{},{},{})'.format(_ra, _dec, radius) for _ra, _dec in zip(ra, dec)]) \
                     + ') AND phot_g_mean_mag<={} AND pmra IS NOT NULL AND pmdec IS NOT NULL AND parallax IS NOT NULL ORDER BY phot_g_mean_mag'.format(magnitude)
                 cursor.execute(query)
