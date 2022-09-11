@@ -128,10 +128,15 @@ class AgCmd:
                 cmdStr='expose object visit={} exptime={} centroid=1'.format(visit_id, exposure_time / 1000) if visit_id is not None else 'expose object exptime={} centroid=1'.format(exposure_time / 1000),
                 timeLim=(exposure_time // 1000 + 5)
             )
+            time.sleep(exposure_time / 1000 / 2)
             kwargs = {}
+            telescope_state = None
+            if self.with_mlp1_status:
+                telescope_state = self.actor.mlp1.telescopeState
+                self.actor.logger.info('AgCmd.acquire_field: telescopeState={}'.format(telescope_state))
+                kwargs['inr'] = telescope_state['rotator_real_angle']
             if self.with_gen2_status or self.with_opdb_tel_status:
                 # update gen2 status values
-                time.sleep(exposure_time / 1000 / 2)
                 self.actor.queueCommand(
                     actor='gen2',
                     cmdStr='updateTelStatus caller={}'.format(self.actor.name) if self.with_opdb_tel_status else 'updateTelStatus',
@@ -148,18 +153,19 @@ class AgCmd:
                     status_id = (status_update['visit'], status_update['sequenceNum'])
                     self.actor.logger.info('AgCmd.acquire_field: status_id={}'.format(status_id))
                     kwargs['status_id'] = status_id
-            telescope_state = None
-            if self.with_mlp1_status:
-                telescope_state = self.actor.mlp1.telescopeState
-                self.actor.logger.info('AgCmd.acquire_field: telescopeState={}'.format(telescope_state))
             # wait for an exposure to complete
             result.get()
             frame_id = self.actor.agcc.frameId
             self.actor.logger.info('AgCmd.acquire_field: frameId={}'.format(frame_id))
             data_time = self.actor.agcc.dataTime
             self.actor.logger.info('AgCmd.acquire_field: dataTime={}'.format(data_time))
+            taken_at = data_time + exposure_time / 1000 / 2
             if self.with_agcc_timestamp:
-                kwargs['taken_at'] = data_time  # unix timestamp, not timezone-aware datetime
+                kwargs['taken_at'] = taken_at  # unix timestamp, not timezone-aware datetime
+            if self.with_mlp1_status:
+                # possibly override timestamp from agcc
+                taken_at = self.actor.mlp1.setUnixDay(telescope_state['az_el_detect_time'], taken_at)
+                kwargs['taken_at'] = taken_at
             if center is not None:
                 kwargs['center'] = center
             if magnitude is not None:
@@ -185,7 +191,7 @@ class AgCmd:
                 result = self.actor.queueCommand(
                     actor='mlp1',
                     # daz, dalt: arcsec, positive feedback; dx, dy: mas, HSC -> PFS; size: mas; peak, flux: adu
-                    cmdStr='guide azel={},{} ready={} time={} delay=0 xy={},{} size={} intensity={} flux={}'.format(- daz, - dalt, int(not dry_run), data_time, dx / 98e-6, - dy / 98e-6, size * 13 / 98e-3, peak, flux),
+                    cmdStr='guide azel={},{} ready={} time={} delay=0 xy={},{} size={} intensity={} flux={}'.format(- daz, - dalt, int(not dry_run), taken_at, dx / 98e-6, - dy / 98e-6, size * 13 / 98e-3, peak, flux),
                     timeLim=5
                 )
                 result.get()
