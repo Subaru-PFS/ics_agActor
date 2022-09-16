@@ -25,7 +25,7 @@ class AgCmd:
             ('autoguide', '@initialize @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>]', self.initialize_autoguide),
             ('autoguide', '@restart', self.restart_autoguide),
             ('autoguide', '@stop', self.stop_autoguide),
-            ('autoguide', '@reconfigure [<exposure_time>] [<cadence>]', self.reconfigure_autoguide),
+            ('autoguide', '@reconfigure [<visit_id>|<visit>] [<exposure_time>] [<cadence>]', self.reconfigure_autoguide),
             ('offset', '[@(absolute|relative)] [<dx>] [<dy>] [<dinr>]', self.offset),
             ('offset', '@reset', self.offset),
         ]
@@ -414,6 +414,12 @@ class AgCmd:
         #self.actor.logger.info('controller={}'.format(controller))
 
         kwargs = {}
+        if 'visit_id' in cmd.cmd.keywords:
+            visit_id = int(cmd.cmd.keywords['visit_id'].values[0])
+            kwargs['visit_id'] = visit_id
+        elif 'visit' in cmd.cmd.keywords:
+            visit_id = int(cmd.cmd.keywords['visit'].values[0])
+            kwargs['visit_id'] = visit_id
         if 'exposure_time' in cmd.cmd.keywords:
             exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
             if exposure_time < 100:
