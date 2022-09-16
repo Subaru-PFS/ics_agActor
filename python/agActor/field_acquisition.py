@@ -146,7 +146,7 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
             ('flags', numpy.uint8)
         ]
     )
-    v, f, min_dist_index_f, obj_x, obj_y, cat_x, cat_y = diags
+    mr, md, min_dist_index_f, f, v = diags
     index_v, = numpy.where(v)
     index_f, = numpy.where(f)
     identified_objects = numpy.array(
@@ -158,7 +158,7 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
                 float(x[3]), float(x[4]),  # detector plane coordinates of identified guide object
                 *coordinates.dp2det(detected_objects[k][0], float(x[3]), float(x[4]))  # detector coordinates of identified guide object
             )
-            for k, x in ((int(index_v[int(index_f[i])]), x) for i, x in enumerate(zip(min_dist_index_f, obj_x, obj_y, cat_x, cat_y)))
+            for k, x in ((int(index_v[int(index_f[i])]), x) for i, x in enumerate(zip(min_dist_index_f, mr[:, 0], mr[:, 1], mr[:, 2], mr[:, 3])))
         ],
         dtype=[
             ('detected_object_id', numpy.int16),

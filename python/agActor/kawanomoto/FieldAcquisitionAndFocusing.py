@@ -2,33 +2,46 @@
 import numpy as np
 import sys
 
+import astropy.units as au
+import astropy.time as at
+import astropy.coordinates as ac
+
 if __name__ == '__main__':
-    import Subaru_POPT2_PFS
+    import Subaru_POPT2_PFS_AG
 else:
-    from . import Subaru_POPT2_PFS
+    from . import Subaru_POPT2_PFS_AG
 
+class PFS():
+    def FA(self, carray, darray, tel_ra, tel_de, dt, adc, inr, m2pos3, wl):
+        pfs  = Subaru_POPT2_PFS_AG.PFS()
+        v_0, v_1 = \
+            pfs.makeBasis(tel_ra, tel_de, \
+                          carray[:,0], carray[:,1], \
+                          dt, adc, inr, m2pos3, wl)
+        v_0 = np.insert(v_0,2, carray[:,2], axis=1)
+        v_1 = np.insert(v_1,2, carray[:,2], axis=1)
 
-class PFS:
+        maxellip = 0.9
+        maxsize  =25.0
+        minsize  = 0.2
+        filtered_darray, v = pfs.sourceFilter(darray, maxellip, maxsize, minsize)
 
-    def FA(self, catalogarray, detectarray, tel_ra, tel_de, dt, adc, inr, m2pos3, wl):
-        # subaru = Subaru_POPT2_PFS.Subaru()
-        popt2 = Subaru_POPT2_PFS.POPT2()
-        # hsc = Subaru_POPT2_PFS.HSC()
+        ra_offset,de_offset,inr_offset, mr, md, min_dist_index_f, f = \
+            pfs.RADECInRShift(filtered_darray[:,2],\
+                              filtered_darray[:,3],\
+                              filtered_darray[:,4],\
+                              filtered_darray[:,7],\
+                              v_0, v_1)
 
-        str_xdp, str_ydp, dxra, dyra, dxde, dyde, dxinr, dyinr = popt2.makeBasis(tel_ra, tel_de, catalogarray[:, 0], catalogarray[:, 1], dt, adc, inr, m2pos3, wl)
-        maxellip = 0.6
-        maxsize = 20.0
-        minsize = 1.5
-        filtered_detectarray, v = popt2.sourceFilter(detectarray, maxellip, maxsize, minsize)
-        ra_offset, de_offset, inr_offset, f, min_dist_index_f, obj_xdp, obj_ydp, cat_xdp, cat_ydp = popt2.RADECInRShift(filtered_detectarray[:, 2], filtered_detectarray[:, 3], filtered_detectarray[:, 4], str_xdp, str_ydp, catalogarray[:, 2], dxra, dyra, dxde, dyde, dxinr, dyinr)
-
-        return ra_offset, de_offset, inr_offset, v, f, min_dist_index_f, obj_xdp, obj_ydp, cat_xdp, cat_ydp
+        return ra_offset,de_offset,inr_offset, mr, md, min_dist_index_f, f, v
 
     def Focus(self, agarray):
-        pfs = Subaru_POPT2_PFS.PFS()
-        maxellip = 0.6
-        maxsize = 20.0
-        minsize = 1.5
+        pfs  = Subaru_POPT2_PFS_AG.PFS()
+
+        maxellip = 0.2
+        maxsize  =25.0
+        minsize  = 1.5
+        
         md = pfs.agarray2momentdifference(agarray, maxellip, maxsize, minsize)
 
         df = np.array([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
@@ -37,40 +50,6 @@ class PFS:
 
         return df
 
-
 ###
-if __name__ == '__main__':
-    ###### star catalog
-    ### ra[deg] dec[deg] mag
-    ###
-    ###### ag source catalog
-    ### ccdid objectid xcent[mm] ycent[mm] flx[counts] semimajor[pix] semiminor[pix] flag[0 or 1]
-    ###
-    ###### telescope status
-    ### DATE-OBS UT-STR RA2000 DEC2000 ADC-STR INR-STR M2-POS3 WAVELEN
-    ###
-
-    starfile = sys.argv[1]
-    agfile = sys.argv[2]
-    telstat = sys.argv[3]
-
-    stararray = np.loadtxt(starfile)
-    agarray = np.loadtxt(agfile)
-
-    popt2 = Subaru_POPT2_PFS.POPT2()
-
-    pfs = PFS()
-
-    focuserror = pfs.Focus(agarray)
-
-    print(focuserror)
-
-    # tel_ra, tel_de, dt, adc, inr, m2pos3, wl = popt2.telStatusfromText(telstat)
-    # ra_offset, de_offset, inr_offset, *_ = pfs.FA(stararray, agarray, tel_ra, tel_de, dt, adc, inr, m2pos3, wl)
-    # print('#', ra_offset, de_offset, inr_offset + Subaru_POPT2_PFS.pfs_inr_zero_offset)
-    # print('R.A. offset = %f [deg]' % (ra_offset))
-    # print('Decl offset = %f [deg]' % (de_offset))
-    # print('InR  offset = %f [deg]' % (inr_offset + Subaru_POPT2_PFS.pfs_inr_zero_offset))
-
-    # print(ra_offset * 3600.0 * np.cos(np.deg2rad(tel_de)))
-    # print(de_offset * 3600.0)
+if __name__ == "__main__":
+    print('### PFS field acquisition and focusing')

@@ -447,21 +447,20 @@ class AgCmd:
 
             if dx is not None:
                 if relative:
-                    kawanomoto.Subaru_POPT2_PFS.pfs_detector_zero_offset_x += dx
+                    kawanomoto.Subaru_POPT2_PFS.inr_axis_on_dp_x += dx
                 else:
-                    kawanomoto.Subaru_POPT2_PFS.pfs_detector_zero_offset_x = dx
+                    kawanomoto.Subaru_POPT2_PFS.inr_axis_on_dp_x = dx
             if dy is not None:
-                dy = - dy  # PFS->HSC
                 if relative:
-                    kawanomoto.Subaru_POPT2_PFS.pfs_detector_zero_offset_y += dy
+                    kawanomoto.Subaru_POPT2_PFS.inr_axis_on_dp_y += dy
                 else:
-                    kawanomoto.Subaru_POPT2_PFS.pfs_detector_zero_offset_y = dy
+                    kawanomoto.Subaru_POPT2_PFS.inr_axis_on_dp_y = dy
             if dinr is not None:
                 if relative:
-                    kawanomoto.Subaru_POPT2_PFS.pfs_inr_zero_offset += dinr
+                    kawanomoto.Subaru_POPT2_PFS.inr_zero_offset += dinr
                 else:
-                    kawanomoto.Subaru_POPT2_PFS.pfs_inr_zero_offset = dinr
-            return kawanomoto.Subaru_POPT2_PFS.pfs_detector_zero_offset_x, - kawanomoto.Subaru_POPT2_PFS.pfs_detector_zero_offset_y, kawanomoto.Subaru_POPT2_PFS.pfs_inr_zero_offset  # HSC->PFS
+                    kawanomoto.Subaru_POPT2_PFS.inr_zero_offset = dinr
+            return kawanomoto.Subaru_POPT2_PFS.inr_axis_on_dp_x, kawanomoto.Subaru_POPT2_PFS.inr_axis_on_dp_y, kawanomoto.Subaru_POPT2_PFS.inr_zero_offset
 
         dx = None
         if 'dx' in cmd.cmd.keywords:

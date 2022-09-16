@@ -404,7 +404,7 @@ def get_objects(
     parallactic_angle = altaz_c.position_angle(altaz_p).to(units.deg).value
 
     if inr is None:
-        inr = parallactic_angle + inst_pa - Subaru_POPT2_PFS.pfs_inr_zero_offset
+        inr = parallactic_angle + inst_pa - Subaru_POPT2_PFS.inr_zero_offset
         inr %= 360
         if inr >= 270:
             inr -= 360
