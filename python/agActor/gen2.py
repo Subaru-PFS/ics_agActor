@@ -146,9 +146,19 @@ class Gen2:
         adc_pa = self.tel_adc['angle']
         m2_pos3 = self.m2['zpos']
         pointing = self.pointing
-        tel_ra = Angle(pointing['ra'], unit=units.hourangle).to(units.deg).value
-        tel_dec = Angle(pointing['dec'], unit=units.deg).value
+        cmd_ra = Angle(pointing['ra'], unit=units.hourangle).to(units.deg).value
+        cmd_dec = Angle(pointing['dec'], unit=units.deg).value
         # dome_shutter_status
         # dome_light_status
         # created_at
-        return altitude, azimuth, insrot, adc_pa, m2_pos3, tel_ra, tel_dec, inst_pa, taken_at
+        return altitude, azimuth, insrot, adc_pa, m2_pos3, cmd_ra, cmd_dec, inst_pa, taken_at
+
+    @property
+    def tel_dither(self):
+
+        return self._getValues('telDither')
+
+    @property
+    def tel_guide(self):
+
+        return self._getValues('telGuide')

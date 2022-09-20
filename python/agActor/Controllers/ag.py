@@ -4,6 +4,7 @@ import threading
 import time
 import numpy
 from agActor import autoguide, focus as _focus, data_utils, pfs_design
+from agActor.telescope_center import telCenter as tel_center
 
 
 class ag:
@@ -199,28 +200,41 @@ class AgThread(threading.Thread):
             mode, design, visit_id, exposure_time, cadence, center, magnitude = self._get_params()
             design_id, design_path = design if design is not None else (None, None)
             self.logger.info('AgThread.run: mode={},design={},visit_id={},exposure_time={},cadence={},center={},magnitude={}'.format(mode, design, visit_id, exposure_time, cadence, center, magnitude))
+            dither, offset = None, None
             try:
-                if mode & ag.Mode.REF_OTF:
-                    # field center coordinates need to be specified in order to be able to select guide objects on the fly at this point
-                    if center is None:
-                        # if an exposure is not going to be taken, telescope status values need to be queried at this point
-                        if not mode & (ag.Mode.ON | ag.Mode.ONCE):
-                            if self.with_gen2_status:
-                                # update gen2 status values
-                                self.actor.queueCommand(
-                                    actor='gen2',
-                                    cmdStr='updateTelStatus caller={}'.format(self.actor.name) if self.with_opdb_tel_status else 'updateTelStatus',
-                                    timeLim=5
-                                ).get()
-                                tel_status = self.actor.gen2.tel_status
-                                self.logger.info('AgThread.run: tel_status={}'.format(tel_status))
-                                center = tel_status[5:8]
-                                self.logger.info('AgThread.run: center={}'.format(center))
-                    if center is not None:
-                        autoguide.set_design(logger=self.logger, center=center)
+                if mode & ag.Mode.REF_OTF and not mode & (ag.Mode.ON | ag.Mode.ONCE):
+                    if self.with_gen2_status:
                         kwargs = {}
+                        if self.with_mlp1_status:
+                            telescope_state = self.actor.mlp1.telescopeState
+                            self.logger.info('AgThread.run: telescopeState={}'.format(telescope_state))
+                            kwargs['inr'] = telescope_state['rotator_real_angle']
+                        # update gen2 status values
+                        self.actor.queueCommand(
+                            actor='gen2',
+                            cmdStr='updateTelStatus caller={}'.format(self.actor.name) if self.with_opdb_tel_status else 'updateTelStatus',
+                            timeLim=5
+                        ).get()
+                        tel_status = self.actor.gen2.tel_status
+                        self.logger.info('AgThread.run: tel_status={}'.format(tel_status))
+                        kwargs['tel_status'] = tel_status
+                        _tel_center = tel_center(actor=self.actor, center=center, design=design, tel_status=tel_status)
+                        if center is None:
+                            center, offset = _tel_center.dither  # dithered center and guide offset correction (insrot only)
+                            self.logger.info('AgThread.run: center={}'.format(center))
+                        else:
+                            offset = _tel_center.offset  # dithering and guide offset correction
+                        self.logger.info('AgThread.run: offset={}'.format(offset))
+                        if self.with_mlp1_status:
+                            taken_at = self.actor.mlp1.setUnixDay(telescope_state['az_el_detect_time'], tel_status[8].timestamp())
+                            kwargs['taken_at'] = taken_at
+                        if center is not None:
+                            kwargs['center'] = center
+                        if offset is not None:
+                            kwargs['offset'] = offset
                         if magnitude is not None:
                             kwargs['magnitude'] = magnitude
+                        autoguide.set_design(logger=self.logger, **kwargs)
                         autoguide.set_design_agc(logger=self.logger, **kwargs)
                         mode &= ~ag.Mode.REF_OTF
                         self._set_params(mode=mode)
@@ -258,9 +272,13 @@ class AgThread(threading.Thread):
                             tel_status = self.actor.gen2.tel_status
                             self.logger.info('AgThread.run: tel_status={}'.format(tel_status))
                             kwargs['tel_status'] = tel_status
+                            _tel_center = tel_center(actor=self.actor, center=center, design=design, tel_status=tel_status)
                             if all(x is None for x in (center, design)):
-                                center = tel_status[5:8]
+                                center, offset = _tel_center.dither  # dithered center and guide offset correction (insrot only)
                                 self.logger.info('AgThread.run: center={}'.format(center))
+                            else:
+                                offset = _tel_center.offset  # dithering and guide offset correction
+                            self.logger.info('AgThread.run: offset={}'.format(offset))
                         if self.with_opdb_tel_status:
                             status_update = self.actor.gen2.statusUpdate
                             status_id = (status_update['visit'], status_update['sequenceNum'])
@@ -279,11 +297,13 @@ class AgThread(threading.Thread):
                         # possibly override timestamp from agcc
                         taken_at = self.actor.mlp1.setUnixDay(telescope_state['az_el_detect_time'], taken_at)
                         kwargs['taken_at'] = taken_at
+                    if center is not None:
+                        kwargs['center'] = center
+                    if offset is not None:
+                        kwargs['offset'] = offset
+                    if magnitude is not None:
+                        kwargs['magnitude'] = magnitude
                     if mode & ag.Mode.REF_OTF:
-                        if center is not None:
-                            kwargs['center'] = center
-                        if magnitude is not None:
-                            kwargs['magnitude'] = magnitude
                         autoguide.set_design(logger=self.logger, **kwargs)
                         autoguide.set_design_agc(logger=self.logger, **kwargs)
                         mode &= ~ag.Mode.REF_OTF
@@ -291,7 +311,7 @@ class AgThread(threading.Thread):
                     # retrieve detected objects from opdb
                     if mode & ag.Mode.REF_SKY:
                         # store initial conditions
-                        autoguide.set_design(design=design, logger=self.logger, center=center)  # center takes precedence over design
+                        autoguide.set_design(design=design, logger=self.logger, **kwargs)  # center takes precedence over design
                         autoguide.set_design_agc(frame_id=frame_id, logger=self.logger, **kwargs)
                         mode &= ~ag.Mode.REF_SKY
                         self._set_params(mode=mode)
@@ -299,11 +319,11 @@ class AgThread(threading.Thread):
                         cmd.inform('detectionState=1')
                         # compute guide errors
                         dra, ddec, dinr, dalt, daz, *values = autoguide.autoguide(frame_id=frame_id, logger=self.logger, **kwargs)
-                        ra, dec, pa = autoguide.Field.center
+                        ra, dec, inst_pa = dither if dither is not None else autoguide.Field.center
                         filenames = ('/dev/shm/guide_objects.npy', '/dev/shm/detected_objects.npy', '/dev/shm/identified_objects.npy')
                         for filename, value in zip(filenames, values):
                             numpy.save(filename, value)
-                        cmd.inform('data={},{},{},"{}","{}","{}"'.format(ra, dec, pa, *filenames))
+                        cmd.inform('data={},{},{},"{}","{}","{}"'.format(ra, dec, inst_pa, *filenames))
                         cmd.inform('detectionState=0')
                         dx, dy, size, peak, flux = values[3], values[4], values[5], values[6], values[7]
                         result = self.actor.queueCommand(
@@ -324,7 +344,7 @@ class AgThread(threading.Thread):
                                 frame_id=frame_id,
                                 ra=ra,
                                 dec=dec,
-                                pa=pa,
+                                pa=inst_pa,
                                 delta_ra=dra,
                                 delta_dec=ddec,
                                 delta_insrot=dinr,

@@ -5,6 +5,7 @@ import numpy
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
 from agActor import field_acquisition, focus as _focus, data_utils, pfs_design
+from agActor.telescope_center import telCenter as tel_center
 
 
 class AgCmd:
@@ -16,8 +17,8 @@ class AgCmd:
             ('ping', '', self.ping),
             ('status', '', self.status),
             ('show', '', self.show),
-            ('acquire_field', '[<design_id>] [<design_path>] [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<magnitude>] [<dry_run>]', self.acquire_field),
-            ('acquire_field', '@otf [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<center>] [<magnitude>] [<dry_run>]', self.acquire_field),
+            ('acquire_field', '[<design_id>] [<design_path>] [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<offset>] [<dinr>] [<magnitude>] [<dry_run>]', self.acquire_field),
+            ('acquire_field', '@otf [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<center>] [<offset>] [<dinr>] [<magnitude>] [<dry_run>]', self.acquire_field),
             ('focus', '[<visit_id>|<visit>] [<exposure_time>]', self.focus),
             ('autoguide', '@start [<design_id>] [<design_path>] [<visit_id>|<visit>] [<from_sky>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>]', self.start_autoguide),
             ('autoguide', '@start @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>]', self.start_autoguide),
@@ -31,7 +32,7 @@ class AgCmd:
         ]
         self.keys = keys.KeysDictionary(
             'ag_ag',
-            (1, 11),
+            (1, 12),
             keys.Key('exposure_time', types.Int(), help=''),
             keys.Key('cadence', types.Int(), help=''),
             keys.Key('guide', types.Bool('no', 'yes'), help=''),
@@ -40,7 +41,8 @@ class AgCmd:
             keys.Key('visit_id', types.Int(), help=''),
             keys.Key('visit', types.Int(), help=''),
             keys.Key('from_sky', types.Bool('no', 'yes'), help=''),
-            keys.Key('center', types.Float() * 3, help=''),
+            keys.Key('center', types.Float() * (2, 3), help=''),
+            keys.Key('offset', types.Float() * (2, 4), help=''),
             keys.Key('magnitude', types.Float(), help=''),
             keys.Key('dry_run', types.Bool('no', 'yes'), help=''),
             keys.Key('dx', types.Float(), help=''),
@@ -113,6 +115,12 @@ class AgCmd:
         center = None
         if 'center' in cmd.cmd.keywords:
             center = tuple([float(x) for x in cmd.cmd.keywords['center'].values])
+        offset = None
+        if 'offset' in cmd.cmd.keywords:
+            offset = tuple([float(x) for x in cmd.cmd.keywords['offset'].values])
+        dinr = None
+        if 'dinr' in cmd.cmd.keywords:
+            dinr = float(cmd.cmd.keywords['dinr'].values[0])
         magnitude = None
         if 'magnitude' in cmd.cmd.keywords:
             magnitude = float(cmd.cmd.keywords['magnitude'].values[0])
@@ -146,8 +154,15 @@ class AgCmd:
                     tel_status = self.actor.gen2.tel_status
                     self.actor.logger.info('AgCmd.acquire_field: tel_status={}'.format(tel_status))
                     kwargs['tel_status'] = tel_status
+                    _tel_center = tel_center(actor=self.actor, center=center, design=design, tel_status=tel_status)
                     if all(x is None for x in (center, design)):
-                        center = tel_status[5:8]
+                        center, _offset = _tel_center.dither  # dithered center and guide offset correction (insrot only)
+                        self.actor.logger.info('AgCmd.acquire_field: center={}'.format(center))
+                    else:
+                        _offset = _tel_center.offset  # dithering and guide offset correction
+                    if offset is None:
+                        offset = _offset
+                        self.actor.logger.info('AgCmd.acquire_field: offset={}'.format(offset))
                 if self.with_opdb_tel_status:
                     status_update = self.actor.gen2.statusUpdate
                     status_id = (status_update['visit'], status_update['sequenceNum'])
@@ -168,6 +183,10 @@ class AgCmd:
                 kwargs['taken_at'] = taken_at
             if center is not None:
                 kwargs['center'] = center
+            if offset is not None:
+                kwargs['offset'] = offset
+            if dinr is not None:
+                kwargs['dinr'] = dinr
             if magnitude is not None:
                 kwargs['magnitude'] = magnitude
             # retrieve field center coordinates from opdb

@@ -16,8 +16,13 @@ def _parse_kwargs(kwargs):
         ra, dec, *optional = center
         kwargs.setdefault('ra', ra)
         kwargs.setdefault('dec', dec)
-        if len(optional) > 0:
-            kwargs.setdefault('inst_pa', optional[0])
+        kwargs.setdefault('inst_pa', optional[0] if len(optional) > 0 else 0)
+    if (offset := kwargs.pop('offset', None)) is not None:
+        dra, ddec, *optional = offset
+        kwargs.setdefault('dra', dra)
+        kwargs.setdefault('ddec', ddec)
+        kwargs.setdefault('dpa', optional[0] if len(optional) > 0 else kwargs.get('dinr', 0))
+        kwargs.setdefault('dinr', optional[1] if len(optional) > 1 else optional[0] if len(optional) > 0 else 0)
     if (design := kwargs.pop('design', None)) is not None:
         design_id, design_path = design
         kwargs.setdefault('design_id', design_id)
@@ -81,6 +86,11 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
         if inst_pa is None: inst_pa = _inst_pa
     logger and logger.info('ra={},dec={},inst_pa={}'.format(ra, dec, inst_pa))
     #logger and logger.info('guide_objects={}'.format(guide_objects))
+    if 'dra' in kwargs: ra += kwargs.get('dra') / 3600
+    if 'ddec' in kwargs: dec += kwargs.get('ddec') / 3600
+    if 'dpa' in kwargs: inst_pa += kwargs.get('dpa') / 3600
+    if 'dinr' in kwargs: inr += kwargs.get('dinr') / 3600
+    logger and logger.info('ra={},dec={},inst_pa={},inr={}'.format(ra, dec, inst_pa, inr))
     return (ra, dec, inst_pa, *_acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, m2_pos3=m2_pos3, obswl=obswl, altazimuth=altazimuth, logger=logger))
 
 
@@ -203,6 +213,8 @@ if __name__ == '__main__':
     parser.add_argument('--obswl', type=float, default=0.62, help='wavelength of observation (um)')
     parser.add_argument('--altazimuth', action='store_true', help='')
     parser.add_argument('--center', default=None, help='field center coordinates ra, dec[, pa] (deg)')
+    parser.add_argument('--offset', default=None, help='field offset coordinates dra, ddec[, dpa[, dinr]] (arcsec)')
+    parser.add_argument('--dinr', type=float, default=None, help='instrument rotator offset, east of north (arcsec)')
     parser.add_argument('--magnitude', type=float, default=20.0, help='magnitude limit')
     args, _ = parser.parse_known_args()
 
@@ -211,6 +223,10 @@ if __name__ == '__main__':
         kwargs['design'] = args.design_id, args.design_path
     if args.center is not None:
         kwargs['center'] = tuple([float(x) for x in args.center.split(',')])
+    if args.offset is not None:
+        kwargs['offset'] = tuple([float(x) for x in args.offset.split(',')])
+    if args.dinr is not None:
+        kwargs['dinr'] = args.dinr
     kwargs['magnitude'] = args.magnitude
 
     import logging

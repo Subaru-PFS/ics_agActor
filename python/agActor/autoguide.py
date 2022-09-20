@@ -48,6 +48,10 @@ def set_design_agc(*, frame_id=None, obswl=0.62, logger=None, **kwargs):
         taken_at, inr, adc, m2_pos3 = field_acquisition._get_tel_status(frame_id=frame_id, logger=logger, **kwargs)
         detected_objects = opdb.query_agc_data(frame_id)
         #logger and logger.info('detected_objects={}'.format(detected_objects))
+        if 'dra' in kwargs: ra += kwargs.get('dra') / 3600
+        if 'ddec' in kwargs: dec += kwargs.get('ddec') / 3600
+        if 'dinr' in kwargs: inr += kwargs.get('dinr') / 3600
+        logger and logger.info('ra={},dec={},inr={}'.format(ra, dec, inr))
         guide_objects = astrometry.measure(detected_objects=detected_objects, ra=ra, dec=dec, obstime=taken_at, inr=inr, adc=adc, m2_pos3=m2_pos3, obswl=obswl, logger=logger)
     else:
         # use guide objects from pfs design file or operational database, or generate on-the-fly
@@ -69,6 +73,10 @@ def set_design_agc(*, frame_id=None, obswl=0.62, logger=None, **kwargs):
             m2_pos3 = kwargs.get('m2_pos3', 6.0)
             magnitude = kwargs.get('magnitude', 20.0)
             logger and logger.info('taken_at={},inr={},adc={},m2_pos3={},magnitude={}'.format(taken_at, inr, adc, m2_pos3, magnitude))
+            if 'dra' in kwargs: ra += kwargs.get('dra') / 3600
+            if 'ddec' in kwargs: dec += kwargs.get('ddec') / 3600
+            if 'dinr' in kwargs: inr += kwargs.get('dinr') / 3600
+            logger and logger.info('ra={},dec={},inr={}'.format(ra, dec, inr))
             guide_objects, *_ = gaia.get_objects(ra=ra, dec=dec, obstime=taken_at, inr=inr, adc=adc, m2pos3=m2_pos3, obswl=obswl, magnitude=magnitude)
     #logger and logger.info('guide_objects={}'.format(guide_objects))
     Field.guide_objects = guide_objects
@@ -85,6 +93,10 @@ def autoguide(*, frame_id, obswl=0.62, logger=None, **kwargs):
     taken_at, inr, adc, m2_pos3 = field_acquisition._get_tel_status(frame_id=frame_id, logger=logger, **kwargs)
     detected_objects = opdb.query_agc_data(frame_id)
     #logger and logger.info('detected_objects={}'.format(detected_objects))
+    if 'dra' in kwargs: ra += kwargs.get('dra') / 3600
+    if 'ddec' in kwargs: dec += kwargs.get('ddec') / 3600
+    if 'dinr' in kwargs: inr += kwargs.get('dinr') / 3600
+    logger and logger.info('ra={},dec={},inr={}'.format(ra, dec, inr))
     return field_acquisition._acquire_field(guide_objects=guide_objects, detected_objects=detected_objects, ra=ra, dec=dec, taken_at=taken_at, adc=adc, inr=inr, m2_pos3=m2_pos3, obswl=obswl, altazimuth=True, logger=logger)  # (dra, ddec, dinr, dalt, daz, *values)
 
 
@@ -99,6 +111,8 @@ if __name__ == '__main__':
     parser.add_argument('--ref-frame-id', type=int, default=None, help='reference frame identifier')
     parser.add_argument('--obswl', type=float, default=0.62, help='wavelength of observation (um)')
     parser.add_argument('--center', default=None, help='field center coordinates ra, dec[, pa] (deg)')
+    parser.add_argument('--offset', default=None, help='field offset coordinates dra, ddec[, dpa[, dinr]] (arcsec)')
+    parser.add_argument('--dinr', type=float, default=None, help='instrument rotator offset, east of north (arcsec)')
     parser.add_argument('--magnitude', type=float, default=20.0, help='magnitude limit')
     args, _ = parser.parse_known_args()
 
@@ -107,6 +121,10 @@ if __name__ == '__main__':
         kwargs['design'] = args.design_id, args.design_path
     if args.center is not None:
         kwargs['center'] = tuple([float(x) for x in args.center.split(',')])
+    if args.offset is not None:
+        kwargs['offset'] = tuple([float(x) for x in args.offset.split(',')])
+    if args.dinr is not None:
+        kwargs['dinr'] = args.dinr
     kwargs['magnitude'] = args.magnitude
 
     import logging
