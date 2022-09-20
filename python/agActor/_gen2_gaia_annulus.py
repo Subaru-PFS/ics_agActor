@@ -316,7 +316,7 @@ def search(ra, dec, inner_radius=0.7325 - 0.03, outer_radius=0.7325 + 0.03, magn
 
         host = '133.40.167.46'  # 'g2db' for production use
         port = 5438
-        user = 'obsuser'  # 'obsuser' for production use
+        user = 'gen2'  # 'obsuser' for production use
 
         dsn = 'host={} port={} user={} dbname=star_catalog'.format(host, port, user)
         with psycopg2.connect(dsn) as connection:
