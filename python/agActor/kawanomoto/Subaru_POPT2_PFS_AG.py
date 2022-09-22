@@ -278,19 +278,19 @@ class PFS():
         resid_xy = (((err-np.dot(basis,A))[:,0]).reshape([2,-1])).transpose()
 
         #### one iteration to remove dr >= 0.2mm data
-        resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
-        vc  = np.where(np.concatenate([resid_r, resid_r], 0) < 0.2)
-        vcc = np.where(resid_r<0.2)
-        basis = basis[vc]
-        err   = err[vc]
-        A, residual, rank, sv = np.linalg.lstsq(basis, err, rcond = None)
-        match_obj_xy = np.stack([match_obj_xdp,match_obj_ydp]).transpose()[vcc]
-        match_cat_xy = np.stack([match_cat_xdp,match_cat_ydp]).transpose()[vcc]
-        errx = match_obj_xdp[vcc] - match_cat_xdp[vcc]
-        erry = match_obj_ydp[vcc] - match_cat_ydp[vcc]
-        err  = np.array([np.concatenate([errx,erry])]).transpose()
-        err_xy = np.stack([errx,erry]).transpose()
-        resid_xy = (((err-np.dot(basis,A))[:,0]).reshape([2,-1])).transpose()
+        # resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
+        # vc  = np.where(np.concatenate([resid_r, resid_r], 0) < 0.2)
+        # vcc = np.where(resid_r<0.2)
+        # basis = basis[vc]
+        # err   = err[vc]
+        # A, residual, rank, sv = np.linalg.lstsq(basis, err, rcond = None)
+        # match_obj_xy = np.stack([match_obj_xdp,match_obj_ydp]).transpose()[vcc]
+        # match_cat_xy = np.stack([match_cat_xdp,match_cat_ydp]).transpose()[vcc]
+        # errx = match_obj_xdp[vcc] - match_cat_xdp[vcc]
+        # erry = match_obj_ydp[vcc] - match_cat_ydp[vcc]
+        # err  = np.array([np.concatenate([errx,erry])]).transpose()
+        # err_xy = np.stack([errx,erry]).transpose()
+        # resid_xy = (((err-np.dot(basis,A))[:,0]).reshape([2,-1])).transpose()
         ####
 
         mr = np.block([match_obj_xy, match_cat_xy, err_xy, resid_xy])
