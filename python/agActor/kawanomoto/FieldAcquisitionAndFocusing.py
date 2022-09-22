@@ -21,9 +21,9 @@ class PFS():
         v_0 = np.insert(v_0,2, carray[:,2], axis=1)
         v_1 = np.insert(v_1,2, carray[:,2], axis=1)
 
-        maxellip = 0.9
-        maxsize  =25.0
-        minsize  = 0.2
+        maxellip = 0.6
+        maxsize  =20.0
+        minsize  = 1.5
         filtered_darray, v = pfs.sourceFilter(darray, maxellip, maxsize, minsize)
 
         ra_offset,de_offset,inr_offset, mr, md, min_dist_index_f, f = \
@@ -38,8 +38,8 @@ class PFS():
     def Focus(self, agarray):
         pfs  = Subaru_POPT2_PFS_AG.PFS()
 
-        maxellip = 0.2
-        maxsize  =25.0
+        maxellip = 0.6
+        maxsize  =20.0
         minsize  = 1.5
         
         md = pfs.agarray2momentdifference(agarray, maxellip, maxsize, minsize)
