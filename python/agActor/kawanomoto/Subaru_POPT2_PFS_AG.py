@@ -133,14 +133,16 @@ class PFS():
         inrflag = 1
         ra_offset, de_offset, inr_offset, mr, *ex = PFS.RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag)
         rs = mr[:,6]**2+mr[:,7]**2
-        md = np.median(np.sqrt(rs))
+        rs[mr[:,8]==0.0]=np.nan
+        md = np.nanmedian(np.sqrt(rs))
         return ra_offset, de_offset, inr_offset, mr, md, *ex
     
     def RADECShift(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1):
         inrflag = 0
         ra_offset, de_offset, inr_offset, mr, *ex = PFS.RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag)
         rs = mr[:,6]**2+mr[:,7]**2
-        md = np.median(np.sqrt(rs))
+        rs[mr[:,8]==0.0]=np.nan
+        md = np.nanmedian(np.sqrt(rs))
         return ra_offset, de_offset, inr_offset, mr, md, *ex
 
     def RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag):
@@ -278,22 +280,24 @@ class PFS():
         resid_xy = (((err-np.dot(basis,A))[:,0]).reshape([2,-1])).transpose()
 
         #### one iteration to remove dr >= 0.2mm data
-        # resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
-        # vc  = np.where(np.concatenate([resid_r, resid_r], 0) < 0.2)
+        resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
+        vc  = np.where(np.concatenate([resid_r, resid_r], 0) < 0.2)
         # vcc = np.where(resid_r<0.2)
-        # basis = basis[vc]
-        # err   = err[vc]
-        # A, residual, rank, sv = np.linalg.lstsq(basis, err, rcond = None)
+        vcx = np.array([resid_r<0.2]).transpose()
+        basis2 = basis[vc]
+        err2   = err[vc]
+        A, residual, rank, sv = np.linalg.lstsq(basis2, err2, rcond = None)
         # match_obj_xy = np.stack([match_obj_xdp,match_obj_ydp]).transpose()[vcc]
         # match_cat_xy = np.stack([match_cat_xdp,match_cat_ydp]).transpose()[vcc]
         # errx = match_obj_xdp[vcc] - match_cat_xdp[vcc]
         # erry = match_obj_ydp[vcc] - match_cat_ydp[vcc]
         # err  = np.array([np.concatenate([errx,erry])]).transpose()
         # err_xy = np.stack([errx,erry]).transpose()
-        # resid_xy = (((err-np.dot(basis,A))[:,0]).reshape([2,-1])).transpose()
+        # resid_xy = (((err2-np.dot(basis2,A))[:,0]).reshape([2,-1])).transpose()
+        resid_xy = (((err-np.dot(basis,A))[:,0]).reshape([2,-1])).transpose()
         ####
 
-        mr = np.block([match_obj_xy, match_cat_xy, err_xy, resid_xy])
+        mr = np.block([match_obj_xy, match_cat_xy, err_xy, resid_xy, vcx])
         
         ra_offset  = 0.0
         de_offset  = 0.0

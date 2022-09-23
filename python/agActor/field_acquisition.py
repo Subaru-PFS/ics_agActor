@@ -168,7 +168,7 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
                 float(x[3]), float(x[4]),  # detector plane coordinates of identified guide object
                 *coordinates.dp2det(detected_objects[k][0], float(x[3]), float(x[4]))  # detector coordinates of identified guide object
             )
-            for k, x in ((int(index_v[int(index_f[i])]), x) for i, x in enumerate(zip(min_dist_index_f, mr[:, 0], mr[:, 1], mr[:, 2], mr[:, 3])))
+            for k, x in ((int(index_v[int(index_f[i])]), x) for i, x in enumerate(zip(min_dist_index_f, mr[:, 0], mr[:, 1], mr[:, 2], mr[:, 3], mr[:, 8])) if int(x[5]))
         ],
         dtype=[
             ('detected_object_id', numpy.int16),
