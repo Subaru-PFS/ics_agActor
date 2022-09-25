@@ -147,7 +147,7 @@ class AgCmd:
                 # update gen2 status values
                 self.actor.queueCommand(
                     actor='gen2',
-                    cmdStr='updateTelStatus caller={}'.format(self.actor.name) if self.with_opdb_tel_status else 'updateTelStatus',
+                    cmdStr='updateTelStatus caller={}'.format(self.actor.name),
                     timeLim=5
                 ).get()
                 if self.with_gen2_status:
