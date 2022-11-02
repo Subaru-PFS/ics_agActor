@@ -279,11 +279,11 @@ class PFS():
         err_xy       = np.stack([errx,erry]).transpose()
         resid_xy = (((err-np.dot(basis,A))[:,0]).reshape([2,-1])).transpose()
 
-        #### one iteration to remove dr >= 0.2mm data
+        #### one iteration to remove dr >= 0.5mm data
         resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
-        vc  = np.where(np.concatenate([resid_r, resid_r], 0) < 0.2)
-        # vcc = np.where(resid_r<0.2)
-        vcx = np.array([resid_r<0.2]).transpose()
+        vc  = np.where(np.concatenate([resid_r, resid_r], 0) < 0.5)
+        # vcc = np.where(resid_r<0.5)
+        vcx = np.array([resid_r<0.5]).transpose()
         basis2 = basis[vc]
         err2   = err[vc]
         A, residual, rank, sv = np.linalg.lstsq(basis2, err2, rcond = None)
