@@ -89,7 +89,7 @@ class AgCmd:
         #self.actor.logger.info('controller={}'.format(controller))
         mode = controller.get_mode()
         if mode != controller.Mode.OFF:
-            cmd.fail('text="AgCmd.acquire_field: mode={}'.format(mode))
+            cmd.fail('text="AgCmd.acquire_field: mode={}"'.format(mode))
             return
 
         design_id = None
@@ -254,7 +254,7 @@ class AgCmd:
                     identified_objects=values[2]
                 )
         except Exception as e:
-            cmd.fail('text="AgCmd.acquire_field: {}'.format(e))
+            cmd.fail('text="AgCmd.acquire_field: {}"'.format(e))
             return
         cmd.finish()
 
@@ -264,7 +264,7 @@ class AgCmd:
         #self.actor.logger.info('controller={}'.format(controller))
         mode = controller.get_mode()
         if mode != controller.Mode.OFF:
-            cmd.fail('text="AgCmd.focus: mode={}'.format(mode))
+            cmd.fail('text="AgCmd.focus: mode={}"'.format(mode))
             return
 
         visit_id = None
@@ -294,7 +294,7 @@ class AgCmd:
             # compute focus offset and tilt
             dz, dzs = _focus.focus(frame_id=frame_id, logger=self.actor.logger)
             if numpy.isnan(dz):
-                cmd.fail('text="AgCmd.focus: dz={}'.format(dz))
+                cmd.fail('text="AgCmd.focus: dz={}"'.format(dz))
                 return
             cmd.inform('text="dz={}"'.format(dz))
             # send corrections to gen2 (or iic)
@@ -308,7 +308,7 @@ class AgCmd:
                     delta_zs=dzs
                 )
         except Exception as e:
-            cmd.fail('text="AgCmd.focus: {}'.format(e))
+            cmd.fail('text="AgCmd.focus: {}"'.format(e))
             return
         cmd.finish()
 
@@ -463,7 +463,7 @@ class AgCmd:
         # #self.actor.logger.info('controller={}'.format(controller))
         # mode = controller.get_mode()
         # if mode != controller.Mode.OFF:
-        #     cmd.fail('text="AgCmd.offset: mode={}'.format(mode))
+        #     cmd.fail('text="AgCmd.offset: mode={}"'.format(mode))
         #     return
 
         def zero_offset(*, dx=None, dy=None, dinr=None, relative=False):
