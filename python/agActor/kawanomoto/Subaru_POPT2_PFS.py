@@ -6,7 +6,8 @@ import astropy.time as at
 import astropy.coordinates as ac
 
 ### unknown scale factor
-Unknown_Scale_Factor = 1.0
+Unknown_Scale_Factor_AG    = 1.0 + 1.7e-04
+Unknown_Scale_Factor_cobra = 1.0
 
 ### constants proper to WFC optics
 wfc_scale_M2POS3_coeff = 1.01546e-4
@@ -27,8 +28,8 @@ inr_zero_offset   = +0.00 # in degree
 
 # inr_axis_on_dp_x  = +0.15 # in mm, from insrot observation on 2022/06
 # inr_axis_on_dp_y  = +0.03 # in mm, from insrot observation on 2022/06
-inr_axis_on_dp_x  = +0.00 # in mm
-inr_axis_on_dp_y  = +0.00 # in mm
+inr_axis_on_dp_x  =  0.00 # in mm
+inr_axis_on_dp_y  =  0.00 # in mm
 inr_axis_on_pfi_x = inr_axis_on_dp_y
 inr_axis_on_pfi_y = inr_axis_on_dp_x
 
@@ -92,7 +93,7 @@ class Subaru():
                                 distance=ac.Distance(parallax=str_plx * au.mas, allow_negative=False),             
                                 pm_ra_cosdec = str_pmRA * au.mas/au.yr,
                                 pm_dec = str_pmDE * au.mas/au.yr,
-                                obstime=Time(gaia_epoch, format='decimalyear'),
+                                obstime=at.Time(gaia_epoch, format='decimalyear'),
                                 frame='fk5')
         str_coord_obstime = str_coord.apply_space_motion(at.Time(t))
         ra = str_coord_obstime.ra.degree
@@ -386,8 +387,8 @@ class POPT2():
         y = tany/0.014
 
         cx,cy = POPT2.coeffs_AG_c2f_wisp(self, wl, adc)
-        telx = POPT2.ZX(self, x,y,cx) * (1.0+(m2pos3-6.0)*wfc_scale_M2POS3_coeff) * Unknown_Scale_Factor
-        tely = POPT2.ZY(self, x,y,cy) * (1.0+(m2pos3-6.0)*wfc_scale_M2POS3_coeff) * Unknown_Scale_Factor
+        telx = POPT2.ZX(self, x,y,cx) * (1.0+(m2pos3-6.0)*wfc_scale_M2POS3_coeff) * Unknown_Scale_Factor_AG
+        tely = POPT2.ZY(self, x,y,cy) * (1.0+(m2pos3-6.0)*wfc_scale_M2POS3_coeff) * Unknown_Scale_Factor_AG
 
         adtelx,adtely = POPT2.additionaldistortion(self, telx,tely)
         telx = telx + adtelx
@@ -403,8 +404,8 @@ class POPT2():
         x = xt / 270.0
         y = yt / 270.0
 
-        x = x / (1.0+(m2pos3-6.0)*wfc_scale_M2POS3_coeff) / Unknown_Scale_Factor
-        y = y / (1.0+(m2pos3-6.0)*wfc_scale_M2POS3_coeff) / Unknown_Scale_Factor
+        x = x / (1.0+(m2pos3-6.0)*wfc_scale_M2POS3_coeff) / Unknown_Scale_Factor_AG
+        y = y / (1.0+(m2pos3-6.0)*wfc_scale_M2POS3_coeff) / Unknown_Scale_Factor_AG
 
         cx,cy = POPT2.coeffs_AG_f2c_wisp(self, wl, adc)
         tantx = POPT2.ZX(self, x,y,cx)
@@ -429,8 +430,8 @@ class POPT2():
         y = tany/0.014
 
         cx,cy = POPT2.coeffs_AG_c2f_wosp(self, wl, adc)
-        telx = POPT2.ZX(self, x,y,cx) * (1.0+(m2pos3-6.0)*wfc_scale_M2POS3_coeff) * Unknown_Scale_Factor
-        tely = POPT2.ZY(self, x,y,cy) * (1.0+(m2pos3-6.0)*wfc_scale_M2POS3_coeff) * Unknown_Scale_Factor
+        telx = POPT2.ZX(self, x,y,cx) * (1.0+(m2pos3-6.0)*wfc_scale_M2POS3_coeff) * Unknown_Scale_Factor_AG
+        tely = POPT2.ZY(self, x,y,cy) * (1.0+(m2pos3-6.0)*wfc_scale_M2POS3_coeff) * Unknown_Scale_Factor_AG
 
         adtelx,adtely = POPT2.additionaldistortion(self, telx,tely)
         telx = telx + adtelx
@@ -446,8 +447,8 @@ class POPT2():
         x = xt / 270.0
         y = yt / 270.0
 
-        x = x / (1.0+(m2pos3-6.0)*wfc_scale_M2POS3_coeff) / Unknown_Scale_Factor
-        y = y / (1.0+(m2pos3-6.0)*wfc_scale_M2POS3_coeff) / Unknown_Scale_Factor
+        x = x / (1.0+(m2pos3-6.0)*wfc_scale_M2POS3_coeff) / Unknown_Scale_Factor_AG
+        y = y / (1.0+(m2pos3-6.0)*wfc_scale_M2POS3_coeff) / Unknown_Scale_Factor_AG
 
         cx,cy = POPT2.coeffs_AG_f2c_wosp(self, wl, adc)
         tantx = POPT2.ZX(self, x,y,cx)
@@ -472,8 +473,8 @@ class POPT2():
         y = tany/0.014
 
         cx,cy = POPT2.coeffs_COBRA_c2f(self, wl, adc)
-        telx = POPT2.ZX(self, x,y,cx) * (1.0+(m2pos3-6.0)*wfc_scale_M2POS3_coeff) * Unknown_Scale_Factor
-        tely = POPT2.ZY(self, x,y,cy) * (1.0+(m2pos3-6.0)*wfc_scale_M2POS3_coeff) * Unknown_Scale_Factor
+        telx = POPT2.ZX(self, x,y,cx) * (1.0+(m2pos3-6.0)*wfc_scale_M2POS3_coeff) * Unknown_Scale_Factor_cobra
+        tely = POPT2.ZY(self, x,y,cy) * (1.0+(m2pos3-6.0)*wfc_scale_M2POS3_coeff) * Unknown_Scale_Factor_cobra
 
         adtelx,adtely = POPT2.additionaldistortion(self, telx,tely)
         telx = telx + adtelx
@@ -489,8 +490,8 @@ class POPT2():
         x = xt / 270.0
         y = yt / 270.0
 
-        x = x / (1.0+(m2pos3-6.0)*wfc_scale_M2POS3_coeff) / Unknown_Scale_Factor
-        y = y / (1.0+(m2pos3-6.0)*wfc_scale_M2POS3_coeff) / Unknown_Scale_Factor
+        x = x / (1.0+(m2pos3-6.0)*wfc_scale_M2POS3_coeff) / Unknown_Scale_Factor_cobra
+        y = y / (1.0+(m2pos3-6.0)*wfc_scale_M2POS3_coeff) / Unknown_Scale_Factor_cobra
 
         cx,cy = POPT2.coeffs_COBRA_f2c(self, wl, adc)
         tantx = POPT2.ZX(self, x,y,cx)
