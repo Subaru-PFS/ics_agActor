@@ -80,6 +80,7 @@ class AgCmd:
                 for k, v in d.items():
                     cmd.inform('text="{}"'.format(repr(v)))
             except Exception as e:
+                self.actor.logger.exception('AgCmd.show:')
                 cmd.warn('text="AgCmd.show: {}: {}"'.format(n, e))
         cmd.finish()
 
@@ -254,6 +255,7 @@ class AgCmd:
                     identified_objects=values[2]
                 )
         except Exception as e:
+            self.actor.logger.exception('AgCmd.acquire_field:')
             cmd.fail('text="AgCmd.acquire_field: {}"'.format(e))
             return
         cmd.finish()
@@ -308,6 +310,7 @@ class AgCmd:
                     delta_zs=dzs
                 )
         except Exception as e:
+            self.actor.logger.exception('AgCmd.focus:')
             cmd.fail('text="AgCmd.focus: {}"'.format(e))
             return
         cmd.finish()
@@ -355,6 +358,7 @@ class AgCmd:
         try:
             controller.start_autoguide(cmd=cmd, design=design, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time, cadence=cadence, center=center, magnitude=magnitude, dry_run=dry_run)
         except Exception as e:
+            self.actor.logger.exception('AgCmd.start_autoguide:')
             cmd.fail('text="AgCmd.start_autoguide: {}"'.format(e))
             return
         cmd.finish()
@@ -399,6 +403,7 @@ class AgCmd:
         try:
             controller.initialize_autoguide(cmd=cmd, design=design, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time, cadence=cadence, center=center, magnitude=magnitude)
         except Exception as e:
+            self.actor.logger.exception('AgCmd.initialize_autoguide:')
             cmd.fail('text="AgCmd.initialize_autoguide: {}"'.format(e))
             return
         cmd.finish()
@@ -411,6 +416,7 @@ class AgCmd:
         try:
             controller.restart_autoguide(cmd=cmd)
         except Exception as e:
+            self.actor.logger.exception('AgCmd.restart_autoguide:')
             cmd.fail('text="AgCmd.restart_autoguide: {}"'.format(e))
             return
         cmd.finish()
@@ -423,6 +429,7 @@ class AgCmd:
         try:
             controller.stop_autoguide()
         except Exception as e:
+            self.actor.logger.exception('AgCmd.stop_autoguide:')
             cmd.fail('text="AgCmd.stop_autoguide: {}"'.format(e))
             return
         cmd.finish()
@@ -453,6 +460,7 @@ class AgCmd:
         try:
             controller.reconfigure_autoguide(cmd=cmd, **kwargs)
         except Exception as e:
+            self.actor.logger.exception('AgCmd.reconfigure_autoguide:')
             cmd.fail('text="AgCmd.reconfigure_autoguide: {}"'.format(e))
             return
         cmd.finish()
