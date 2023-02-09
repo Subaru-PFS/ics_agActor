@@ -93,7 +93,7 @@ pfi_parity = -1.0 # -1 or +1,
 #         return ra,de
 
 class PFS():
-    def sourceFilter(self, agarray, maxellip, maxsize, minsize):
+    def sourceFilter(self, agarray, maxellip, maxsize, minsize, flag_mask=None):
         ag_ccd  = agarray[:,0]
         ag_id   = agarray[:,1]
         ag_xc   = agarray[:,2]
@@ -101,7 +101,7 @@ class PFS():
         ag_flx  = agarray[:,4]
         ag_smma = agarray[:,5]
         ag_smmi = agarray[:,6]
-        ag_flag = agarray[:,7]
+        ag_flag = agarray[:,7].astype(np.uint8) & flag_mask if flag_mask is not None else agarray[:,7]
         
         # ellipticity condition
         cellip = (1.0-ag_smmi/ag_smma)    < maxellip

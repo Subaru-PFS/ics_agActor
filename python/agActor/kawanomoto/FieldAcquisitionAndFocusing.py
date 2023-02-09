@@ -24,7 +24,7 @@ class PFS():
         maxellip = 0.6
         maxsize  =20.0
         minsize  = 1.5
-        filtered_darray, v = pfs.sourceFilter(darray, maxellip, maxsize, minsize)
+        filtered_darray, v = pfs.sourceFilter(darray, maxellip, maxsize, minsize, flag_mask=7)  # ignore "fwhm not converged" flag
 
         ra_offset,de_offset,inr_offset, mr, md, min_dist_index_f, f = \
             pfs.RADECInRShift(filtered_darray[:,2],\
