@@ -12,7 +12,7 @@ else:
     from . import Subaru_POPT2_PFS_AG
 
 class PFS():
-    def FA(self, carray, darray, tel_ra, tel_de, dt, adc, inr, m2pos3, wl):
+    def FA(self, carray, darray, tel_ra, tel_de, dt, adc, inr, m2pos3, wl, inrflag=1, scaleflag=0):
         pfs  = Subaru_POPT2_PFS_AG.PFS()
         v_0, v_1 = \
             pfs.makeBasis(tel_ra, tel_de, \
@@ -26,12 +26,16 @@ class PFS():
         minsize  = 1.5
         filtered_darray, v = pfs.sourceFilter(darray, maxellip, maxsize, minsize, flag_mask=7)  # ignore "fwhm not converged" flag
 
-        ra_offset,de_offset,inr_offset, scale_offset, mr, md, min_dist_index_f, f = \
-            pfs.RADECInRScaleShift(filtered_darray[:,2],\
-                                   filtered_darray[:,3],\
-                                   filtered_darray[:,4],\
-                                   filtered_darray[:,7],\
-                                   v_0, v_1)
+        ra_offset,de_offset,inr_offset, scale_offset, mr, min_dist_index_f, f = \
+            pfs.RADECInRShiftA(filtered_darray[:,2], \
+                               filtered_darray[:,3], \
+                               filtered_darray[:,4], \
+                               filtered_darray[:,7], \
+                               v_0, v_1, \
+                               inrflag, scaleflag)
+        rs = mr[:,6]**2+mr[:,7]**2
+        rs[mr[:,8]==0.0]=np.nan
+        md = np.nanmedian(np.sqrt(rs))
 
         return ra_offset,de_offset,inr_offset, scale_offset, mr, md, min_dist_index_f, f, v
 

@@ -97,7 +97,10 @@ def autoguide(*, frame_id, obswl=0.62, logger=None, **kwargs):
     if 'ddec' in kwargs: dec += kwargs.get('ddec') / 3600
     if 'dinr' in kwargs: inr += kwargs.get('dinr') / 3600
     logger and logger.info('ra={},dec={},inr={}'.format(ra, dec, inr))
-    return field_acquisition._acquire_field(guide_objects=guide_objects, detected_objects=detected_objects, ra=ra, dec=dec, taken_at=taken_at, adc=adc, inr=inr, m2_pos3=m2_pos3, obswl=obswl, altazimuth=True, logger=logger)  # (dra, ddec, dinr, dalt, daz, *values)
+    fit_dinr = kwargs.get('fit_dinr', True)
+    fit_dscale = kwargs.get('fit_dscale', False)
+    #logger and logger.info('fit_dinr={},fit_dscale={}'.format(fit_dinr, fit_dscale))
+    return field_acquisition._acquire_field(guide_objects=guide_objects, detected_objects=detected_objects, ra=ra, dec=dec, taken_at=taken_at, adc=adc, inr=inr, m2_pos3=m2_pos3, obswl=obswl, altazimuth=True, logger=logger, fit_dinr=fit_dinr, fit_dscale=fit_dscale)  # (dra, ddec, dinr, dalt, daz, *values)
 
 
 if __name__ == '__main__':

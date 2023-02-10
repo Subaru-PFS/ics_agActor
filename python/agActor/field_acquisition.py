@@ -91,10 +91,13 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
     if 'dpa' in kwargs: inst_pa += kwargs.get('dpa') / 3600
     if 'dinr' in kwargs: inr += kwargs.get('dinr') / 3600
     logger and logger.info('ra={},dec={},inst_pa={},inr={}'.format(ra, dec, inst_pa, inr))
-    return (ra, dec, inst_pa, *_acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, m2_pos3=m2_pos3, obswl=obswl, altazimuth=altazimuth, logger=logger))
+    fit_dinr = kwargs.get('fit_dinr', True)
+    fit_dscale = kwargs.get('fit_dscale', False)
+    #logger and logger.info('fit_dinr={},fit_dscale={}'.format(fit_dinr, fit_dscale))
+    return (ra, dec, inst_pa, *_acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, m2_pos3=m2_pos3, obswl=obswl, altazimuth=altazimuth, logger=logger, fit_dinr=fit_dinr, fit_dscale=fit_dscale))
 
 
-def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, m2_pos3=6.0, obswl=0.62, altazimuth=False, logger=None):
+def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, m2_pos3=6.0, obswl=0.62, altazimuth=False, logger=None, fit_dinr=True, fit_dscale=False):
 
     def semi_axes(xy, x2, y2):
 
@@ -119,7 +122,7 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
         ]
     )
     pfs = FieldAcquisitionAndFocusing.PFS()
-    dra, ddec, dinr, dscale, *diags = pfs.FA(_guide_objects, _detected_objects, ra, dec, taken_at.astimezone(tz=timezone.utc) if isinstance(taken_at, datetime) else datetime.fromtimestamp(taken_at, tz=timezone.utc) if isinstance(taken_at, Number) else taken_at, adc, inr, m2_pos3, obswl)
+    dra, ddec, dinr, dscale, *diags = pfs.FA(_guide_objects, _detected_objects, ra, dec, taken_at.astimezone(tz=timezone.utc) if isinstance(taken_at, datetime) else datetime.fromtimestamp(taken_at, tz=timezone.utc) if isinstance(taken_at, Number) else taken_at, adc, inr, m2_pos3, obswl, inrflag=int(fit_dinr), scaleflag=int(fit_dscale))
     dra *= 3600
     ddec *= 3600
     dinr *= 3600

@@ -18,11 +18,11 @@ class AgCmd:
             ('ping', '', self.ping),
             ('status', '', self.status),
             ('show', '', self.show),
-            ('acquire_field', '[<design_id>] [<design_path>] [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<offset>] [<dinr>] [<magnitude>] [<dry_run>]', self.acquire_field),
-            ('acquire_field', '@otf [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<center>] [<offset>] [<dinr>] [<magnitude>] [<dry_run>]', self.acquire_field),
+            ('acquire_field', '[<design_id>] [<design_path>] [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<offset>] [<dinr>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>]', self.acquire_field),
+            ('acquire_field', '@otf [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<center>] [<offset>] [<dinr>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>]', self.acquire_field),
             ('focus', '[<visit_id>|<visit>] [<exposure_time>]', self.focus),
-            ('autoguide', '@start [<design_id>] [<design_path>] [<visit_id>|<visit>] [<from_sky>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>]', self.start_autoguide),
-            ('autoguide', '@start @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>]', self.start_autoguide),
+            ('autoguide', '@start [<design_id>] [<design_path>] [<visit_id>|<visit>] [<from_sky>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>]', self.start_autoguide),
+            ('autoguide', '@start @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>]', self.start_autoguide),
             ('autoguide', '@initialize [<design_id>] [<design_path>] [<visit_id>|<visit>] [<from_sky>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>]', self.initialize_autoguide),
             ('autoguide', '@initialize @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>]', self.initialize_autoguide),
             ('autoguide', '@restart', self.restart_autoguide),
@@ -33,7 +33,7 @@ class AgCmd:
         ]
         self.keys = keys.KeysDictionary(
             'ag_ag',
-            (1, 13),
+            (1, 14),
             keys.Key('exposure_time', types.Int(), help=''),
             keys.Key('cadence', types.Int(), help=''),
             keys.Key('guide', types.Bool('no', 'yes'), help=''),
@@ -50,6 +50,8 @@ class AgCmd:
             keys.Key('dy', types.Float(), help=''),
             keys.Key('dinr', types.Float(), help=''),
             keys.Key('dscale', types.Float(), help=''),
+            keys.Key('fit_dinr', types.Bool('no', 'yes'), help=''),
+            keys.Key('fit_dscale', types.Bool('no', 'yes'), help=''),
         )
         self.with_opdb_agc_guide_offset = actor.config.getboolean(actor.name, 'agc_guide_offset', fallback=False)
         self.with_opdb_agc_match = actor.config.getboolean(actor.name, 'agc_match', fallback=False)
@@ -130,6 +132,12 @@ class AgCmd:
         dry_run = False
         if 'dry_run' in cmd.cmd.keywords:
             dry_run = bool(cmd.cmd.keywords['dry_run'].values[0])
+        fit_dinr = True
+        if 'fit_dinr' in cmd.cmd.keywords:
+            fit_dinr = bool(cmd.cmd.keywords['fit_dinr'].values[0])
+        fit_dscale = False
+        if 'fit_dscale' in cmd.cmd.keywords:
+            fit_dscale = bool(cmd.cmd.keywords['fit_dscale'].values[0])
 
         try:
             cmd.inform('exposureTime={}'.format(exposure_time))
@@ -192,6 +200,8 @@ class AgCmd:
                 kwargs['dinr'] = dinr
             if magnitude is not None:
                 kwargs['magnitude'] = magnitude
+            kwargs['fit_dinr'] = fit_dinr
+            kwargs['fit_dscale'] = fit_dscale
             # retrieve field center coordinates from opdb
             # retrieve exposure information from opdb
             # retrieve guide star coordinates from opdb
@@ -356,9 +366,15 @@ class AgCmd:
         dry_run = False
         if 'dry_run' in cmd.cmd.keywords:
             dry_run = bool(cmd.cmd.keywords['dry_run'].values[0])
+        fit_dinr = True
+        if 'fit_dinr' in cmd.cmd.keywords:
+            fit_dinr = bool(cmd.cmd.keywords['fit_dinr'].values[0])
+        fit_dscale = False
+        if 'fit_dscale' in cmd.cmd.keywords:
+            fit_dscale = bool(cmd.cmd.keywords['fit_dscale'].values[0])
 
         try:
-            controller.start_autoguide(cmd=cmd, design=design, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time, cadence=cadence, center=center, magnitude=magnitude, dry_run=dry_run)
+            controller.start_autoguide(cmd=cmd, design=design, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time, cadence=cadence, center=center, magnitude=magnitude, dry_run=dry_run, fit_dinr=fit_dinr, fit_dscale=fit_dscale)
         except Exception as e:
             self.actor.logger.exception('AgCmd.start_autoguide:')
             cmd.fail('text="AgCmd.start_autoguide: {}"'.format(e))
