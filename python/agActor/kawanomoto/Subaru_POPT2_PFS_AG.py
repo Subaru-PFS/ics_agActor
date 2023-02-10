@@ -22,6 +22,7 @@ pfs.inr_zero_offset = -90
 d_ra  = 1.0/3600.0
 d_de  = 1.0/3600.0
 d_inr = 0.01
+d_scl = 1.0e-05
 
 ### pfi parity (flip y)
 pfi_parity = -1.0 # -1 or +1, 
@@ -130,23 +131,34 @@ class PFS():
         
         return oarray, v
 
-    def RADECInRShift(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1):
-        inrflag = 1
-        ra_offset, de_offset, inr_offset, mr, *ex = PFS.RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag)
+    def RADECInRScaleShift(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1):
+        inrflag   = 1
+        scaleflag = 1
+        ra_offset, de_offset, inr_offset, scale_offset, mr, *ex = PFS.RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag, scaleflag)
         rs = mr[:,6]**2+mr[:,7]**2
         rs[mr[:,8]==0.0]=np.nan
         md = np.nanmedian(np.sqrt(rs))
-        return ra_offset, de_offset, inr_offset, mr, md, *ex
+        return ra_offset, de_offset, inr_offset, scale_offset, mr, md, *ex
+
+    def RADECInRShift(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1):
+        inrflag   = 1
+        scaleflag = 0
+        ra_offset, de_offset, inr_offset, scale_offset, mr, *ex = PFS.RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag, scaleflag)
+        rs = mr[:,6]**2+mr[:,7]**2
+        rs[mr[:,8]==0.0]=np.nan
+        md = np.nanmedian(np.sqrt(rs))
+        return ra_offset, de_offset, inr_offset, scale_offset, mr, md, *ex
     
     def RADECShift(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1):
-        inrflag = 0
-        ra_offset, de_offset, inr_offset, mr, *ex = PFS.RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag)
+        inrflag   = 0
+        scaleflag = 0
+        ra_offset, de_offset, inr_offset, scale_offset, mr, *ex = PFS.RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag, scaleflag)
         rs = mr[:,6]**2+mr[:,7]**2
         rs[mr[:,8]==0.0]=np.nan
         md = np.nanmedian(np.sqrt(rs))
-        return ra_offset, de_offset, inr_offset, mr, md, *ex
+        return ra_offset, de_offset, inr_offset, scale_offset, mr, md, *ex
 
-    def RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag):
+    def RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag, scaleflag):
         cat_xdp_0 = v0[:,0]
         cat_ydp_0 = v0[:,1]
         cat_mag_0 = v0[:,2]
@@ -156,7 +168,9 @@ class PFS():
         dyde_0    = v0[:,6]
         dxinr_0   = v0[:,7]
         dyinr_0   = v0[:,8]
-        
+        dxscl_0   = v0[:,0]*d_scl
+        dyscl_0   = v0[:,1]*d_scl
+
         cat_xdp_1 = v1[:,0]
         cat_ydp_1 = v1[:,1]
         cat_mag_1 = v1[:,2]
@@ -166,6 +180,8 @@ class PFS():
         dyde_1    = v1[:,6]
         dxinr_1   = v1[:,7]
         dyinr_1   = v1[:,8]
+        dxscl_1   = v1[:,0]*d_scl
+        dyscl_1   = v1[:,1]*d_scl
 
         dxra  = (dxra_0  + dxra_1 )/2.0
         dyra  = (dyra_0  + dyra_1 )/2.0
@@ -173,10 +189,13 @@ class PFS():
         dyde  = (dyde_0  + dyde_1 )/2.0
         dxinr = (dxinr_0 + dxinr_1)/2.0
         dyinr = (dyinr_0 + dyinr_1)/2.0
+        dxscl = (dxscl_0 + dxscl_1)/2.0
+        dyscl = (dyscl_0 + dyscl_1)/2.0
 
         flg = np.where(obj_flag==1.0)
 
         n_obj = (obj_xdp.shape)[0]
+
         xdiff_0 = np.transpose([obj_xdp])-cat_xdp_0
         ydiff_0 = np.transpose([obj_ydp])-cat_ydp_0
         xdiff_1 = np.transpose([obj_xdp])-cat_xdp_1
@@ -188,6 +207,7 @@ class PFS():
         ydiff[flg]=ydiff_1[flg]
 
         dist  = np.sqrt(xdiff**2+ydiff**2)
+
         min_dist_index   = np.nanargmin(dist, axis=1)
         min_dist_indices = np.array(range(n_obj)),min_dist_index        
         rCRA = np.median((xdiff[min_dist_indices]*dyde[min_dist_index]-ydiff[min_dist_indices]*dxde[min_dist_index])/(dxra[min_dist_index]*dyde[min_dist_index]-dyra[min_dist_index]*dxde[min_dist_index]))
@@ -227,6 +247,8 @@ class PFS():
         match_dyde_0    = (dyde_0[min_dist_index])[f]
         match_dxinr_0   = (dxinr_0[min_dist_index])[f]
         match_dyinr_0   = (dyinr_0[min_dist_index])[f]
+        match_dxscl_0   = (dxscl_0[min_dist_index])[f]
+        match_dyscl_0   = (dyscl_0[min_dist_index])[f]
 
         match_cat_xdp_1 = (cat_xdp_1[min_dist_index])[f]
         match_cat_ydp_1 = (cat_ydp_1[min_dist_index])[f]
@@ -237,6 +259,8 @@ class PFS():
         match_dyde_1    = (dyde_1[min_dist_index])[f]
         match_dxinr_1   = (dxinr_1[min_dist_index])[f]
         match_dyinr_1   = (dyinr_1[min_dist_index])[f]
+        match_dxscl_1   = (dxscl_1[min_dist_index])[f]
+        match_dyscl_1   = (dyscl_1[min_dist_index])[f]
 
         match_cat_xdp = np.copy(match_cat_xdp_0)
         match_cat_ydp = np.copy(match_cat_ydp_0)
@@ -247,6 +271,8 @@ class PFS():
         match_dyde    = np.copy(match_dyde_0)
         match_dxinr   = np.copy(match_dxinr_0)
         match_dyinr   = np.copy(match_dyinr_0)
+        match_dxscl   = np.copy(match_dxscl_0)
+        match_dyscl   = np.copy(match_dyscl_0)
 
         flg = np.where(match_obj_flag==1.0)
 
@@ -259,13 +285,20 @@ class PFS():
         match_dyde[flg]    = match_dyde_1[flg]
         match_dxinr[flg]   = match_dxinr_1[flg]
         match_dyinr[flg]   = match_dyinr_1[flg]
+        match_dxscl[flg]   = match_dxscl_1[flg]
+        match_dyscl[flg]   = match_dyscl_1[flg]
 
         dra  = np.concatenate([match_dxra,match_dyra])
         dde  = np.concatenate([match_dxde,match_dyde])
         dinr = np.concatenate([match_dxinr,match_dyinr])
+        dscl = np.concatenate([match_dxscl,match_dyscl])
 
-        if inrflag == 1:
+        if inrflag == 1 and scaleflag == 1:
+            basis= np.stack([dra,dde,dinr,dscl]).transpose()
+        elif inrflag == 1 and scaleflag == 0:
             basis= np.stack([dra,dde,dinr]).transpose()
+        elif inrflag == 0 and scaleflag == 1:
+            basis= np.stack([dra,dde,dscl]).transpose()
         else:
             basis= np.stack([dra,dde]).transpose()
 
@@ -275,6 +308,8 @@ class PFS():
 
         A, residual, rank, sv = np.linalg.lstsq(basis, err, rcond = None)
 
+        # print(A)
+        
         match_obj_xy = np.stack([match_obj_xdp,match_obj_ydp]).transpose()
         match_cat_xy = np.stack([match_cat_xdp,match_cat_ydp]).transpose()
         err_xy       = np.stack([errx,erry]).transpose()
@@ -300,19 +335,29 @@ class PFS():
 
         mr = np.block([match_obj_xy, match_cat_xy, err_xy, resid_xy, vcx])
         
-        ra_offset  = 0.0
-        de_offset  = 0.0
-        inr_offset = 0.0
-        
-        if inrflag == 1:
-            ra_offset  = A[0][0] * d_ra
-            de_offset  = A[1][0] * d_de
-            inr_offset = A[2][0] * d_inr
+        ra_offset    = 0.0
+        de_offset    = 0.0
+        inr_offset   = 0.0
+        scale_offset = 0.0
+
+        if inrflag == 1 and scaleflag == 1:
+            ra_offset    = A[0][0] * d_ra
+            de_offset    = A[1][0] * d_de
+            inr_offset   = A[2][0] * d_inr
+            scale_offset = A[3][0] * d_scl
+        elif inrflag == 1 and scaleflag == 0:
+            ra_offset    = A[0][0] * d_ra
+            de_offset    = A[1][0] * d_de
+            inr_offset   = A[2][0] * d_inr
+        elif inrflag == 0 and scaleflag == 1:
+            ra_offset    = A[0][0] * d_ra
+            de_offset    = A[1][0] * d_de
+            scale_offset = A[2][0] * d_scl
         else:
-            ra_offset  = A[0][0] * d_ra
-            de_offset  = A[1][0] * d_de
+            ra_offset    = A[0][0] * d_ra
+            de_offset    = A[1][0] * d_de
         
-        return ra_offset, de_offset, inr_offset, mr, min_dist_index[f], f
+        return ra_offset, de_offset, inr_offset, scale_offset, mr, min_dist_index[f], f
 
     def makeBasis(self, tel_ra, tel_de, str_ra, str_de, t, adc, inr, m2pos3, wl):
         v_0,v_1 = PFS.makeBasisFp(self, tel_ra, tel_de, str_ra, str_de, t, adc, inr, m2pos3, wl)

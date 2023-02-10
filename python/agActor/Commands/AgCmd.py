@@ -6,6 +6,7 @@ import opscore.protocols.keys as keys
 import opscore.protocols.types as types
 from agActor import field_acquisition, focus as _focus, data_utils, pfs_design
 from agActor.telescope_center import telCenter as tel_center
+from kawanomoto import Subaru_POPT2_PFS  # *NOT* 'from agActor.kawanomoto import Subaru_POPT2_PFS'
 
 
 class AgCmd:
@@ -27,12 +28,12 @@ class AgCmd:
             ('autoguide', '@restart', self.restart_autoguide),
             ('autoguide', '@stop', self.stop_autoguide),
             ('autoguide', '@reconfigure [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<dry_run>]', self.reconfigure_autoguide),
-            ('offset', '[@(absolute|relative)] [<dx>] [<dy>] [<dinr>]', self.offset),
+            ('offset', '[@(absolute|relative)] [<dx>] [<dy>] [<dinr>] [<dscale>]', self.offset),
             ('offset', '@reset', self.offset),
         ]
         self.keys = keys.KeysDictionary(
             'ag_ag',
-            (1, 12),
+            (1, 13),
             keys.Key('exposure_time', types.Int(), help=''),
             keys.Key('cadence', types.Int(), help=''),
             keys.Key('guide', types.Bool('no', 'yes'), help=''),
@@ -48,6 +49,7 @@ class AgCmd:
             keys.Key('dx', types.Float(), help=''),
             keys.Key('dy', types.Float(), help=''),
             keys.Key('dinr', types.Float(), help=''),
+            keys.Key('dscale', types.Float(), help=''),
         )
         self.with_opdb_agc_guide_offset = actor.config.getboolean(actor.name, 'agc_guide_offset', fallback=False)
         self.with_opdb_agc_match = actor.config.getboolean(actor.name, 'agc_match', fallback=False)
@@ -468,6 +470,8 @@ class AgCmd:
             return
         cmd.finish()
 
+    _SCALE0 = Subaru_POPT2_PFS.Unknown_Scale_Factor_AG
+
     def offset(self, cmd):
 
         # controller = self.actor.controllers['ag']
@@ -477,26 +481,29 @@ class AgCmd:
         #     cmd.fail('text="AgCmd.offset: mode={}"'.format(mode))
         #     return
 
-        def zero_offset(*, dx=None, dy=None, dinr=None, relative=False):
-
-            import kawanomoto.Subaru_POPT2_PFS  # *NOT* 'import agActor.kawanomoto.Subaru_POPT2_PFS'
+        def zero_offset(*, dx=None, dy=None, dinr=None, dscale=None, relative=False):
 
             if dx is not None:
                 if relative:
-                    kawanomoto.Subaru_POPT2_PFS.inr_axis_on_dp_x += dx
+                    Subaru_POPT2_PFS.inr_axis_on_dp_x += dx
                 else:
-                    kawanomoto.Subaru_POPT2_PFS.inr_axis_on_dp_x = dx
+                    Subaru_POPT2_PFS.inr_axis_on_dp_x = dx
             if dy is not None:
                 if relative:
-                    kawanomoto.Subaru_POPT2_PFS.inr_axis_on_dp_y += dy
+                    Subaru_POPT2_PFS.inr_axis_on_dp_y += dy
                 else:
-                    kawanomoto.Subaru_POPT2_PFS.inr_axis_on_dp_y = dy
+                    Subaru_POPT2_PFS.inr_axis_on_dp_y = dy
             if dinr is not None:
                 if relative:
-                    kawanomoto.Subaru_POPT2_PFS.inr_zero_offset += dinr
+                    Subaru_POPT2_PFS.inr_zero_offset += dinr
                 else:
-                    kawanomoto.Subaru_POPT2_PFS.inr_zero_offset = dinr
-            return kawanomoto.Subaru_POPT2_PFS.inr_axis_on_dp_x, kawanomoto.Subaru_POPT2_PFS.inr_axis_on_dp_y, kawanomoto.Subaru_POPT2_PFS.inr_zero_offset
+                    Subaru_POPT2_PFS.inr_zero_offset = dinr
+            if dscale is not None:
+                if relative:
+                    Subaru_POPT2_PFS.Unknown_Scale_Factor_AG += dscale
+                else:
+                    Subaru_POPT2_PFS.Unknown_Scale_Factor_AG = AgCmd._SCALE0 + dscale
+            return Subaru_POPT2_PFS.inr_axis_on_dp_x, Subaru_POPT2_PFS.inr_axis_on_dp_y, Subaru_POPT2_PFS.inr_zero_offset, Subaru_POPT2_PFS.Unknown_Scale_Factor_AG - AgCmd._SCALE0
 
         dx = None
         if 'dx' in cmd.cmd.keywords:
@@ -507,9 +514,13 @@ class AgCmd:
         dinr = None
         if 'dinr' in cmd.cmd.keywords:
             dinr = float(cmd.cmd.keywords['dinr'].values[0])
+        dscale = None
+        if 'dscale' in cmd.cmd.keywords:
+            dscale = float(cmd.cmd.keywords['dscale'].values[0])
         if 'reset' in cmd.cmd.keywords:
-            dx, dy, dinr = 0.0, 0.0, -90.0
-        dx, dy, dinr = zero_offset(dx=dx, dy=dy, dinr=dinr, relative='relative' in cmd.cmd.keywords)
-        self.actor.logger.info('AgCmd.offset: dx={},dy={},dinr={}'.format(dx, dy, dinr))
+            dx, dy, dinr, dscale = 0.0, 0.0, -90.0, 0.0
+        dx, dy, dinr, dscale = zero_offset(dx=dx, dy=dy, dinr=dinr, dscale=dscale, relative='relative' in cmd.cmd.keywords)
+        self.actor.logger.info('AgCmd.offset: dx={},dy={},dinr={},dscale={}'.format(dx, dy, dinr, dscale))
+        cmd.inform('text="dx={},dy={},dinr={},dscale={}"'.format(dx, dy, dinr, dscale))
         cmd.inform('guideOffsets={},{}'.format(dx, dy))
         cmd.finish()

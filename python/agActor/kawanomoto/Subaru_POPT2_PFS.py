@@ -30,6 +30,7 @@ inr_zero_offset   = +0.00 # in degree
 # inr_axis_on_dp_y  = +0.03 # in mm, from insrot observation on 2022/06
 inr_axis_on_dp_x  =  0.00 # in mm
 inr_axis_on_dp_y  =  0.00 # in mm
+
 inr_axis_on_pfi_x = inr_axis_on_dp_y
 inr_axis_on_pfi_y = inr_axis_on_dp_x
 

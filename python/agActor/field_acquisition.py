@@ -119,11 +119,11 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
         ]
     )
     pfs = FieldAcquisitionAndFocusing.PFS()
-    dra, ddec, dinr, *diags = pfs.FA(_guide_objects, _detected_objects, ra, dec, taken_at.astimezone(tz=timezone.utc) if isinstance(taken_at, datetime) else datetime.fromtimestamp(taken_at, tz=timezone.utc) if isinstance(taken_at, Number) else taken_at, adc, inr, m2_pos3, obswl)
+    dra, ddec, dinr, dscale, *diags = pfs.FA(_guide_objects, _detected_objects, ra, dec, taken_at.astimezone(tz=timezone.utc) if isinstance(taken_at, datetime) else datetime.fromtimestamp(taken_at, tz=timezone.utc) if isinstance(taken_at, Number) else taken_at, adc, inr, m2_pos3, obswl)
     dra *= 3600
     ddec *= 3600
     dinr *= 3600
-    logger and logger.info('dra={},ddec={},dinr={}'.format(dra, ddec, dinr))
+    logger and logger.info('dra={},ddec={},dinr={},dscale={}'.format(dra, ddec, dinr, dscale))
     values = ()
     if altazimuth:
         alt, az, dalt, daz = to_altaz.to_altaz(ra, dec, taken_at, dra=dra, ddec=ddec)

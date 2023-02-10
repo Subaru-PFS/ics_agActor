@@ -26,14 +26,14 @@ class PFS():
         minsize  = 1.5
         filtered_darray, v = pfs.sourceFilter(darray, maxellip, maxsize, minsize, flag_mask=7)  # ignore "fwhm not converged" flag
 
-        ra_offset,de_offset,inr_offset, mr, md, min_dist_index_f, f = \
-            pfs.RADECInRShift(filtered_darray[:,2],\
-                              filtered_darray[:,3],\
-                              filtered_darray[:,4],\
-                              filtered_darray[:,7],\
-                              v_0, v_1)
+        ra_offset,de_offset,inr_offset, scale_offset, mr, md, min_dist_index_f, f = \
+            pfs.RADECInRScaleShift(filtered_darray[:,2],\
+                                   filtered_darray[:,3],\
+                                   filtered_darray[:,4],\
+                                   filtered_darray[:,7],\
+                                   v_0, v_1)
 
-        return ra_offset,de_offset,inr_offset, mr, md, min_dist_index_f, f, v
+        return ra_offset,de_offset,inr_offset, scale_offset, mr, md, min_dist_index_f, f, v
 
     def Focus(self, agarray):
         pfs  = Subaru_POPT2_PFS_AG.PFS()
