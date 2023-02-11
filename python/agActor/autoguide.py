@@ -100,7 +100,7 @@ def autoguide(*, frame_id, obswl=0.62, logger=None, **kwargs):
     fit_dinr = kwargs.get('fit_dinr', True)
     fit_dscale = kwargs.get('fit_dscale', False)
     #logger and logger.info('fit_dinr={},fit_dscale={}'.format(fit_dinr, fit_dscale))
-    return field_acquisition._acquire_field(guide_objects=guide_objects, detected_objects=detected_objects, ra=ra, dec=dec, taken_at=taken_at, adc=adc, inr=inr, m2_pos3=m2_pos3, obswl=obswl, altazimuth=True, logger=logger, fit_dinr=fit_dinr, fit_dscale=fit_dscale)  # (dra, ddec, dinr, dalt, daz, *values)
+    return field_acquisition._acquire_field(guide_objects=guide_objects, detected_objects=detected_objects, ra=ra, dec=dec, taken_at=taken_at, adc=adc, inr=inr, m2_pos3=m2_pos3, obswl=obswl, altazimuth=True, logger=logger, fit_dinr=fit_dinr, fit_dscale=fit_dscale)  # (dra, ddec, dinr, dscale, dalt, daz, *values)
 
 
 if __name__ == '__main__':
@@ -136,8 +136,8 @@ if __name__ == '__main__':
     logger = logging.getLogger(name='autoguide')
     set_design(logger=logger, **kwargs)
     set_design_agc(frame_id=args.ref_frame_id, obswl=args.obswl, logger=logger, **kwargs)
-    dra, ddec, dinr, dalt, daz, *values = autoguide(frame_id=args.frame_id, obswl=args.obswl, logger=logger, **kwargs)
-    print('dra={},ddec={},dinr={},dalt={},daz={}'.format(dra, ddec, dinr, dalt, daz))
+    dra, ddec, dinr, dscale, dalt, daz, *values = autoguide(frame_id=args.frame_id, obswl=args.obswl, logger=logger, **kwargs)
+    print('dra={},ddec={},dinr={},dscale={},dalt={},daz={}'.format(dra, ddec, dinr, dscale, dalt, daz))
     guide_objects, detected_objects, identified_objects, *_ = values
     #print(guide_objects)
     #print(detected_objects)

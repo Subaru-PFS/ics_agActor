@@ -76,7 +76,7 @@ if __name__ == '__main__':
     import field_acquisition
     import focus
 
-    ra, dec, pa, dra, ddec, dinr, dalt, daz, *values = field_acquisition.acquire_field(design=(args.design_id, args.design_path), frame_id=args.frame_id, obswl=args.obswl, altazimuth=True, logger=logger)
+    ra, dec, pa, dra, ddec, dinr, _, dalt, daz, *values = field_acquisition.acquire_field(design=(args.design_id, args.design_path), frame_id=args.frame_id, obswl=args.obswl, altazimuth=True, logger=logger)
     print('ra={},dec={},pa={},dra={},ddec={},dinr={},dalt={},daz={}'.format(ra, dec, pa, dra, ddec, dinr, dalt, daz))
     guide_objects, detected_objects, identified_objects, dx, dy, size, peak, flux = values
     print('guide_objects={}'.format(guide_objects))

@@ -202,7 +202,7 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
         peak = detected_objects['peak'][k]
         flux = detected_objects['moment_00'][k]
     values = *values, guide_objects, detected_objects, identified_objects, dx, dy, size, peak, flux
-    return (dra, ddec, dinr, *values)
+    return (dra, ddec, dinr, dscale, *values)
 
 
 if __name__ == '__main__':
@@ -236,8 +236,8 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(name='field_acquisition')
-    ra, dec, inst_pa, dra, ddec, dinr, *values = acquire_field(frame_id=args.frame_id, obswl=args.obswl, altazimuth=args.altazimuth, logger=logger, **kwargs)
-    print('ra={},dec={},inst_pa={},dra={},ddec={},dinr={}'.format(ra, dec, inst_pa, dra, ddec, dinr))
+    ra, dec, inst_pa, dra, ddec, dinr, dscale, *values = acquire_field(frame_id=args.frame_id, obswl=args.obswl, altazimuth=args.altazimuth, logger=logger, **kwargs)
+    print('ra={},dec={},inst_pa={},dra={},ddec={},dinr={},dscale={}'.format(ra, dec, inst_pa, dra, ddec, dinr, dscale))
     if args.altazimuth:
         dalt, daz, *values = values
         print('dalt={},daz={}'.format(dalt, daz))

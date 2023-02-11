@@ -348,7 +348,8 @@ class AgThread(threading.Thread):
                         kwargs['fit_dscale'] = bool(sub_mode & ag.Mode.FIT_DSCALE)
                         cmd.inform('detectionState=1')
                         # compute guide errors
-                        dra, ddec, dinr, dalt, daz, *values = autoguide.autoguide(frame_id=frame_id, logger=self.logger, **kwargs)
+                        dra, ddec, dinr, dscale, dalt, daz, *values = autoguide.autoguide(frame_id=frame_id, logger=self.logger, **kwargs)
+                        cmd.inform('text="dra={},ddec={},dinr={},dscale={},dalt={},daz={}"'.format(dra, ddec, dinr, dscale, dalt, daz))
                         ra, dec, inst_pa = dither if dither is not None else autoguide.Field.center
                         filenames = ('/dev/shm/guide_objects.npy', '/dev/shm/detected_objects.npy', '/dev/shm/identified_objects.npy')
                         for filename, value in zip(filenames, values):

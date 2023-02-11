@@ -211,8 +211,8 @@ class AgCmd:
             if guide:
                 cmd.inform('detectionState=1')
                 # convert equatorial coordinates to horizontal coordinates
-                ra, dec, pa, dra, ddec, dinr, dalt, daz, *values = field_acquisition.acquire_field(design=design, frame_id=frame_id, altazimuth=True, logger=self.actor.logger, **kwargs)  # design takes precedence over center
-                cmd.inform('text="dra={},ddec={},dinr={},dalt={},daz={}"'.format(dra, ddec, dinr, dalt, daz))
+                ra, dec, pa, dra, ddec, dinr, dscale, dalt, daz, *values = field_acquisition.acquire_field(design=design, frame_id=frame_id, altazimuth=True, logger=self.actor.logger, **kwargs)  # design takes precedence over center
+                cmd.inform('text="dra={},ddec={},dinr={},dscale={},dalt={},daz={}"'.format(dra, ddec, dinr, dscale, dalt, daz))
                 filenames = ('/dev/shm/guide_objects.npy', '/dev/shm/detected_objects.npy', '/dev/shm/identified_objects.npy')
                 for filename, value in zip(filenames, values):
                     numpy.save(filename, value)
@@ -230,8 +230,8 @@ class AgCmd:
                 #cmd.inform('guideReady=1')
             else:
                 cmd.inform('detectionState=1')
-                ra, dec, pa, dra, ddec, dinr, *values = field_acquisition.acquire_field(design=design, frame_id=frame_id, logger=self.actor.logger, **kwargs)  # design takes precedence over center
-                cmd.inform('text="dra={},ddec={},dinr={}"'.format(dra, ddec, dinr))
+                ra, dec, pa, dra, ddec, dinr, dscale, *values = field_acquisition.acquire_field(design=design, frame_id=frame_id, logger=self.actor.logger, **kwargs)  # design takes precedence over center
+                cmd.inform('text="dra={},ddec={},dinr={},dscale={}"'.format(dra, ddec, dinr, dscale))
                 filenames = ('/dev/shm/guide_objects.npy', '/dev/shm/detected_objects.npy', '/dev/shm/identified_objects.npy')
                 for filename, value in zip(filenames, values):
                     numpy.save(filename, value)
