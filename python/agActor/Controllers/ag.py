@@ -36,7 +36,7 @@ class ag:
 
     class Params:
 
-        _KEYS = ('mode', 'design', 'visit_id', 'exposure_time', 'cadence', 'center', 'magnitude')
+        _KEYS = ('mode', 'sub_mode', 'design', 'visit_id', 'exposure_time', 'cadence', 'center', 'magnitude')
 
         def __init__(self, **kwargs):
 
@@ -92,9 +92,10 @@ class ag:
 
         #cmd = cmd if cmd else self.actor.bcast
         mode = ag.Mode.AUTO_SKY if from_sky else ag.Mode.AUTO_DB if design is not None else ag.Mode.AUTO_OTF
+        sub_mode = 0
         if dry_run:
-            mode |= ag.Mode.DRY_RUN
-        self.thread.set_params(mode=mode, design=design, visit_id=visit_id, exposure_time=exposure_time, cadence=cadence, center=center, magnitude=magnitude)
+            sub_mode |= ag.Mode.DRY_RUN
+        self.thread.set_params(mode=mode, sub_mode=sub_mode, design=design, visit_id=visit_id, exposure_time=exposure_time, cadence=cadence, center=center, magnitude=magnitude)
 
     def restart_autoguide(self, cmd=None):
 
@@ -122,9 +123,10 @@ class ag:
 
         #cmd = cmd if cmd else self.actor.bcast
         mode = ag.Mode.AUTO_ONCE_DB if design is not None else ag.Mode.AUTO_ONCE_OTF
+        sub_mode = 0
         if dry_run:
-            mode |= ag.Mode.DRY_RUN
-        self.thread.set_params(mode=mode, design=design, visit_id=visit_id, exposure_time=exposure_time, center=center, magnitude=magnitude)
+            sub_mode |= ag.Mode.DRY_RUN
+        self.thread.set_params(mode=mode, sub_mode=sub_mode, design=design, visit_id=visit_id, exposure_time=exposure_time, center=center, magnitude=magnitude)
 
 
 class AgThread(threading.Thread):
@@ -136,7 +138,7 @@ class AgThread(threading.Thread):
         self.actor = actor
         self.logger = logger
         self.input_params = {}
-        self.params = ag.Params(mode=ag.Mode.OFF, exposure_time=ag.EXPOSURE_TIME, cadence=ag.CADENCE, magnitude=ag.MAGNITUDE)
+        self.params = ag.Params(mode=ag.Mode.OFF, sub_mode=0, exposure_time=ag.EXPOSURE_TIME, cadence=ag.CADENCE, magnitude=ag.MAGNITUDE)
         self.lock = threading.Lock()
         self.__abort = threading.Event()
         self.__stop = threading.Event()
@@ -197,9 +199,9 @@ class AgThread(threading.Thread):
                 self.__stop.clear()
                 break
             start = time.time()
-            mode, design, visit_id, exposure_time, cadence, center, magnitude = self._get_params()
+            mode, sub_mode, design, visit_id, exposure_time, cadence, center, magnitude = self._get_params()
             design_id, design_path = design if design is not None else (None, None)
-            self.logger.info('AgThread.run: mode={},design={},visit_id={},exposure_time={},cadence={},center={},magnitude={}'.format(mode, design, visit_id, exposure_time, cadence, center, magnitude))
+            self.logger.info('AgThread.run: mode={},sub_mode={},design={},visit_id={},exposure_time={},cadence={},center={},magnitude={}'.format(mode, sub_mode, design, visit_id, exposure_time, cadence, center, magnitude))
             dither, offset = None, None
             try:
                 if mode & ag.Mode.REF_OTF and not mode & (ag.Mode.ON | ag.Mode.ONCE):
@@ -329,7 +331,7 @@ class AgThread(threading.Thread):
                         result = self.actor.queueCommand(
                             actor='mlp1',
                             # daz, dalt: arcsec, positive feedback; dx, dy: mas, HSC -> PFS; size: mas; peak, flux: adu
-                            cmdStr='guide azel={},{} ready={} time={} delay=0 xy={},{} size={} intensity={} flux={}'.format(- daz, - dalt, int(not mode & ag.Mode.DRY_RUN), taken_at, dx / 98e-6, - dy / 98e-6, size * 13 / 98e-3, peak, flux),
+                            cmdStr='guide azel={},{} ready={} time={} delay=0 xy={},{} size={} intensity={} flux={}'.format(- daz, - dalt, int(not sub_mode & ag.Mode.DRY_RUN), taken_at, dx / 98e-6, - dy / 98e-6, size * 13 / 98e-3, peak, flux),
                             timeLim=5
                         )
                         result.get()
