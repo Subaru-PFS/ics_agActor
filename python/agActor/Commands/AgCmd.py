@@ -26,7 +26,7 @@ class AgCmd:
             ('autoguide', '@initialize @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>]', self.initialize_autoguide),
             ('autoguide', '@restart', self.restart_autoguide),
             ('autoguide', '@stop', self.stop_autoguide),
-            ('autoguide', '@reconfigure [<visit_id>|<visit>] [<exposure_time>] [<cadence>]', self.reconfigure_autoguide),
+            ('autoguide', '@reconfigure [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<dry_run>]', self.reconfigure_autoguide),
             ('offset', '[@(absolute|relative)] [<dx>] [<dy>] [<dinr>]', self.offset),
             ('offset', '@reset', self.offset),
         ]
@@ -456,6 +456,9 @@ class AgCmd:
             if cadence < 0:
                 cadence = 0
             kwargs['cadence'] = cadence
+        if 'dry_run' in cmd.cmd.keywords:
+            dry_run = bool(cmd.cmd.keywords['dry_run'].values[0])
+            kwargs['dry_run'] = dry_run
 
         try:
             controller.reconfigure_autoguide(cmd=cmd, **kwargs)

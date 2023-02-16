@@ -117,6 +117,13 @@ class ag:
     def reconfigure_autoguide(self, cmd=None, **kwargs):
 
         #cmd = cmd if cmd else self.actor.bcast
+        value = mask = 0
+        if (dry_run := kwargs.pop('dry_run', None)) is not None:
+            mask |= ag.Mode.DRY_RUN
+            if dry_run:
+                value |= ag.Mode.DRY_RUN
+        if mask:
+            kwargs.update(sub_mode=value, sub_mode_mask=mask)
         self.thread.set_params(**kwargs)
 
     def acquire_field(self, cmd=None, design=None, visit_id=None, exposure_time=EXPOSURE_TIME, center=None, magnitude=MAGNITUDE, dry_run=DRY_RUN):
@@ -181,6 +188,13 @@ class AgThread(threading.Thread):
     def set_params(self, **kwargs):
 
         with self.lock:
+            if (mask := kwargs.pop('sub_mode_mask', None)) is not None:
+                if (value := kwargs.get('sub_mode', None)) is not None:
+                    # read-modify-write of sub-mode flags
+                    if (sub_mode := self.input_params.get('sub_mode', None)) is None:
+                        _, sub_mode, *_ = self.params.get()
+                    sub_mode = sub_mode & ~mask | value
+                    kwargs.update(sub_mode=sub_mode)
             self.input_params.update(**kwargs)
             if 'mode' in kwargs:
                 self.__abort.set()
