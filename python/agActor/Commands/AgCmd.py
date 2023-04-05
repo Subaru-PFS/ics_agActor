@@ -27,7 +27,7 @@ class AgCmd:
             ('autoguide', '@initialize @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>]', self.initialize_autoguide),
             ('autoguide', '@restart', self.restart_autoguide),
             ('autoguide', '@stop', self.stop_autoguide),
-            ('autoguide', '@reconfigure [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<dry_run>]', self.reconfigure_autoguide),
+            ('autoguide', '@reconfigure [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<dry_run>] [<fit_dinr>] [<fit_dscale>]', self.reconfigure_autoguide),
             ('offset', '[@(absolute|relative)] [<dx>] [<dy>] [<dinr>] [<dscale>]', self.offset),
             ('offset', '@reset', self.offset),
         ]
@@ -477,6 +477,12 @@ class AgCmd:
         if 'dry_run' in cmd.cmd.keywords:
             dry_run = bool(cmd.cmd.keywords['dry_run'].values[0])
             kwargs['dry_run'] = dry_run
+        if 'fit_dinr' in cmd.cmd.keywords:
+            fit_dinr = bool(cmd.cmd.keywords['fit_dinr'].values[0])
+            kwargs['fit_dinr'] = fit_dinr
+        if 'fit_dscale' in cmd.cmd.keywords:
+            fit_dscale = bool(cmd.cmd.keywords['fit_dscale'].values[0])
+            kwargs['fit_dscale'] = fit_dscale
 
         try:
             controller.reconfigure_autoguide(cmd=cmd, **kwargs)

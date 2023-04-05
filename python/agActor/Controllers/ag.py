@@ -130,6 +130,14 @@ class ag:
             mask |= ag.Mode.DRY_RUN
             if dry_run:
                 value |= ag.Mode.DRY_RUN
+        if (fit_dinr := kwargs.pop('fit_dinr', None)) is not None:
+            mask |= ag.Mode.FIT_DINR
+            if fit_dinr:
+                value |= ag.Mode.FIT_DINR
+        if (fit_dscale := kwargs.pop('fit_dscale', None)) is not None:
+            mask |= ag.Mode.FIT_DSCALE
+            if fit_dscale:
+                value |= ag.Mode.FIT_DSCALE
         if mask:
             kwargs.update(sub_mode=value, sub_mode_mask=mask)
         self.thread.set_params(**kwargs)
