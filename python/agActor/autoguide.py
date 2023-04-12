@@ -88,19 +88,20 @@ def autoguide(*, frame_id, obswl=0.62, logger=None, **kwargs):
     field_acquisition._parse_kwargs(kwargs)
     guide_objects = Field.guide_objects
     #logger and logger.info('guide_objects={}'.format(guide_objects))
-    ra, dec, *_ = Field.center
+    ra, dec, inst_pa = Field.center
     logger and logger.info('ra={},dec={}'.format(ra, dec))
     taken_at, inr, adc, m2_pos3 = field_acquisition._get_tel_status(frame_id=frame_id, logger=logger, **kwargs)
     detected_objects = opdb.query_agc_data(frame_id)
     #logger and logger.info('detected_objects={}'.format(detected_objects))
     if 'dra' in kwargs: ra += kwargs.get('dra') / 3600
     if 'ddec' in kwargs: dec += kwargs.get('ddec') / 3600
+    if 'dpa' in kwargs: inst_pa += kwargs.get('dpa') / 3600
     if 'dinr' in kwargs: inr += kwargs.get('dinr') / 3600
-    logger and logger.info('ra={},dec={},inr={}'.format(ra, dec, inr))
+    logger and logger.info('ra={},dec={},inst_pa={},inr={}'.format(ra, dec, inst_pa, inr))
     fit_dinr = kwargs.get('fit_dinr', True)
     fit_dscale = kwargs.get('fit_dscale', False)
     #logger and logger.info('fit_dinr={},fit_dscale={}'.format(fit_dinr, fit_dscale))
-    return field_acquisition._acquire_field(guide_objects=guide_objects, detected_objects=detected_objects, ra=ra, dec=dec, taken_at=taken_at, adc=adc, inr=inr, m2_pos3=m2_pos3, obswl=obswl, altazimuth=True, logger=logger, fit_dinr=fit_dinr, fit_dscale=fit_dscale)  # (dra, ddec, dinr, dscale, dalt, daz, *values)
+    return (ra, dec, inst_pa, *field_acquisition._acquire_field(guide_objects=guide_objects, detected_objects=detected_objects, ra=ra, dec=dec, taken_at=taken_at, adc=adc, inr=inr, m2_pos3=m2_pos3, obswl=obswl, altazimuth=True, logger=logger, fit_dinr=fit_dinr, fit_dscale=fit_dscale))  # (ra, dec, inst_pa, dra, ddec, dinr, dscale, dalt, daz, *values)
 
 
 if __name__ == '__main__':
@@ -136,8 +137,8 @@ if __name__ == '__main__':
     logger = logging.getLogger(name='autoguide')
     set_design(logger=logger, **kwargs)
     set_design_agc(frame_id=args.ref_frame_id, obswl=args.obswl, logger=logger, **kwargs)
-    dra, ddec, dinr, dscale, dalt, daz, *values = autoguide(frame_id=args.frame_id, obswl=args.obswl, logger=logger, **kwargs)
-    print('dra={},ddec={},dinr={},dscale={},dalt={},daz={}'.format(dra, ddec, dinr, dscale, dalt, daz))
+    ra, dec, inst_pa, dra, ddec, dinr, dscale, dalt, daz, *values = autoguide(frame_id=args.frame_id, obswl=args.obswl, logger=logger, **kwargs)
+    print('ra={},dec={},inst_pa={},dra={},ddec={},dinr={},dscale={},dalt={},daz={}'.format(ra, dec, inst_pa, dra, ddec, dinr, dscale, dalt, daz))
     guide_objects, detected_objects, identified_objects, *_ = values
     #print(guide_objects)
     #print(detected_objects)

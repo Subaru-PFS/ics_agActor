@@ -211,12 +211,12 @@ class AgCmd:
             if guide:
                 cmd.inform('detectionState=1')
                 # convert equatorial coordinates to horizontal coordinates
-                ra, dec, pa, dra, ddec, dinr, dscale, dalt, daz, *values = field_acquisition.acquire_field(design=design, frame_id=frame_id, altazimuth=True, logger=self.actor.logger, **kwargs)  # design takes precedence over center
-                cmd.inform('text="dra={},ddec={},dinr={},dscale={},dalt={},daz={}"'.format(dra, ddec, dinr, dscale, dalt, daz))
+                ra, dec, inst_pa, dra, ddec, dinr, dscale, dalt, daz, *values = field_acquisition.acquire_field(design=design, frame_id=frame_id, altazimuth=True, logger=self.actor.logger, **kwargs)  # design takes precedence over center
+                cmd.inform('text="ra={},dec={},inst_pa={},dra={},ddec={},dinr={},dscale={},dalt={},daz={}"'.format(ra, dec, inst_pa, dra, ddec, dinr, dscale, dalt, daz))
                 filenames = ('/dev/shm/guide_objects.npy', '/dev/shm/detected_objects.npy', '/dev/shm/identified_objects.npy')
                 for filename, value in zip(filenames, values):
                     numpy.save(filename, value)
-                cmd.inform('data={},{},{},"{}","{}","{}"'.format(ra, dec, pa, *filenames))
+                cmd.inform('data={},{},{},"{}","{}","{}"'.format(ra, dec, inst_pa, *filenames))
                 cmd.inform('detectionState=0')
                 dx, dy, size, peak, flux = values[3], values[4], values[5], values[6], values[7]
                 # send corrections to mlp1 and gen2 (or iic)
@@ -230,12 +230,12 @@ class AgCmd:
                 #cmd.inform('guideReady=1')
             else:
                 cmd.inform('detectionState=1')
-                ra, dec, pa, dra, ddec, dinr, dscale, *values = field_acquisition.acquire_field(design=design, frame_id=frame_id, logger=self.actor.logger, **kwargs)  # design takes precedence over center
+                ra, dec, inst_pa, dra, ddec, dinr, dscale, *values = field_acquisition.acquire_field(design=design, frame_id=frame_id, logger=self.actor.logger, **kwargs)  # design takes precedence over center
                 cmd.inform('text="dra={},ddec={},dinr={},dscale={}"'.format(dra, ddec, dinr, dscale))
                 filenames = ('/dev/shm/guide_objects.npy', '/dev/shm/detected_objects.npy', '/dev/shm/identified_objects.npy')
                 for filename, value in zip(filenames, values):
                     numpy.save(filename, value)
-                cmd.inform('data={},{},{},"{}","{}","{}"'.format(ra, dec, pa, *filenames))
+                cmd.inform('data={},{},{},"{}","{}","{}"'.format(ra, dec, inst_pa, *filenames))
                 cmd.inform('detectionState=0')
                 # send corrections to gen2 (or iic)
             # always compute focus offset and tilt
@@ -249,7 +249,7 @@ class AgCmd:
                     frame_id=frame_id,
                     ra=ra,
                     dec=dec,
-                    pa=pa,
+                    pa=inst_pa,
                     delta_ra=dra,
                     delta_dec=ddec,
                     delta_insrot=dinr,
