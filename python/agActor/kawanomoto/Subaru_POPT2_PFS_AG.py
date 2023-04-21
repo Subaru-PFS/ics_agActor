@@ -15,7 +15,7 @@ else:
     from . import Subaru_POPT2_PFS as pfs
 
 ###
-pfs.Unknown_Scale_Factor_AG = 1
+pfs.Unknown_Scale_Factor_AG = 1 + 6.2e-4
 pfs.inr_zero_offset = -90
 
 ### perturbation
