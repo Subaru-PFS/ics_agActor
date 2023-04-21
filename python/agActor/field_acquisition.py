@@ -184,9 +184,9 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
             ('guide_object_ydet', numpy.float32)
         ]
     )
+    dx = - dra * numpy.cos(numpy.deg2rad(dec))  # arcsec
+    dy = ddec  # arcsec (HSC definition)
     # find "representative" spot size, peak intensity, and flux by "median" of pointing errors
-    dx = 0  # mm
-    dy = 0  # mm (HSC definition)
     size = 0  # pix
     peak = 0  # pix
     flux = 0  # pix
@@ -194,8 +194,6 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
     n = len(esq) - numpy.isnan(esq).sum()
     if n > 0:
         i = numpy.argpartition(esq, n // 2)[n // 2]  # index of "median" of identified objects
-        dx = identified_objects['detected_object_x'][i] - identified_objects['guide_object_x'][i]
-        dy = identified_objects['detected_object_y'][i] - identified_objects['guide_object_y'][i]
         k = identified_objects['detected_object_id'][i]  # index of "median" of detected objects
         a, b = semi_axes(detected_objects['central_moment_11'][k], detected_objects['central_moment_20'][k], detected_objects['central_moment_02'][k])
         size = (a * b) ** 0.5

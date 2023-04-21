@@ -367,7 +367,7 @@ class AgThread(threading.Thread):
                         result = self.actor.queueCommand(
                             actor='mlp1',
                             # daz, dalt: arcsec, positive feedback; dx, dy: mas, HSC -> PFS; size: mas; peak, flux: adu
-                            cmdStr='guide azel={},{} ready={} time={} delay=0 xy={},{} size={} intensity={} flux={}'.format(- daz, - dalt, int(not sub_mode & ag.Mode.DRY_RUN), taken_at, dx / 98e-6, - dy / 98e-6, size * 13 / 98e-3, peak, flux),
+                            cmdStr='guide azel={},{} ready={} time={} delay=0 xy={},{} size={} intensity={} flux={}'.format(- daz, - dalt, int(not sub_mode & ag.Mode.DRY_RUN), taken_at, dx * 1e3, - dy * 1e3, size * 13 / 98e-3, peak, flux),
                             timeLim=5
                         )
                         result.get()
