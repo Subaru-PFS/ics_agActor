@@ -53,7 +53,7 @@ class PFS():
 
         maxellip = 0.6
         maxsize  =20.0
-        minsize  = 1.5
+        minsize  = 0.92
         filtered_darray, v = pfs.sourceFilter(darray, maxellip, maxsize, minsize, flag_mask=7)  # ignore "fwhm not converged" flag
 
         ra_offset,de_offset,inr_offset, scale_offset, mr, min_dist_index_f, f = \
@@ -74,7 +74,7 @@ class PFS():
 
         maxellip = 0.6
         maxsize  =20.0
-        minsize  = 1.5
+        minsize  = 0.92
         
         md = pfs.agarray2momentdifference(agarray, maxellip, maxsize, minsize)
 
