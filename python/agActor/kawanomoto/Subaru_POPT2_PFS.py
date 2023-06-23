@@ -6,7 +6,7 @@ import astropy.time as at
 import astropy.coordinates as ac
 
 ### unknown scale factor
-Unknown_Scale_Factor_AG    = 1.0 + 1.7e-04
+Unknown_Scale_Factor_AG    = 1.0 + 6.2e-04 # focus offset glass added 20230421      # + 1.7e-04
 Unknown_Scale_Factor_cobra = 1.0
 
 ### constants proper to WFC optics
@@ -28,6 +28,10 @@ inr_zero_offset   = +0.00 # in degree
 
 # inr_axis_on_dp_x  = +0.15 # in mm, from insrot observation on 2022/06
 # inr_axis_on_dp_y  = +0.03 # in mm, from insrot observation on 2022/06
+
+# inr_axis_on_dp_x  =  0.03 # in mm, from insrot observation on 2023/04
+# inr_axis_on_dp_y  = -0.01 # in mm, from insrot observation on 2023/04
+
 inr_axis_on_dp_x  =  0.00 # in mm
 inr_axis_on_dp_y  =  0.00 # in mm
 
@@ -62,6 +66,13 @@ class Subaru():
         inr_cal = (tel_altaz.position_angle(np_altaz).degree-180)%360-180
         return inr_cal
 
+    def radec2azel(self, tel_ra, tel_de, wl, t):
+        tel_coord = ac.SkyCoord(ra=tel_ra, dec=tel_de, unit=(au.deg, au.deg), frame='fk5',equinox='J2000.0')
+        frame_subaru = ac.AltAz(obstime  = t, location = Lsbr, \
+                                pressure = sbr_press*au.hPa, obswl = wl*au.micron)
+        tel_altaz = tel_coord.transform_to(frame_subaru)
+        return tel_altaz.az.degree,tel_altaz.alt.degree
+
     def starSepZPA(self, tel_ra, tel_de, str_ra, str_de, wl, t):
         tel_coord = ac.SkyCoord(ra=tel_ra, dec=tel_de, unit=(au.deg, au.deg), frame='fk5')
         str_coord = ac.SkyCoord(ra=str_ra, dec=str_de, unit=(au.deg, au.deg), frame='fk5')
@@ -72,6 +83,7 @@ class Subaru():
 
         str_sep =  tel_altaz.separation(str_altaz).degree
         str_zpa = -tel_altaz.position_angle(str_altaz).degree
+
         return str_sep, str_zpa
 
     def starRADEC(self, tel_ra, tel_de, str_sep, str_zpa, wl, t):
@@ -333,24 +345,24 @@ class POPT2():
             cy[9]*(2*(x**2+y**2)-1) +\
             cy[10]*((6*(x**2+y**2)**2-6*(x**2+y**2)+1))
 
-    def celestial2focalplane(self, sep, zpa, adc, m2pos3, wl, flag):
+    def celestial2focalplane(self, sep, zpa, adc, inr, el, m2pos3, wl, flag):
         f = np.atleast_1d(flag).astype(float)
         # f = flag.astype(float)
         f[np.where(f>1)]=0.5
         f[np.where(f<0)]=0.5
-        xfp_wisp, yfp_wisp = POPT2.celestial2focalplane_wisp(self, sep, zpa, adc, m2pos3, wl)
-        xfp_wosp, yfp_wosp = POPT2.celestial2focalplane_wosp(self, sep, zpa, adc, m2pos3, wl)
+        xfp_wisp, yfp_wisp = POPT2.celestial2focalplane_wisp(self, sep, zpa, adc, inr, el, m2pos3, wl)
+        xfp_wosp, yfp_wosp = POPT2.celestial2focalplane_wosp(self, sep, zpa, adc, inr, el, m2pos3, wl)
         xfp = xfp_wosp*(1-f) + xfp_wisp*(f)
         yfp = yfp_wosp*(1-f) + yfp_wisp*(f)
         return xfp,yfp
 
-    def focalplane2celestial(self, xt, yt, adc, m2pos3, wl, flag):
+    def focalplane2celestial(self, xt, yt, adc, inr, el, m2pos3, wl, flag):
         f = np.atleast_1d(flag).astype(float)
         # f = flag.astype(float)
         f[np.where(f>1)]=0.5
         f[np.where(f<0)]=0.5
-        r_wisp, t_wisp = POPT2.focalplane2celestial_wisp(self, xt, yt, adc, m2pos3, wl)
-        r_wosp, t_wosp = POPT2.focalplane2celestial_wosp(self, xt, yt, adc, m2pos3, wl)
+        r_wisp, t_wisp = POPT2.focalplane2celestial_wisp(self, xt, yt, adc, inr, el, m2pos3, wl)
+        r_wosp, t_wosp = POPT2.focalplane2celestial_wosp(self, xt, yt, adc, inr, el, m2pos3, wl)
         r = r_wosp*(1-f) + r_wisp*(f)
         t = t_wosp*(1-f) + t_wisp*(f)
         return r,t
@@ -375,9 +387,23 @@ class POPT2():
             +1.63045902e-04*((3*(x**2+y**2)-2)*x) \
             -1.01811037e-03*((3*(x**2+y**2)-2)*y) \
             +2.07395905e-04*(6*(x**2+y**2)**2-6*(x**2+y**2)+1)
+
         return adx,ady
 
-    def celestial2focalplane_wisp(self, sep, zpa, adc, m2pos3, wl):
+    def additionaldistortion2(self, xt, yt, inr, el):
+        x = xt / 270.0
+        y = yt / 270.0
+        # data from PFS test observation on 2023/04-05
+        xx = + x * np.cos(3*inr/180.0*np.pi) + y * np.sin(3*inr/180.0*np.pi)
+        yy = - x * np.sin(3*inr/180.0*np.pi) + y * np.cos(3*inr/180.0*np.pi)
+
+        a = 2.8e-02*np.cos(el/180.0*np.pi)
+        adx = -a*yy
+        ady = -a*xx
+
+        return adx,ady
+
+    def celestial2focalplane_wisp(self, sep, zpa, adc, inr, el, m2pos3, wl):
         s = np.deg2rad(sep)
         t = np.deg2rad(zpa)
         # domain is tan(s) < 0.014 (equiv. to 0.8020885128 degree)
@@ -391,13 +417,20 @@ class POPT2():
         telx = POPT2.ZX(self, x,y,cx) * (1.0+(m2pos3-6.0)*wfc_scale_M2POS3_coeff) * Unknown_Scale_Factor_AG
         tely = POPT2.ZY(self, x,y,cy) * (1.0+(m2pos3-6.0)*wfc_scale_M2POS3_coeff) * Unknown_Scale_Factor_AG
 
-        adtelx,adtely = POPT2.additionaldistortion(self, telx,tely)
+        adtelx,adtely   = POPT2.additionaldistortion(self, telx,tely)
         telx = telx + adtelx
         tely = tely + adtely
         
+        adtelx2,adtely2   = POPT2.additionaldistortion2(self, telx,tely,inr,el)
+        telx = telx + adtelx2
+        tely = tely + adtely2
+        
         return telx,tely
 
-    def focalplane2celestial_wisp(self, xt, yt, adc, m2pos3, wl):
+    def focalplane2celestial_wisp(self, xt, yt, adc, inr, el, m2pos3, wl):
+        adtelx2,adtely2 = POPT2.additionaldistortion2(self, xt, yt, inr, el)
+        xt = xt - adtelx2
+        yt = yt - adtely2
         adtelx,adtely = POPT2.additionaldistortion(self, xt, yt)
         xt = xt - adtelx
         yt = yt - adtely
@@ -420,7 +453,7 @@ class POPT2():
 
         return s, t
         
-    def celestial2focalplane_wosp(self, sep, zpa, adc, m2pos3, wl):
+    def celestial2focalplane_wosp(self, sep, zpa, adc, inr, el, m2pos3, wl):
         s = np.deg2rad(sep)
         t = np.deg2rad(zpa)
         # domain is tan(s) < 0.014 (equiv. to 0.8020885128 degree)
@@ -438,9 +471,16 @@ class POPT2():
         telx = telx + adtelx
         tely = tely + adtely
         
+        adtelx2,adtely2 = POPT2.additionaldistortion2(self, telx,tely,inr,el)
+        telx = telx + adtelx2
+        tely = tely + adtely2
+        
         return telx,tely
 
-    def focalplane2celestial_wosp(self, xt, yt, adc, m2pos3, wl):
+    def focalplane2celestial_wosp(self, xt, yt, adc, inr, el, m2pos3, wl):
+        adtelx2,adtely2 = POPT2.additionaldistortion2(self, xt, yt, inr, el)
+        xt = xt - adtelx2
+        yt = yt - adtely2
         adtelx,adtely = POPT2.additionaldistortion(self, xt, yt)
         xt = xt - adtelx
         yt = yt - adtely
@@ -463,7 +503,7 @@ class POPT2():
 
         return s, t
 
-    def celestial2focalplane_cobra(self, sep, zpa, adc, m2pos3, wl):
+    def celestial2focalplane_cobra(self, sep, zpa, adc, inr, el, m2pos3, wl):
         s = np.deg2rad(sep)
         t = np.deg2rad(zpa)
         # domain is tan(s) < 0.014 (equiv. to 0.8020885128 degree)
@@ -481,9 +521,16 @@ class POPT2():
         telx = telx + adtelx
         tely = tely + adtely
         
+        # adtelx2,adtely2 = POPT2.additionaldistortion2(self, telx,tely,inr,el)
+        # telx = telx + adtelx2
+        # tely = tely + adtely2
+        
         return telx,tely
 
-    def focalplane2celestial_cobra(self, xt, yt, adc, m2pos3, wl):
+    def focalplane2celestial_cobra(self, xt, yt, adc, inr, el, m2pos3, wl):
+        # adtelx2,adtely2 = POPT2.additionaldistortion2(self, xt, yt, inr, el)
+        # xt = xt - adtelx2
+        # yt = yt - adtely2
         adtelx,adtely = POPT2.additionaldistortion(self, xt, yt)
         xt = xt - adtelx
         yt = yt - adtely

@@ -15,8 +15,12 @@ _COS60 = numpy.array([0, 0.8660254037844386, 0.8660254037844386, 0, -0.866025403
 
 # offsets from design positions in detector plane coordinates affixed to popt2 (mm)
 # (ref. Kawanomoto-san's PFS-PFI-NAJ802201-00_AGCameraOffset.pdf)
-_DXDP = numpy.array([-0.405, -0.055, -0.357, +0.270, +0.444, +0.067]) + numpy.array([-0.013, +0.012, +0.030, +0.013, -0.015, -0.024])
-_DYDP = numpy.array([+0.668, -0.081, -0.180, -0.357, -0.138, +0.077]) + numpy.array([+0.015, +0.025, +0.014, +0.002, +0.022, +0.004])
+_DXDP = - numpy.array([+0.405, +0.055, +0.357, -0.270, -0.444, -0.067]) \
+    + numpy.array([-0.013, +0.012, +0.030, +0.013, -0.015, -0.024]) \
+    - numpy.array([+0.003, -0.006, -0.008, +0.011, -0.001, -0.005])
+_DYDP = - numpy.array([-0.668, +0.081, +0.180, +0.357, +0.138, -0.077]) \
+    + numpy.array([+0.015, +0.025, +0.014, +0.002, +0.022, +0.004]) \
+    - numpy.array([-0.004, +0.011, +0.001, +0.000, +0.012, -0.015])
 _DTDP = numpy.array([-0.253368, +0.234505, +0.329449, +0.416894, +0.0589071, +0.234977])
 _SINDTDP = numpy.sin(numpy.deg2rad(_DTDP))
 _COSDTDP = numpy.cos(numpy.deg2rad(_DTDP))

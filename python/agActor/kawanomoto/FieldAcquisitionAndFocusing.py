@@ -51,6 +51,9 @@ class PFS():
         v_0 = np.insert(v_0,2, carray[:,2], axis=1)
         v_1 = np.insert(v_1,2, carray[:,2], axis=1)
 
+        # for items in v_0:
+        #     print(items[0],items[1])
+
         maxellip = 0.6
         maxsize  =20.0
         minsize  = 0.92

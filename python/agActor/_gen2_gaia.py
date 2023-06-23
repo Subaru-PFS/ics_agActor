@@ -16,7 +16,7 @@ _popt2 = Subaru_POPT2_PFS.POPT2()
 _pfs = Subaru_POPT2_PFS.PFS()
 
 
-def sky2fp(separation, position_angle, adc, m2pos3=6.0, obswl=0.62, flag=0):
+def sky2fp(separation, position_angle, adc, inr, alt, m2pos3=6.0, obswl=0.62, flag=0):
     """
     Convert angular offsets to focal plane coordinates.
 
@@ -48,10 +48,10 @@ def sky2fp(separation, position_angle, adc, m2pos3=6.0, obswl=0.62, flag=0):
         in the focal plane coordinate system (mm)
     """
 
-    return _popt2.celestial2focalplane(separation, position_angle, adc, m2pos3, obswl, flag)
+    return _popt2.celestial2focalplane(separation, position_angle, adc, inr, alt, m2pos3, obswl, flag)
 
 
-def fp2sky(x_fp, y_fp, adc, m2pos3=6.0, obswl=0.62, flag=0):
+def fp2sky(x_fp, y_fp, adc, inr, alt, m2pos3=6.0, obswl=0.62, flag=0):
     """
     Convert focal plane coordinates to angular offsets.
 
@@ -85,7 +85,7 @@ def fp2sky(x_fp, y_fp, adc, m2pos3=6.0, obswl=0.62, flag=0):
         from the field center on the celestial sphere (deg)
     """
 
-    return _popt2.focalplane2celestial(x_fp, y_fp, adc, m2pos3, obswl, flag)
+    return _popt2.focalplane2celestial(x_fp, y_fp, adc, inr, alt, m2pos3, obswl, flag)
 
 
 def fp2dp(x_fp, y_fp, inr):
@@ -420,7 +420,7 @@ def get_objects(
             filter_id = 107  # wideband, uniform weighting
         adc = z2adc(altaz_c.zen.to(units.deg).value, filter_id=filter_id)  # mm
 
-    separation, position_angle = fp2sky(x_fp, y_fp, adc, m2pos3, obswl)
+    separation, position_angle = fp2sky(x_fp, y_fp, adc, inr, altaz_c.alt.to(units.deg).value, m2pos3, obswl)
     altaz = altaz_c.directional_offset_by(- position_angle * units.deg, separation * units.deg)
     icrs = altaz.transform_to('icrs')
 
@@ -436,7 +436,7 @@ def get_objects(
     _altaz = _icrs_d.transform_to(frame_tc)
     separation = altaz_c.separation(_altaz).to(units.deg).value
     position_angle = altaz_c.position_angle(_altaz).to(units.deg).value
-    x_fp, y_fp = sky2fp(separation, - position_angle, adc, m2pos3, obswl)
+    x_fp, y_fp = sky2fp(separation, - position_angle, adc, inr, altaz_c.alt.to(units.deg).value, m2pos3, obswl)
     x_dp, y_dp = fp2dp(x_fp, y_fp, inr)
     icam, x_det, y_det = dp2idet(x_dp, y_dp)
 

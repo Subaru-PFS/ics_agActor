@@ -18,6 +18,27 @@ else:
 pfs.Unknown_Scale_Factor_AG = 1 + 6.2e-4
 pfs.inr_zero_offset = -90
 
+### ccd pixel size
+ccdpxsz  = 0.013
+
+### ccd center (nominal)
+ccdcentr = 241.314
+
+### ccd offset 1
+ccdoffx1_pfi =  np.array([-0.668, +0.081, +0.180, +0.357, +0.138, -0.077])
+ccdoffy1_pfi =  np.array([+0.405, +0.055, +0.357, -0.270, -0.444, -0.067])
+
+### ccd offset 2
+ccdoffx2_pfi = -np.array([+0.015, +0.025, +0.014, +0.002, +0.022, +0.004]) ## correction by focus 2.70 data only (with CCD Y offset 8 -> 9 / 2022-09-06)
+ccdoffy2_pfi = -np.array([-0.013, +0.012, +0.030, +0.013, -0.015, -0.024]) ## correction by focus 2.70 data only (with CCD Y offset 8 -> 9 / 2022-09-06)
+
+### ccd pos offset in pfi coord. after installing additional window glass 
+glassx_pfi = np.array([-0.004,+0.011,+0.001,+0.000,+0.012,-0.015])
+glassy_pfi = np.array([+0.003,-0.006,-0.008,+0.011,-0.001,-0.005])
+
+### ccd rotation angle 
+ccdrot_pfi = np.array([-0.253368, +0.234505, +0.329449, +0.416894, +0.0589071, +0.234977])*np.pi/180.0
+
 ### perturbation
 d_ra  = 1.0/3600.0
 d_de  = 1.0/3600.0
@@ -315,11 +336,11 @@ class PFS():
         err_xy       = np.stack([errx,erry]).transpose()
         resid_xy = (((err-np.dot(basis,A))[:,0]).reshape([2,-1])).transpose()
 
-        #### one iteration to remove dr >= 0.5mm data
+        #### one iteration to remove dr >= 0.2mm data
         resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
-        vc  = np.where(np.concatenate([resid_r, resid_r], 0) < 0.5)
-        # vcc = np.where(resid_r<0.5)
-        vcx = np.array([resid_r<0.5]).transpose()
+        vc  = np.where(np.concatenate([resid_r, resid_r], 0) < 0.2)
+        # vcc = np.where(resid_r<0.2)
+        vcx = np.array([resid_r<0.2]).transpose()
         basis2 = basis[vc]
         err2   = err[vc]
         A, residual, rank, sv = np.linalg.lstsq(basis2, err2, rcond = None)
@@ -369,16 +390,18 @@ class PFS():
         sep1,zpa1 = pfs.Subaru.starSepZPA(self, tel_ra+d_ra, tel_de,      str_ra, str_de, wl, t)
         sep2,zpa2 = pfs.Subaru.starSepZPA(self, tel_ra,      tel_de+d_de, str_ra, str_de, wl, t)
 
+        az,el = pfs.Subaru.radec2azel(self, tel_ra, tel_de, wl, t)
+        
         z = np.zeros_like(sep0)
         o = np.ones_like(sep0)
         
-        xfp0_0,yfp0_0 = pfs.POPT2.celestial2focalplane(self, sep0,zpa0,adc,m2pos3,wl,z)
-        xfp1_0,yfp1_0 = pfs.POPT2.celestial2focalplane(self, sep1,zpa1,adc,m2pos3,wl,z)
-        xfp2_0,yfp2_0 = pfs.POPT2.celestial2focalplane(self, sep2,zpa2,adc,m2pos3,wl,z)
+        xfp0_0,yfp0_0 = pfs.POPT2.celestial2focalplane(self, sep0,zpa0,adc,inr,el,m2pos3,wl,z)
+        xfp1_0,yfp1_0 = pfs.POPT2.celestial2focalplane(self, sep1,zpa1,adc,inr,el,m2pos3,wl,z)
+        xfp2_0,yfp2_0 = pfs.POPT2.celestial2focalplane(self, sep2,zpa2,adc,inr,el,m2pos3,wl,z)
 
-        xfp0_1,yfp0_1 = pfs.POPT2.celestial2focalplane(self, sep0,zpa0,adc,m2pos3,wl,o)
-        xfp1_1,yfp1_1 = pfs.POPT2.celestial2focalplane(self, sep1,zpa1,adc,m2pos3,wl,o)
-        xfp2_1,yfp2_1 = pfs.POPT2.celestial2focalplane(self, sep2,zpa2,adc,m2pos3,wl,o)
+        xfp0_1,yfp0_1 = pfs.POPT2.celestial2focalplane(self, sep0,zpa0,adc,inr,el,m2pos3,wl,o)
+        xfp1_1,yfp1_1 = pfs.POPT2.celestial2focalplane(self, sep1,zpa1,adc,inr,el,m2pos3,wl,o)
+        xfp2_1,yfp2_1 = pfs.POPT2.celestial2focalplane(self, sep2,zpa2,adc,inr,el,m2pos3,wl,o)
 
         xfp0 = 0.5*(xfp0_0+xfp0_1)
         xfp1 = 0.5*(xfp1_0+xfp1_1)
@@ -436,16 +459,18 @@ class PFS():
         sep1,zpa1 = pfs.Subaru.starSepZPA(self, tel_ra+d_ra, tel_de,      str_ra, str_de, wl, t)
         sep2,zpa2 = pfs.Subaru.starSepZPA(self, tel_ra,      tel_de+d_de, str_ra, str_de, wl, t)
 
+        az,el = pfs.Subaru.radec2azel(self, tel_ra, tel_de, wl, t)
+        
         z = np.zeros_like(sep0)
         o = np.ones_like(sep0)
         
-        xfp0_0,yfp0_0 = pfs.POPT2.celestial2focalplane(self, sep0,zpa0,adc,m2pos3,wl,z)
-        xfp1_0,yfp1_0 = pfs.POPT2.celestial2focalplane(self, sep1,zpa1,adc,m2pos3,wl,z)
-        xfp2_0,yfp2_0 = pfs.POPT2.celestial2focalplane(self, sep2,zpa2,adc,m2pos3,wl,z)
+        xfp0_0,yfp0_0 = pfs.POPT2.celestial2focalplane(self, sep0,zpa0,adc,inr,el,m2pos3,wl,z)
+        xfp1_0,yfp1_0 = pfs.POPT2.celestial2focalplane(self, sep1,zpa1,adc,inr,el,m2pos3,wl,z)
+        xfp2_0,yfp2_0 = pfs.POPT2.celestial2focalplane(self, sep2,zpa2,adc,inr,el,m2pos3,wl,z)
 
-        xfp0_1,yfp0_1 = pfs.POPT2.celestial2focalplane(self, sep0,zpa0,adc,m2pos3,wl,o)
-        xfp1_1,yfp1_1 = pfs.POPT2.celestial2focalplane(self, sep1,zpa1,adc,m2pos3,wl,o)
-        xfp2_1,yfp2_1 = pfs.POPT2.celestial2focalplane(self, sep2,zpa2,adc,m2pos3,wl,o)
+        xfp0_1,yfp0_1 = pfs.POPT2.celestial2focalplane(self, sep0,zpa0,adc,inr,el,m2pos3,wl,o)
+        xfp1_1,yfp1_1 = pfs.POPT2.celestial2focalplane(self, sep1,zpa1,adc,inr,el,m2pos3,wl,o)
+        xfp2_1,yfp2_1 = pfs.POPT2.celestial2focalplane(self, sep2,zpa2,adc,inr,el,m2pos3,wl,o)
 
         xfp0 = 0.5*(xfp0_0+xfp0_1)
         xfp1 = 0.5*(xfp1_0+xfp1_1)
@@ -499,15 +524,23 @@ class PFS():
         return v_0,v_1
 
     def agpixel2pfipos(self, dsc):
-        ccdpxsz  = 0.013
+        # ccdpxsz  = 0.013
         # ccdcentt = np.array([ 0.0, -60.0,-120.0, 180.0, 120.0, 60.0])*np.pi/180.0
-        ccdcentr = 241.314
+        # ccdcentr = 241.314
 
-        ccdoffx = np.array([-0.668, +0.081, +0.180, +0.357, +0.138, -0.077])
-        ccdoffy = np.array([+0.405, +0.055, +0.357, -0.270, -0.444, -0.067])
-        ccdoffx = ccdoffx - np.array([+0.015, +0.025, +0.014, +0.002, +0.022, +0.004]) ## correction by focus 2.70 data only (with CCD Y offset 8 -> 9 / 2022-09-06)
-        ccdoffy = ccdoffy - np.array([-0.013, +0.012, +0.030, +0.013, -0.015, -0.024]) ## correction by focus 2.70 data only (with CCD Y offset 8 -> 9 / 2022-09-06)
-        ccdrot  = np.array([-0.253368, +0.234505, +0.329449, +0.416894, +0.0589071, +0.234977])*np.pi/180.0
+        # ccdoffx = np.array([-0.668, +0.081, +0.180, +0.357, +0.138, -0.077])
+        # ccdoffy = np.array([+0.405, +0.055, +0.357, -0.270, -0.444, -0.067])
+        # ccdoffx = ccdoffx - np.array([+0.015, +0.025, +0.014, +0.002, +0.022, +0.004]) ## correction by focus 2.70 data only (with CCD Y offset 8 -> 9 / 2022-09-06)
+        # ccdoffy = ccdoffy - np.array([-0.013, +0.012, +0.030, +0.013, -0.015, -0.024]) ## correction by focus 2.70 data only (with CCD Y offset 8 -> 9 / 2022-09-06)
+        # ccdrot  = np.array([-0.253368, +0.234505, +0.329449, +0.416894, +0.0589071, +0.234977])*np.pi/180.0
+
+        ccdoffx = ccdoffx1_pfi
+        ccdoffy = ccdoffy1_pfi
+        ccdoffx = ccdoffx + ccdoffx2_pfi
+        ccdoffy = ccdoffy + ccdoffy2_pfi
+        ccdoffx = ccdoffx + glassx_pfi
+        ccdoffy = ccdoffy + glassy_pfi
+        ccdrot  = ccdrot_pfi
 
         ccdid  = dsc[:,0].astype(int)
         spotid = dsc[:,1].astype(int)
@@ -553,16 +586,26 @@ class PFS():
         return outarray
 
     def pfipos2agpixel(self, inarray):
-        ccdpxsz  = 0.013
+        # ccdpxsz  = 0.013
         # ccdcentt = np.array([ 0.0, -60.0,-120.0, 180.0, 120.0, 60.0])*np.pi/180.0
-        ccdcentr = 241.314
+        # ccdcentr = 241.314
 
-        ccdoffx = np.array([-0.668, +0.081, +0.180, +0.357, +0.138, -0.077])
-        ccdoffy = np.array([+0.405, +0.055, +0.357, -0.270, -0.444, -0.067])
-        ccdoffx = ccdoffx - np.array([+0.015, +0.025, +0.014, +0.002, +0.022, +0.004]) ## correction by focus 2.70 data only (with CCD Y offset 8 -> 9 / 2022-09-06)
-        ccdoffy = ccdoffy - np.array([-0.013, +0.012, +0.030, +0.013, -0.015, -0.024]) ## correction by focus 2.70 data only (with CCD Y offset 8 -> 9 / 2022-09-06)
-        ccdrot  = np.array([-0.253368, +0.234505, +0.329449, +0.416894, +0.0589071, +0.234977])*np.pi/180.0
+        # ccdoffx = np.array([-0.668, +0.081, +0.180, +0.357, +0.138, -0.077])
+        # ccdoffy = np.array([+0.405, +0.055, +0.357, -0.270, -0.444, -0.067])
+        # ccdoffx = ccdoffx - np.array([+0.015, +0.025, +0.014, +0.002, +0.022, +0.004]) ## correction by focus 2.70 data only (with CCD Y offset 8 -> 9 / 2022-09-06)
+        # ccdoffy = ccdoffy - np.array([-0.013, +0.012, +0.030, +0.013, -0.015, -0.024]) ## correction by focus 2.70 data only (with CCD Y offset 8 -> 9 / 2022-09-06)
+        # ccdoffx = ccdoffx + glassx_pfi
+        # ccdoffy = ccdoffy + glassy_pfi
+        # ccdrot  = np.array([-0.253368, +0.234505, +0.329449, +0.416894, +0.0589071, +0.234977])*np.pi/180.0
 
+        ccdoffx = ccdoffx1_pfi
+        ccdoffy = ccdoffy1_pfi
+        ccdoffx = ccdoffx + ccdoffx2_pfi
+        ccdoffy = ccdoffy + ccdoffy2_pfi
+        ccdoffx = ccdoffx + glassx_pfi
+        ccdoffy = ccdoffy + glassy_pfi
+        ccdrot  = ccdrot_pfi
+        
         ### inarray
         # ccdid spotid, xd, yd
         ccdid  = inarray[:,0].astype(int)
@@ -597,15 +640,25 @@ class PFS():
         return outarray
         
     def agpixel2fppos(self, dsc):
-        ccdpxsz  = 0.013
+        # ccdpxsz  = 0.013
         # ccdcentt = np.array([ 0.0, -60.0,-120.0, 180.0, 120.0, 60.0])*np.pi/180.0
-        ccdcentr = 241.314
+        # ccdcentr = 241.314
 
-        ccdoffx = np.array([+0.405, +0.055, +0.357, -0.270, -0.444, -0.067])
-        ccdoffy = np.array([-0.668, +0.081, +0.180, +0.357, +0.138, -0.077])
-        ccdoffx = ccdoffx - np.array([-0.013, +0.012, +0.030, +0.013, -0.015, -0.024]) ## correction by focus 2.70 data only (with CCD Y offset 8 -> 9 / 2022-09-06)
-        ccdoffy = ccdoffy - np.array([+0.015, +0.025, +0.014, +0.002, +0.022, +0.004]) ## correction by focus 2.70 data only (with CCD Y offset 8 -> 9 / 2022-09-06)
-        ccdrot  = np.array([-0.253368, +0.234505, +0.329449, +0.416894, +0.0589071, +0.234977])*np.pi/180.0
+        # ccdoffx = np.array([+0.405, +0.055, +0.357, -0.270, -0.444, -0.067])
+        # ccdoffy = np.array([-0.668, +0.081, +0.180, +0.357, +0.138, -0.077])
+        # ccdoffx = ccdoffx - np.array([-0.013, +0.012, +0.030, +0.013, -0.015, -0.024]) ## correction by focus 2.70 data only (with CCD Y offset 8 -> 9 / 2022-09-06)
+        # ccdoffy = ccdoffy - np.array([+0.015, +0.025, +0.014, +0.002, +0.022, +0.004]) ## correction by focus 2.70 data only (with CCD Y offset 8 -> 9 / 2022-09-06)
+        # ccdoffx = ccdoffx + glassy_pfi
+        # ccdoffy = ccdoffy + glassx_pfi
+        # ccdrot  = np.array([-0.253368, +0.234505, +0.329449, +0.416894, +0.0589071, +0.234977])*np.pi/180.0
+
+        ccdoffx = ccdoffy1_pfi
+        ccdoffy = ccdoffx1_pfi
+        ccdoffx = ccdoffx + ccdoffy2_pfi
+        ccdoffy = ccdoffy + ccdoffx2_pfi
+        ccdoffx = ccdoffx + glassy_pfi
+        ccdoffy = ccdoffy + glassx_pfi
+        ccdrot  = ccdrot_pfi
         
         ccdid  = dsc[:,0].astype(int)
         spotid = dsc[:,1].astype(int)
@@ -650,16 +703,26 @@ class PFS():
         return outarray
 
     def fppos2agpixel(self, inarray):
-        ccdpxsz  = 0.013
+        # ccdpxsz  = 0.013
         # ccdcentt = np.array([ 0.0, -60.0,-120.0, 180.0, 120.0, 60.0])*np.pi/180.0
-        ccdcentr = 241.314
+        # ccdcentr = 241.314
 
-        ccdoffx = np.array([+0.405, +0.055, +0.357, -0.270, -0.444, -0.067])
-        ccdoffy = np.array([-0.668, +0.081, +0.180, +0.357, +0.138, -0.077])
-        ccdoffx = ccdoffx - np.array([-0.013, +0.012, +0.030, +0.013, -0.015, -0.024]) ## correction by focus 2.70 data only (with CCD Y offset 8 -> 9 / 2022-09-06)
-        ccdoffy = ccdoffy - np.array([+0.015, +0.025, +0.014, +0.002, +0.022, +0.004]) ## correction by focus 2.70 data only (with CCD Y offset 8 -> 9 / 2022-09-06)
-        ccdrot  = np.array([-0.253368, +0.234505, +0.329449, +0.416894, +0.0589071, +0.234977])*np.pi/180.0
+        # ccdoffx = np.array([+0.405, +0.055, +0.357, -0.270, -0.444, -0.067])
+        # ccdoffy = np.array([-0.668, +0.081, +0.180, +0.357, +0.138, -0.077])
+        # ccdoffx = ccdoffx - np.array([-0.013, +0.012, +0.030, +0.013, -0.015, -0.024]) ## correction by focus 2.70 data only (with CCD Y offset 8 -> 9 / 2022-09-06)
+        # ccdoffy = ccdoffy - np.array([+0.015, +0.025, +0.014, +0.002, +0.022, +0.004]) ## correction by focus 2.70 data only (with CCD Y offset 8 -> 9 / 2022-09-06)
+        # ccdoffx = ccdoffx + glassy_pfi
+        # ccdoffy = ccdoffy + glassx_pfi
+        # ccdrot  = np.array([-0.253368, +0.234505, +0.329449, +0.416894, +0.0589071, +0.234977])*np.pi/180.0
 
+        ccdoffx = ccdoffy1_pfi
+        ccdoffy = ccdoffx1_pfi
+        ccdoffx = ccdoffx + ccdoffy2_pfi
+        ccdoffy = ccdoffy + ccdoffx2_pfi
+        ccdoffx = ccdoffx + glassy_pfi
+        ccdoffy = ccdoffy + glassx_pfi
+        ccdrot  = ccdrot_pfi
+                
         ### inarray
         # ccdid spotid, xd, yd
         ccdid  = inarray[:,0].astype(int)

@@ -13,6 +13,7 @@ from kawanomoto import Subaru_POPT2_PFS
 iers.conf.auto_download = True
 solar_system_ephemeris.set('de430')
 
+_subaru = Subaru_POPT2_PFS.Subaru()
 popt2 = Subaru_POPT2_PFS.POPT2()
 pfs = Subaru_POPT2_PFS.PFS()
 
@@ -54,7 +55,8 @@ def measure(
     icam, x_det, y_det, flags = numpy.array(detected_objects)[:, (0, 3, 4, -1)].T
     x_dp, y_dp = coordinates.det2dp(numpy.rint(icam), x_det, y_det)
     x_fp, y_fp = pfs.dp2fp(x_dp, y_dp, inr)
-    separation, position_angle = popt2.focalplane2celestial(x_fp, y_fp, adc, m2_pos3, obswl, flags)
+    _, alt = _subaru.radec2azel(ra, dec, obswl, obstime)
+    separation, position_angle = popt2.focalplane2celestial(x_fp, y_fp, adc, inr, alt, m2_pos3, obswl, flags)
     altaz = altaz_c.directional_offset_by(-position_angle * units.deg, separation * units.deg)
     icrs = altaz.transform_to('icrs')
     # source_id, ra, dec, mag
