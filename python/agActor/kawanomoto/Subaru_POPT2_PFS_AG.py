@@ -116,7 +116,7 @@ pfi_parity = -1.0 # -1 or +1,
 #         return ra,de
 
 class PFS():
-    def sourceFilter(self, agarray, maxellip, maxsize, minsize, flag_mask=None):
+    def sourceFilter(self, agarray, maxellip, maxsize, minsize):
         ag_ccd  = agarray[:,0]
         ag_id   = agarray[:,1]
         ag_xc   = agarray[:,2]
@@ -124,7 +124,7 @@ class PFS():
         ag_flx  = agarray[:,4]
         ag_smma = agarray[:,5]
         ag_smmi = agarray[:,6]
-        ag_flag = agarray[:,7].astype(np.uint8) & flag_mask if flag_mask is not None else agarray[:,7]
+        ag_flag = agarray[:,7]
         
         # ellipticity condition
         cellip = (1.0-ag_smmi/ag_smma)    < maxellip
@@ -179,7 +179,7 @@ class PFS():
         md = np.nanmedian(np.sqrt(rs))
         return ra_offset, de_offset, inr_offset, scale_offset, mr, md, *ex
 
-    def RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag, scaleflag):
+    def RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag, scaleflag, maxresid=0.2):
         cat_xdp_0 = v0[:,0]
         cat_ydp_0 = v0[:,1]
         cat_mag_0 = v0[:,2]
@@ -336,11 +336,11 @@ class PFS():
         err_xy       = np.stack([errx,erry]).transpose()
         resid_xy = (((err-np.dot(basis,A))[:,0]).reshape([2,-1])).transpose()
 
-        #### one iteration to remove dr >= 0.2mm data
+        #### one iteration to remove dr >= maxresid mm data
         resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
-        vc  = np.where(np.concatenate([resid_r, resid_r], 0) < 0.2)
-        # vcc = np.where(resid_r<0.2)
-        vcx = np.array([resid_r<0.2]).transpose()
+        vc  = np.where(np.concatenate([resid_r, resid_r], 0) < maxresid)
+        # vcc = np.where(resid_r<maxresid)
+        vcx = np.array([resid_r<maxresid]).transpose()
         basis2 = basis[vc]
         err2   = err[vc]
         A, residual, rank, sv = np.linalg.lstsq(basis2, err2, rcond = None)

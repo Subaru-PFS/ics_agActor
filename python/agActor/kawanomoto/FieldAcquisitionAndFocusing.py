@@ -30,7 +30,7 @@ PFS_a5 =  0.006647
 PFS_a6 = -0.006588
 
 class PFS():
-    def FA(self, carray, darray, tel_ra, tel_de, dt, adc, inr, m2pos3, wl, inrflag=1, scaleflag=0):
+    def FA(self, carray, darray, tel_ra, tel_de, dt, adc, inr, m2pos3, wl, inrflag=1, scaleflag=0, maxellip=0.6, maxsize=20.0, minsize=0.92, maxresid=0.2):
         tel_coord = ac.SkyCoord(ra=tel_ra, dec=tel_de, unit=(au.deg, au.deg), frame='fk5')
         frame_subaru = ac.AltAz(obstime  = dt, location = Lsbr,\
                                 pressure = sbr_press*au.hPa, obswl = wl*au.micron)
@@ -54,10 +54,9 @@ class PFS():
         # for items in v_0:
         #     print(items[0],items[1])
 
-        maxellip = 0.6
-        maxsize  =20.0
-        minsize  = 0.92
-        filtered_darray, v = pfs.sourceFilter(darray, maxellip, maxsize, minsize, flag_mask=7)  # ignore "fwhm not converged" flag
+        _darray = np.copy(darray)
+        _darray[:,7] = darray[:,7].astype(np.uint8) & 7  # ignore "fwhm not converged" flag
+        filtered_darray, v = pfs.sourceFilter(_darray, maxellip, maxsize, minsize)
 
         ra_offset,de_offset,inr_offset, scale_offset, mr, min_dist_index_f, f = \
             pfs.RADECInRShiftA(filtered_darray[:,2],\
@@ -65,20 +64,16 @@ class PFS():
                                    filtered_darray[:,4],\
                                    filtered_darray[:,7],\
                                    v_0, v_1,\
-                                   inrflag, scaleflag)
+                                   inrflag, scaleflag, maxresid)
         rs = mr[:,6]**2+mr[:,7]**2
         rs[mr[:,8]==0.0]=np.nan
         md = np.nanmedian(np.sqrt(rs))
 
         return ra_offset,de_offset,inr_offset, scale_offset, mr, md, min_dist_index_f, f, v
 
-    def Focus(self, agarray):
+    def Focus(self, agarray, maxellip=0.6, maxsize=20.0, minsize=0.92):
         pfs  = Subaru_POPT2_PFS_AG.PFS()
 
-        maxellip = 0.6
-        maxsize  =20.0
-        minsize  = 0.92
-        
         md = pfs.agarray2momentdifference(agarray, maxellip, maxsize, minsize)
 
         df = np.array([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])

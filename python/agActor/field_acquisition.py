@@ -10,6 +10,27 @@ import to_altaz
 from kawanomoto import FieldAcquisitionAndFocusing
 
 
+# mapping of keys and value types between field_acquisition.py and FieldAcquisitionAndFocusing.py
+_KEYMAP = {
+    'fit_dinr': ('inrflag', int),
+    'fit_dscale': ('scaleflag', int),
+    'max_ellipticity': ('maxellip', float),
+    'max_size': ('maxsize', float),
+    'min_size': ('minsize', float),
+    'max_residual': ('maxresid', float)
+}
+
+
+def _filter_kwargs(kwargs):
+
+    return {k: v for k, v in kwargs.items() if k in _KEYMAP}
+
+
+def _map_kwargs(kwargs):
+
+    return {_KEYMAP[k][0]: _KEYMAP[k][1](v) for k, v in kwargs.items() if k in _KEYMAP}
+
+
 def _parse_kwargs(kwargs):
 
     if (center := kwargs.pop('center', None)) is not None:
@@ -91,13 +112,12 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
     if 'dpa' in kwargs: inst_pa += kwargs.get('dpa') / 3600
     if 'dinr' in kwargs: inr += kwargs.get('dinr') / 3600
     logger and logger.info('ra={},dec={},inst_pa={},inr={}'.format(ra, dec, inst_pa, inr))
-    fit_dinr = kwargs.get('fit_dinr', True)
-    fit_dscale = kwargs.get('fit_dscale', False)
-    #logger and logger.info('fit_dinr={},fit_dscale={}'.format(fit_dinr, fit_dscale))
-    return (ra, dec, inst_pa, *_acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, m2_pos3=m2_pos3, obswl=obswl, altazimuth=altazimuth, logger=logger, fit_dinr=fit_dinr, fit_dscale=fit_dscale))
+    _kwargs = _filter_kwargs(kwargs)
+    logger and logger.info('_kwargs={}'.format(_kwargs))
+    return (ra, dec, inst_pa, *_acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, m2_pos3=m2_pos3, obswl=obswl, altazimuth=altazimuth, logger=logger, **_kwargs))
 
 
-def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, m2_pos3=6.0, obswl=0.62, altazimuth=False, logger=None, fit_dinr=True, fit_dscale=False):
+def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, m2_pos3=6.0, obswl=0.62, altazimuth=False, logger=None, **kwargs):
 
     def semi_axes(xy, x2, y2):
 
@@ -121,8 +141,10 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
             for x in detected_objects
         ]
     )
+    _kwargs = _map_kwargs(kwargs)
+    logger and logger.info('_kwargs={}'.format(_kwargs))
     pfs = FieldAcquisitionAndFocusing.PFS()
-    dra, ddec, dinr, dscale, *diags = pfs.FA(_guide_objects, _detected_objects, ra, dec, taken_at.astimezone(tz=timezone.utc) if isinstance(taken_at, datetime) else datetime.fromtimestamp(taken_at, tz=timezone.utc) if isinstance(taken_at, Number) else taken_at, adc, inr, m2_pos3, obswl, inrflag=int(fit_dinr), scaleflag=int(fit_dscale))
+    dra, ddec, dinr, dscale, *diags = pfs.FA(_guide_objects, _detected_objects, ra, dec, taken_at.astimezone(tz=timezone.utc) if isinstance(taken_at, datetime) else datetime.fromtimestamp(taken_at, tz=timezone.utc) if isinstance(taken_at, Number) else taken_at, adc, inr, m2_pos3, obswl, **_kwargs)
     dra *= 3600
     ddec *= 3600
     dinr *= 3600
@@ -205,9 +227,9 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
 
 if __name__ == '__main__':
 
-    from argparse import ArgumentParser
+    import argparse
 
-    parser = ArgumentParser()
+    parser = argparse.ArgumentParser()
     parser.add_argument('--design-id', type=lambda x: int(x, 0), default=None, help='design identifier')
     parser.add_argument('--design-path', default=None, help='design path')
     parser.add_argument('--frame-id', type=int, required=True, help='frame identifier')
@@ -216,7 +238,13 @@ if __name__ == '__main__':
     parser.add_argument('--center', default=None, help='field center coordinates ra, dec[, pa] (deg)')
     parser.add_argument('--offset', default=None, help='field offset coordinates dra, ddec[, dpa[, dinr]] (arcsec)')
     parser.add_argument('--dinr', type=float, default=None, help='instrument rotator offset, east of north (arcsec)')
-    parser.add_argument('--magnitude', type=float, default=20.0, help='magnitude limit')
+    parser.add_argument('--magnitude', type=float, default=None, help='magnitude limit')
+    parser.add_argument('--fit-dinr', action=argparse.BooleanOptionalAction, default=argparse.SUPPRESS, help='')
+    parser.add_argument('--fit-dscale', action=argparse.BooleanOptionalAction, default=argparse.SUPPRESS, help='')
+    parser.add_argument('--max-ellipticity', type=float, default=argparse.SUPPRESS, help='')
+    parser.add_argument('--max-size', type=float, default=argparse.SUPPRESS, help='')
+    parser.add_argument('--min-size', type=float, default=argparse.SUPPRESS, help='')
+    parser.add_argument('--max-residual', type=float, default=argparse.SUPPRESS, help='')
     args, _ = parser.parse_known_args()
 
     kwargs = {}
@@ -228,7 +256,10 @@ if __name__ == '__main__':
         kwargs['offset'] = tuple([float(x) for x in args.offset.split(',')])
     if args.dinr is not None:
         kwargs['dinr'] = args.dinr
-    kwargs['magnitude'] = args.magnitude
+    if args.magnitude is not None:
+        kwargs['magnitude'] = args.magnitude
+    kwargs |= {key: getattr(args, key) for key in _KEYMAP if key in args}
+    print('kwargs={}'.format(kwargs))
 
     import logging
 
