@@ -92,16 +92,16 @@ class ag:
         mode, *_ = self.thread.get_params()
         return mode
 
-    def start_autoguide(self, cmd=None, design=None, visit_id=None, from_sky=None, exposure_time=EXPOSURE_TIME, cadence=CADENCE, center=None, magnitude=MAGNITUDE, dry_run=DRY_RUN, fit_dinr=FIT_DINR, fit_dscale=FIT_DSCALE):
+    def start_autoguide(self, cmd=None, design=None, visit_id=None, from_sky=None, exposure_time=EXPOSURE_TIME, cadence=CADENCE, center=None, magnitude=MAGNITUDE, dry_run=None, fit_dinr=None, fit_dscale=None):
 
         #cmd = cmd if cmd else self.actor.bcast
         mode = ag.Mode.AUTO_SKY if from_sky else ag.Mode.AUTO_DB if design is not None else ag.Mode.AUTO_OTF
         sub_mode = 0
-        if dry_run:
+        if dry_run or dry_run is None and ag.DRY_RUN:
             sub_mode |= ag.Mode.DRY_RUN
-        if fit_dinr:
+        if fit_dinr or fit_dinr is None and ag.FIT_DINR:
             sub_mode |= ag.Mode.FIT_DINR
-        if fit_dscale:
+        if fit_dscale or fit_dscale is None and ag.FIT_DSCALE:
             sub_mode |= ag.Mode.FIT_DSCALE
         self.thread.set_params(mode=mode, sub_mode=sub_mode, design=design, visit_id=visit_id, exposure_time=exposure_time, cadence=cadence, center=center, magnitude=magnitude)
 
@@ -142,16 +142,16 @@ class ag:
             kwargs.update(sub_mode=value, sub_mode_mask=mask)
         self.thread.set_params(**kwargs)
 
-    def acquire_field(self, cmd=None, design=None, visit_id=None, exposure_time=EXPOSURE_TIME, center=None, magnitude=MAGNITUDE, dry_run=DRY_RUN, fit_dinr=FIT_DINR, fit_dscale=FIT_DSCALE):
+    def acquire_field(self, cmd=None, design=None, visit_id=None, exposure_time=EXPOSURE_TIME, center=None, magnitude=MAGNITUDE, dry_run=None, fit_dinr=None, fit_dscale=None):
 
         #cmd = cmd if cmd else self.actor.bcast
         mode = ag.Mode.AUTO_ONCE_DB if design is not None else ag.Mode.AUTO_ONCE_OTF
         sub_mode = 0
-        if dry_run:
+        if dry_run or dry_run is None and ag.DRY_RUN:
             sub_mode |= ag.Mode.DRY_RUN
-        if fit_dinr:
+        if fit_dinr or fit_dinr is None and ag.FIT_DINR:
             sub_mode |= ag.Mode.FIT_DINR
-        if fit_dscale:
+        if fit_dscale or fit_dscale is None and ag.FIT_DSCALE:
             sub_mode |= ag.Mode.FIT_DSCALE
         self.thread.set_params(mode=mode, sub_mode=sub_mode, design=design, visit_id=visit_id, exposure_time=exposure_time, center=center, magnitude=magnitude)
 

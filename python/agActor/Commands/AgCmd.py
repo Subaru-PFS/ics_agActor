@@ -6,6 +6,7 @@ import opscore.protocols.keys as keys
 import opscore.protocols.types as types
 from agActor import field_acquisition, focus as _focus, data_utils, pfs_design
 from agActor.telescope_center import telCenter as tel_center
+from agActor.Controllers.ag import ag
 from kawanomoto import Subaru_POPT2_PFS  # *NOT* 'from agActor.kawanomoto import Subaru_POPT2_PFS'
 
 
@@ -129,13 +130,13 @@ class AgCmd:
         magnitude = None
         if 'magnitude' in cmd.cmd.keywords:
             magnitude = float(cmd.cmd.keywords['magnitude'].values[0])
-        dry_run = False
+        dry_run = ag.DRY_RUN
         if 'dry_run' in cmd.cmd.keywords:
             dry_run = bool(cmd.cmd.keywords['dry_run'].values[0])
-        fit_dinr = True
+        fit_dinr = None
         if 'fit_dinr' in cmd.cmd.keywords:
             fit_dinr = bool(cmd.cmd.keywords['fit_dinr'].values[0])
-        fit_dscale = False
+        fit_dscale = None
         if 'fit_dscale' in cmd.cmd.keywords:
             fit_dscale = bool(cmd.cmd.keywords['fit_dscale'].values[0])
 
@@ -200,8 +201,10 @@ class AgCmd:
                 kwargs['dinr'] = dinr
             if magnitude is not None:
                 kwargs['magnitude'] = magnitude
-            kwargs['fit_dinr'] = fit_dinr
-            kwargs['fit_dscale'] = fit_dscale
+            if fit_dinr is not None:
+                kwargs['fit_dinr'] = fit_dinr
+            if fit_dscale is not None:
+                kwargs['fit_dscale'] = fit_dscale
             # retrieve field center coordinates from opdb
             # retrieve exposure information from opdb
             # retrieve guide star coordinates from opdb
@@ -363,18 +366,19 @@ class AgCmd:
         magnitude = 20.0
         if 'magnitude' in cmd.cmd.keywords:
             magnitude = float(cmd.cmd.keywords['magnitude'].values[0])
-        dry_run = False
+        kwargs = {}
         if 'dry_run' in cmd.cmd.keywords:
             dry_run = bool(cmd.cmd.keywords['dry_run'].values[0])
-        fit_dinr = True
+            kwargs['dry_run'] = dry_run
         if 'fit_dinr' in cmd.cmd.keywords:
             fit_dinr = bool(cmd.cmd.keywords['fit_dinr'].values[0])
-        fit_dscale = False
+            kwargs['fit_dinr'] = fit_dinr
         if 'fit_dscale' in cmd.cmd.keywords:
             fit_dscale = bool(cmd.cmd.keywords['fit_dscale'].values[0])
+            kwargs['fit_dscale'] = fit_dscale
 
         try:
-            controller.start_autoguide(cmd=cmd, design=design, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time, cadence=cadence, center=center, magnitude=magnitude, dry_run=dry_run, fit_dinr=fit_dinr, fit_dscale=fit_dscale)
+            controller.start_autoguide(cmd=cmd, design=design, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time, cadence=cadence, center=center, magnitude=magnitude, **kwargs)
         except Exception as e:
             self.actor.logger.exception('AgCmd.start_autoguide:')
             cmd.fail('text="AgCmd.start_autoguide: {}"'.format(e))
