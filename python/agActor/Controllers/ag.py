@@ -40,26 +40,45 @@ class ag:
 
     class Params:
 
-        _KEYS = ('mode', 'sub_mode', 'design', 'visit_id', 'exposure_time', 'cadence', 'center', 'magnitude')
+        __slots__ = ('mode', 'sub_mode', 'design', 'visit_id', 'exposure_time', 'cadence', 'center', 'magnitude', 'options')
+
+        _OPTIONS = ('dry_run', 'fit_dinr', 'fit_dscale')
 
         def __init__(self, **kwargs):
 
-            self.reset(**kwargs)
-
-        def reset(self, **kwargs):
-
-            for key in ag.Params._KEYS:
-                setattr(self, key, kwargs.get(key))
+            for key in self.__slots__[:-1]:
+                setattr(self, key, None)
+            setattr(self, self.__slots__[-1], {})
+            self.set(**kwargs)
 
         def set(self, **kwargs):
 
-            for key in kwargs:
-                if key in ag.Params._KEYS:
-                    setattr(self, key, kwargs.get(key))
+            for key, value in kwargs.items():
+                if key in self._OPTIONS:
+                    getattr(self, self.__slots__[-1])[key] = value
+                else:
+                    setattr(self, key, value)
+            self._set_sub_mode()
 
         def get(self):
 
-            return tuple([getattr(self, key, None) for key in ag.Params._KEYS])
+            return tuple(getattr(self, key) for key in self.__slots__)
+
+        def _set_sub_mode(self):
+
+            _SUB_MODES = (
+                ('dry_run', ag.DRY_RUN, ag.Mode.DRY_RUN),
+                ('fit_dinr', ag.FIT_DINR, ag.Mode.FIT_DINR),
+                ('fit_dscale', ag.FIT_DSCALE, ag.Mode.FIT_DSCALE)
+            )
+
+            sub_mode = getattr(self, 'sub_mode', 0)
+            for key, default, flag in _SUB_MODES:
+                if getattr(self, self.__slots__[-1]).get(key, default):
+                    sub_mode |= flag
+                else:
+                    sub_mode &= ~flag
+            setattr(self, 'sub_mode', sub_mode)
 
     def __init__(self, actor, name, logLevel=logging.DEBUG):
 
@@ -92,18 +111,11 @@ class ag:
         mode, *_ = self.thread.get_params()
         return mode
 
-    def start_autoguide(self, cmd=None, design=None, visit_id=None, from_sky=None, exposure_time=EXPOSURE_TIME, cadence=CADENCE, center=None, magnitude=MAGNITUDE, dry_run=None, fit_dinr=None, fit_dscale=None):
+    def start_autoguide(self, cmd=None, design=None, visit_id=None, from_sky=None, exposure_time=EXPOSURE_TIME, cadence=CADENCE, center=None, magnitude=MAGNITUDE, **kwargs):
 
         #cmd = cmd if cmd else self.actor.bcast
         mode = ag.Mode.AUTO_SKY if from_sky else ag.Mode.AUTO_DB if design is not None else ag.Mode.AUTO_OTF
-        sub_mode = 0
-        if dry_run or dry_run is None and ag.DRY_RUN:
-            sub_mode |= ag.Mode.DRY_RUN
-        if fit_dinr or fit_dinr is None and ag.FIT_DINR:
-            sub_mode |= ag.Mode.FIT_DINR
-        if fit_dscale or fit_dscale is None and ag.FIT_DSCALE:
-            sub_mode |= ag.Mode.FIT_DSCALE
-        self.thread.set_params(mode=mode, sub_mode=sub_mode, design=design, visit_id=visit_id, exposure_time=exposure_time, cadence=cadence, center=center, magnitude=magnitude)
+        self.thread.set_params(mode=mode, design=design, visit_id=visit_id, exposure_time=exposure_time, cadence=cadence, center=center, magnitude=magnitude, **kwargs)
 
     def restart_autoguide(self, cmd=None):
 
@@ -125,35 +137,13 @@ class ag:
     def reconfigure_autoguide(self, cmd=None, **kwargs):
 
         #cmd = cmd if cmd else self.actor.bcast
-        value = mask = 0
-        if (dry_run := kwargs.pop('dry_run', None)) is not None:
-            mask |= ag.Mode.DRY_RUN
-            if dry_run:
-                value |= ag.Mode.DRY_RUN
-        if (fit_dinr := kwargs.pop('fit_dinr', None)) is not None:
-            mask |= ag.Mode.FIT_DINR
-            if fit_dinr:
-                value |= ag.Mode.FIT_DINR
-        if (fit_dscale := kwargs.pop('fit_dscale', None)) is not None:
-            mask |= ag.Mode.FIT_DSCALE
-            if fit_dscale:
-                value |= ag.Mode.FIT_DSCALE
-        if mask:
-            kwargs.update(sub_mode=value, sub_mode_mask=mask)
         self.thread.set_params(**kwargs)
 
-    def acquire_field(self, cmd=None, design=None, visit_id=None, exposure_time=EXPOSURE_TIME, center=None, magnitude=MAGNITUDE, dry_run=None, fit_dinr=None, fit_dscale=None):
+    def acquire_field(self, cmd=None, design=None, visit_id=None, exposure_time=EXPOSURE_TIME, center=None, magnitude=MAGNITUDE, **kwargs):
 
         #cmd = cmd if cmd else self.actor.bcast
         mode = ag.Mode.AUTO_ONCE_DB if design is not None else ag.Mode.AUTO_ONCE_OTF
-        sub_mode = 0
-        if dry_run or dry_run is None and ag.DRY_RUN:
-            sub_mode |= ag.Mode.DRY_RUN
-        if fit_dinr or fit_dinr is None and ag.FIT_DINR:
-            sub_mode |= ag.Mode.FIT_DINR
-        if fit_dscale or fit_dscale is None and ag.FIT_DSCALE:
-            sub_mode |= ag.Mode.FIT_DSCALE
-        self.thread.set_params(mode=mode, sub_mode=sub_mode, design=design, visit_id=visit_id, exposure_time=exposure_time, center=center, magnitude=magnitude)
+        self.thread.set_params(mode=mode, design=design, visit_id=visit_id, exposure_time=exposure_time, center=center, magnitude=magnitude, **kwargs)
 
 
 class AgThread(threading.Thread):
@@ -208,13 +198,6 @@ class AgThread(threading.Thread):
     def set_params(self, **kwargs):
 
         with self.lock:
-            if (mask := kwargs.pop('sub_mode_mask', None)) is not None:
-                if (value := kwargs.get('sub_mode', None)) is not None:
-                    # read-modify-write of sub-mode flags
-                    if (sub_mode := self.input_params.get('sub_mode', None)) is None:
-                        _, sub_mode, *_ = self.params.get()
-                    sub_mode = sub_mode & ~mask | value
-                    kwargs.update(sub_mode=sub_mode)
             self.input_params.update(**kwargs)
             if 'mode' in kwargs:
                 self.__abort.set()
@@ -233,9 +216,9 @@ class AgThread(threading.Thread):
                 self.__stop.clear()
                 break
             start = time.time()
-            mode, sub_mode, design, visit_id, exposure_time, cadence, center, magnitude = self._get_params()
+            mode, sub_mode, design, visit_id, exposure_time, cadence, center, magnitude, options = self._get_params()
             design_id, design_path = design if design is not None else (None, None)
-            self.logger.info('AgThread.run: mode={},sub_mode={},design={},visit_id={},exposure_time={},cadence={},center={},magnitude={}'.format(mode, sub_mode, design, visit_id, exposure_time, cadence, center, magnitude))
+            self.logger.info('AgThread.run: mode={},sub_mode={},design={},visit_id={},exposure_time={},cadence={},center={},magnitude={},options={}'.format(mode, sub_mode, design, visit_id, exposure_time, cadence, center, magnitude, options))
             dither, offset = None, None
             try:
                 if mode & ag.Mode.REF_OTF and not mode & (ag.Mode.ON | ag.Mode.ONCE):
