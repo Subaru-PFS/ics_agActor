@@ -252,14 +252,23 @@ class AgThread(threading.Thread):
                     mode &= ~ag.Mode.REF_DB
                     self._set_params(mode=mode)
                 if mode & (ag.Mode.ON | ag.Mode.ONCE | ag.Mode.REF_SKY):
+                    exposure_delay = options.get('exposure_delay', ag.EXPOSURE_DELAY)
+                    tec_off = options.get('tec_off', ag.TEC_OFF)
                     cmd.inform('exposureTime={}'.format(exposure_time))
                     # start an exposure
+                    cmdStr = 'expose object exptime={} centroid=1'.format(exposure_time / 1000)
+                    if visit_id is not None:
+                        cmdStr += ' visit={}'.format(visit_id)
+                    if exposure_delay > 0:
+                        cmdStr += ' threadDelay={}'.format(exposure_delay)
+                    if tec_off:
+                        cmdStr += ' tecOFF'
                     result = self.actor.queueCommand(
                         actor='agcc',
-                        cmdStr='expose object visit={} exptime={} centroid=1'.format(visit_id, exposure_time / 1000) if visit_id is not None else 'expose object exptime={} centroid=1'.format(exposure_time / 1000),
-                        timeLim=(exposure_time // 1000 + 5)
+                        cmdStr=cmdStr,
+                        timeLim=((exposure_time + 6 * exposure_delay) // 1000 + 5)
                     )
-                    time.sleep(exposure_time / 1000 / 2)
+                    time.sleep((exposure_time + 7 * exposure_delay) / 1000 / 2)
                     kwargs = {}
                     telescope_state = None
                     if self.with_mlp1_status:
@@ -295,7 +304,8 @@ class AgThread(threading.Thread):
                     self.logger.info('AgThread.run: frameId={}'.format(frame_id))
                     data_time = self.actor.agcc.dataTime
                     self.logger.info('AgThread.run: dataTime={}'.format(data_time))
-                    taken_at = data_time + exposure_time / 1000 / 2
+                    taken_at = data_time + (exposure_time + 7 * exposure_delay) / 1000 / 2
+                    self.actor.logger.info('AgThread.run: taken_at={}'.format(taken_at))
                     if self.with_agcc_timestamp:
                         kwargs['taken_at'] = taken_at  # unix timestamp, not timezone-aware datetime
                     if self.with_mlp1_status:
