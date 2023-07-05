@@ -270,7 +270,7 @@ class AgCmd:
             # always compute focus offset and tilt
             dz, dzs = _focus._focus(detected_objects=values[1], logger=self.actor.logger)
             # send corrections to gen2 (or iic)
-            cmd.inform('guideErrors={},{},{},{},{},{},{}'.format(frame_id, dra, ddec, dinr, daz, dalt, dz))
+            cmd.inform('guideErrors={},{},{},{},{},{},{},{}'.format(frame_id, dra, ddec, dinr, daz, dalt, dz, dscale))
             cmd.inform('focusErrors={},{},{},{},{},{},{}'.format(frame_id, *dzs))
             # store results in opdb
             if self.with_opdb_agc_guide_offset:
@@ -364,7 +364,7 @@ class AgCmd:
                 return
             cmd.inform('text="dz={}"'.format(dz))
             # send corrections to gen2 (or iic)
-            cmd.inform('guideErrors={},{},{},{},{},{},{}'.format(frame_id, None, None, None, None, None, dz))
+            cmd.inform('guideErrors={},{},{},{},{},{},{},{}'.format(frame_id, None, None, None, None, None, dz, None))
             cmd.inform('focusErrors={},{},{},{},{},{},{}'.format(frame_id, *dzs))
             # store results in opdb
             if self.with_opdb_agc_guide_offset:
