@@ -19,9 +19,6 @@ class ag:
         REF_DB = 8                      # [FIS] initialize only, guide objects from opdb
         REF_OTF = 16                    # [FIS] initialize only, guide objects from catalog on the fly
         STOP = 32                       # [-I-] stop autoguide
-        DRY_RUN = 64                    # [FIS] dry-run (guide ready flag not set)
-        FIT_DINR = 128                  # [FIS] fit instrument rotator angle offset
-        FIT_DSCALE = 256                # [FIS] fit plate scale offset
         AUTO_SKY = REF_SKY | ON         # [-IS] auto-start, guide objects from first exposure
         AUTO_DB = REF_DB | ON           # [-IS] auto-start, guide objects from opdb
         AUTO_OTF = REF_OTF | ON         # [-IS] auto-start, guide objects from catalog on the fly
@@ -37,12 +34,18 @@ class ag:
     DRY_RUN = False
     FIT_DINR = True
     FIT_DSCALE = False
+    MAX_ELLIPTICITY = 0.6
+    MAX_SIZE = 20.0  # pix
+    MIN_SIZE = 0.92  # pix
+    MAX_RESIDUAL = 0.2  # mm
+    EXPOSURE_DELAY = 0  # ms
+    TEC_OFF = False
 
     class Params:
 
-        __slots__ = ('mode', 'sub_mode', 'design', 'visit_id', 'exposure_time', 'cadence', 'center', 'magnitude', 'options')
+        __slots__ = ('mode', 'design', 'visit_id', 'exposure_time', 'cadence', 'center', 'magnitude', 'options')
 
-        _OPTIONS = ('dry_run', 'fit_dinr', 'fit_dscale')
+        _OPTIONS = ('dry_run', 'fit_dinr', 'fit_dscale', 'max_ellipticity', 'max_size', 'min_size', 'max_residual', 'exposure_delay', 'tec_off')
 
         def __init__(self, **kwargs):
 
@@ -58,27 +61,10 @@ class ag:
                     getattr(self, self.__slots__[-1])[key] = value
                 else:
                     setattr(self, key, value)
-            self._set_sub_mode()
 
         def get(self):
 
             return tuple(getattr(self, key) for key in self.__slots__)
-
-        def _set_sub_mode(self):
-
-            _SUB_MODES = (
-                ('dry_run', ag.DRY_RUN, ag.Mode.DRY_RUN),
-                ('fit_dinr', ag.FIT_DINR, ag.Mode.FIT_DINR),
-                ('fit_dscale', ag.FIT_DSCALE, ag.Mode.FIT_DSCALE)
-            )
-
-            sub_mode = getattr(self, 'sub_mode', 0)
-            for key, default, flag in _SUB_MODES:
-                if getattr(self, self.__slots__[-1]).get(key, default):
-                    sub_mode |= flag
-                else:
-                    sub_mode &= ~flag
-            setattr(self, 'sub_mode', sub_mode)
 
     def __init__(self, actor, name, logLevel=logging.DEBUG):
 
@@ -123,11 +109,11 @@ class ag:
         mode = ag.Mode.ON
         self.thread.set_params(mode=mode)
 
-    def initialize_autoguide(self, cmd=None, design=None, visit_id=None, from_sky=None, exposure_time=EXPOSURE_TIME, cadence=CADENCE, center=None, magnitude=MAGNITUDE):
+    def initialize_autoguide(self, cmd=None, design=None, visit_id=None, from_sky=None, exposure_time=EXPOSURE_TIME, cadence=CADENCE, center=None, magnitude=MAGNITUDE, **kwargs):
 
         #cmd = cmd if cmd else self.actor.bcast
         mode = ag.Mode.REF_SKY if from_sky else ag.Mode.REF_DB if design is not None else ag.Mode.REF_OTF
-        self.thread.set_params(mode=mode, design=design, visit_id=visit_id, exposure_time=exposure_time, cadence=cadence, center=center, magnitude=magnitude)
+        self.thread.set_params(mode=mode, design=design, visit_id=visit_id, exposure_time=exposure_time, cadence=cadence, center=center, magnitude=magnitude, **kwargs)
 
     def stop_autoguide(self, cmd=None):
 
@@ -155,7 +141,7 @@ class AgThread(threading.Thread):
         self.actor = actor
         self.logger = logger
         self.input_params = {}
-        self.params = ag.Params(mode=ag.Mode.OFF, sub_mode=0, exposure_time=ag.EXPOSURE_TIME, cadence=ag.CADENCE, magnitude=ag.MAGNITUDE)
+        self.params = ag.Params(mode=ag.Mode.OFF, exposure_time=ag.EXPOSURE_TIME, cadence=ag.CADENCE, magnitude=ag.MAGNITUDE)
         self.lock = threading.Lock()
         self.__abort = threading.Event()
         self.__stop = threading.Event()
@@ -216,9 +202,9 @@ class AgThread(threading.Thread):
                 self.__stop.clear()
                 break
             start = time.time()
-            mode, sub_mode, design, visit_id, exposure_time, cadence, center, magnitude, options = self._get_params()
+            mode, design, visit_id, exposure_time, cadence, center, magnitude, options = self._get_params()
             design_id, design_path = design if design is not None else (None, None)
-            self.logger.info('AgThread.run: mode={},sub_mode={},design={},visit_id={},exposure_time={},cadence={},center={},magnitude={},options={}'.format(mode, sub_mode, design, visit_id, exposure_time, cadence, center, magnitude, options))
+            self.logger.info('AgThread.run: mode={},design={},visit_id={},exposure_time={},cadence={},center={},magnitude={},options={}'.format(mode, design, visit_id, exposure_time, cadence, center, magnitude, options))
             dither, offset = None, None
             try:
                 if mode & ag.Mode.REF_OTF and not mode & (ag.Mode.ON | ag.Mode.ONCE):
@@ -335,8 +321,19 @@ class AgThread(threading.Thread):
                         mode &= ~ag.Mode.REF_SKY
                         self._set_params(mode=mode)
                     else:  # mode & (ag.Mode.ON | ag.Mode.ONCE)
-                        kwargs['fit_dinr'] = bool(sub_mode & ag.Mode.FIT_DINR)
-                        kwargs['fit_dscale'] = bool(sub_mode & ag.Mode.FIT_DSCALE)
+                        dry_run = options.get('dry_run', ag.DRY_RUN)
+                        if 'fit_dinr' in options:
+                            kwargs['fit_dinr'] = options.get('fit_dinr')
+                        if 'fit_dscale' in options:
+                            kwargs['fit_dscale'] = options.get('fit_dscale')
+                        if 'max_ellipticity' in options:
+                            kwargs['max_ellipticity'] = options.get('max_ellipticity')
+                        if 'max_size' in options:
+                            kwargs['max_size'] = options.get('max_size')
+                        if 'min_size' in options:
+                            kwargs['min_size'] = options.get('min_size')
+                        if 'max_residual' in options:
+                            kwargs['max_residual'] = options.get('max_residual')
                         cmd.inform('detectionState=1')
                         # compute guide errors
                         ra, dec, inst_pa, dra, ddec, dinr, dscale, dalt, daz, *values = autoguide.autoguide(frame_id=frame_id, logger=self.logger, **kwargs)
@@ -350,13 +347,14 @@ class AgThread(threading.Thread):
                         result = self.actor.queueCommand(
                             actor='mlp1',
                             # daz, dalt: arcsec, positive feedback; dx, dy: mas, HSC -> PFS; size: mas; peak, flux: adu
-                            cmdStr='guide azel={},{} ready={} time={} delay=0 xy={},{} size={} intensity={} flux={}'.format(- daz, - dalt, int(not sub_mode & ag.Mode.DRY_RUN), taken_at, dx * 1e3, - dy * 1e3, size * 13 / 98e-3, peak, flux),
+                            cmdStr='guide azel={},{} ready={} time={} delay=0 xy={},{} size={} intensity={} flux={}'.format(- daz, - dalt, int(not dry_run), taken_at, dx * 1e3, - dy * 1e3, size * 13 / 98e-3, peak, flux),
                             timeLim=5
                         )
                         result.get()
                         #cmd.inform('guideReady=1')
+                        kwargs = {key: kwargs.get(key) for key in ('max_ellipticity', 'max_size', 'min_size') if key in kwargs}
                         # always compute focus offset and tilt
-                        dz, dzs = _focus._focus(detected_objects=values[1], logger=self.logger)
+                        dz, dzs = _focus._focus(detected_objects=values[1], logger=self.logger, **kwargs)
                         # send corrections to gen2 (or iic)
                         cmd.inform('guideErrors={},{},{},{},{},{},{}'.format(frame_id, dra, ddec, dinr, daz, dalt, dz))
                         cmd.inform('focusErrors={},{},{},{},{},{},{}'.format(frame_id, *dzs))

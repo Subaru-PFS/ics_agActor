@@ -19,22 +19,22 @@ class AgCmd:
             ('ping', '', self.ping),
             ('status', '', self.status),
             ('show', '', self.show),
-            ('acquire_field', '[<design_id>] [<design_path>] [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<offset>] [<dinr>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>]', self.acquire_field),
-            ('acquire_field', '@otf [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<center>] [<offset>] [<dinr>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>]', self.acquire_field),
-            ('focus', '[<visit_id>|<visit>] [<exposure_time>]', self.focus),
-            ('autoguide', '@start [<design_id>] [<design_path>] [<visit_id>|<visit>] [<from_sky>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>]', self.start_autoguide),
-            ('autoguide', '@start @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>]', self.start_autoguide),
-            ('autoguide', '@initialize [<design_id>] [<design_path>] [<visit_id>|<visit>] [<from_sky>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>]', self.initialize_autoguide),
-            ('autoguide', '@initialize @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>]', self.initialize_autoguide),
+            ('acquire_field', '[<design_id>] [<design_path>] [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<offset>] [<dinr>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]', self.acquire_field),
+            ('acquire_field', '@otf [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<center>] [<offset>] [<dinr>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]', self.acquire_field),
+            ('focus', '[<visit_id>|<visit>] [<exposure_time>] [<max_ellipticity>] [<max_size>] [<min_size>] [<exposure_delay>] [<tec_off>]', self.focus),
+            ('autoguide', '@start [<design_id>] [<design_path>] [<visit_id>|<visit>] [<from_sky>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]', self.start_autoguide),
+            ('autoguide', '@start @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]', self.start_autoguide),
+            ('autoguide', '@initialize [<design_id>] [<design_path>] [<visit_id>|<visit>] [<from_sky>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]', self.initialize_autoguide),
+            ('autoguide', '@initialize @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]', self.initialize_autoguide),
             ('autoguide', '@restart', self.restart_autoguide),
             ('autoguide', '@stop', self.stop_autoguide),
-            ('autoguide', '@reconfigure [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<dry_run>] [<fit_dinr>] [<fit_dscale>]', self.reconfigure_autoguide),
+            ('autoguide', '@reconfigure [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]', self.reconfigure_autoguide),
             ('offset', '[@(absolute|relative)] [<dx>] [<dy>] [<dinr>] [<dscale>]', self.offset),
             ('offset', '@reset', self.offset),
         ]
         self.keys = keys.KeysDictionary(
             'ag_ag',
-            (1, 14),
+            (1, 15),
             keys.Key('exposure_time', types.Int(), help=''),
             keys.Key('cadence', types.Int(), help=''),
             keys.Key('guide', types.Bool('no', 'yes'), help=''),
@@ -53,6 +53,12 @@ class AgCmd:
             keys.Key('dscale', types.Float(), help=''),
             keys.Key('fit_dinr', types.Bool('no', 'yes'), help=''),
             keys.Key('fit_dscale', types.Bool('no', 'yes'), help=''),
+            keys.Key('max_ellipticity', types.Float(), help=''),
+            keys.Key('max_size', types.Float(), help=''),
+            keys.Key('min_size', types.Float(), help=''),
+            keys.Key('max_residual', types.Float(), help=''),
+            keys.Key('exposure_delay', types.Int(), help=''),
+            keys.Key('tec_off', types.Bool('no', 'yes'), help=''),
         )
         self.with_opdb_agc_guide_offset = actor.config.getboolean(actor.name, 'agc_guide_offset', fallback=False)
         self.with_opdb_agc_match = actor.config.getboolean(actor.name, 'agc_match', fallback=False)
@@ -127,18 +133,37 @@ class AgCmd:
         dinr = None
         if 'dinr' in cmd.cmd.keywords:
             dinr = float(cmd.cmd.keywords['dinr'].values[0])
-        magnitude = None
+        kwargs = {}
         if 'magnitude' in cmd.cmd.keywords:
             magnitude = float(cmd.cmd.keywords['magnitude'].values[0])
+            kwargs['magnitude'] = magnitude
         dry_run = ag.DRY_RUN
         if 'dry_run' in cmd.cmd.keywords:
             dry_run = bool(cmd.cmd.keywords['dry_run'].values[0])
-        fit_dinr = None
         if 'fit_dinr' in cmd.cmd.keywords:
             fit_dinr = bool(cmd.cmd.keywords['fit_dinr'].values[0])
-        fit_dscale = None
+            kwargs['fit_dinr'] = fit_dinr
         if 'fit_dscale' in cmd.cmd.keywords:
             fit_dscale = bool(cmd.cmd.keywords['fit_dscale'].values[0])
+            kwargs['fit_dscale'] = fit_dscale
+        if 'max_ellipticity' in cmd.cmd.keywords:
+            max_ellipticity = float(cmd.cmd.keywords['max_ellipticity'].values[0])
+            kwargs['max_ellipticity'] = max_ellipticity
+        if 'max_size' in cmd.cmd.keywords:
+            max_size = float(cmd.cmd.keywords['max_size'].values[0])
+            kwargs['max_size'] = max_size
+        if 'min_size' in cmd.cmd.keywords:
+            min_size = float(cmd.cmd.keywords['min_size'].values[0])
+            kwargs['min_size'] = min_size
+        if 'max_residual' in cmd.cmd.keywords:
+            max_residual = float(cmd.cmd.keywords['max_residual'].values[0])
+            kwargs['max_residual'] = max_residual
+        exposure_delay = ag.EXPOSURE_DELAY
+        if 'exposure_delay' in cmd.cmd.keywords:
+            exposure_delay = int(cmd.cmd.keywords['exposure_delay'].values[0])
+        tec_off = ag.TEC_OFF
+        if 'tec_off' in cmd.cmd.keywords:
+            tec_off = bool(cmd.cmd.keywords['tec_off'].values[0])
 
         try:
             cmd.inform('exposureTime={}'.format(exposure_time))
@@ -149,7 +174,6 @@ class AgCmd:
                 timeLim=(exposure_time // 1000 + 5)
             )
             time.sleep(exposure_time / 1000 / 2)
-            kwargs = {}
             telescope_state = None
             if self.with_mlp1_status:
                 telescope_state = self.actor.mlp1.telescopeState
@@ -199,12 +223,6 @@ class AgCmd:
                 kwargs['offset'] = offset
             if dinr is not None:
                 kwargs['dinr'] = dinr
-            if magnitude is not None:
-                kwargs['magnitude'] = magnitude
-            if fit_dinr is not None:
-                kwargs['fit_dinr'] = fit_dinr
-            if fit_dscale is not None:
-                kwargs['fit_dscale'] = fit_dscale
             # retrieve field center coordinates from opdb
             # retrieve exposure information from opdb
             # retrieve guide star coordinates from opdb
@@ -294,6 +312,22 @@ class AgCmd:
             exposure_time = int(cmd.cmd.keywords['exposure_time'].values[0])
             if exposure_time < 100:
                 exposure_time = 100
+        kwargs = {}
+        if 'max_ellipticity' in cmd.cmd.keywords:
+            max_ellipticity = float(cmd.cmd.keywords['max_ellipticity'].values[0])
+            kwargs['max_ellipticity'] = max_ellipticity
+        if 'max_size' in cmd.cmd.keywords:
+            max_size = float(cmd.cmd.keywords['max_size'].values[0])
+            kwargs['max_size'] = max_size
+        if 'min_size' in cmd.cmd.keywords:
+            min_size = float(cmd.cmd.keywords['min_size'].values[0])
+            kwargs['min_size'] = min_size
+        exposure_delay = ag.EXPOSURE_DELAY
+        if 'exposure_delay' in cmd.cmd.keywords:
+            exposure_delay = int(cmd.cmd.keywords['exposure_delay'].values[0])
+        tec_off = ag.TEC_OFF
+        if 'tec_off' in cmd.cmd.keywords:
+            tec_off = bool(cmd.cmd.keywords['tec_off'].values[0])
 
         try:
             cmd.inform('exposureTime={}'.format(exposure_time))
@@ -309,7 +343,7 @@ class AgCmd:
             self.actor.logger.info('AgCmd.focus: frameId={}'.format(frame_id))
             # retrieve detected objects from agcc (or opdb)
             # compute focus offset and tilt
-            dz, dzs = _focus.focus(frame_id=frame_id, logger=self.actor.logger)
+            dz, dzs = _focus.focus(frame_id=frame_id, logger=self.actor.logger, **kwargs)
             if numpy.isnan(dz):
                 cmd.fail('text="AgCmd.focus: dz={}"'.format(dz))
                 return
@@ -363,10 +397,10 @@ class AgCmd:
         center = None
         if 'center' in cmd.cmd.keywords:
             center = tuple([float(x) for x in cmd.cmd.keywords['center'].values])
-        magnitude = 20.0
+        kwargs = {}
         if 'magnitude' in cmd.cmd.keywords:
             magnitude = float(cmd.cmd.keywords['magnitude'].values[0])
-        kwargs = {}
+            kwargs['magnitude'] = magnitude
         if 'dry_run' in cmd.cmd.keywords:
             dry_run = bool(cmd.cmd.keywords['dry_run'].values[0])
             kwargs['dry_run'] = dry_run
@@ -376,9 +410,27 @@ class AgCmd:
         if 'fit_dscale' in cmd.cmd.keywords:
             fit_dscale = bool(cmd.cmd.keywords['fit_dscale'].values[0])
             kwargs['fit_dscale'] = fit_dscale
+        if 'max_ellipticity' in cmd.cmd.keywords:
+            max_ellipticity = float(cmd.cmd.keywords['max_ellipticity'].values[0])
+            kwargs['max_ellipticity'] = max_ellipticity
+        if 'max_size' in cmd.cmd.keywords:
+            max_size = float(cmd.cmd.keywords['max_size'].values[0])
+            kwargs['max_size'] = max_size
+        if 'min_size' in cmd.cmd.keywords:
+            min_size = float(cmd.cmd.keywords['min_size'].values[0])
+            kwargs['min_size'] = min_size
+        if 'max_residual' in cmd.cmd.keywords:
+            max_residual = float(cmd.cmd.keywords['max_residual'].values[0])
+            kwargs['max_residual'] = max_residual
+        if 'exposure_delay' in cmd.cmd.keywords:
+            exposure_delay = int(cmd.cmd.keywords['exposure_delay'].values[0])
+            kwargs['exposure_delay'] = exposure_delay
+        if 'tec_off' in cmd.cmd.keywords:
+            tec_off = bool(cmd.cmd.keywords['tec_off'].values[0])
+            kwargs['tec_off'] = tec_off
 
         try:
-            controller.start_autoguide(cmd=cmd, design=design, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time, cadence=cadence, center=center, magnitude=magnitude, **kwargs)
+            controller.start_autoguide(cmd=cmd, design=design, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time, cadence=cadence, center=center, **kwargs)
         except Exception as e:
             self.actor.logger.exception('AgCmd.start_autoguide:')
             cmd.fail('text="AgCmd.start_autoguide: {}"'.format(e))
@@ -418,12 +470,40 @@ class AgCmd:
         center = None
         if 'center' in cmd.cmd.keywords:
             center = tuple([float(x) for x in cmd.cmd.keywords['center'].values])
-        magnitude = 20.0
+        kwargs = {}
         if 'magnitude' in cmd.cmd.keywords:
             magnitude = float(cmd.cmd.keywords['magnitude'].values[0])
+            kwargs['magnitude'] = magnitude
+        if 'dry_run' in cmd.cmd.keywords:
+            dry_run = bool(cmd.cmd.keywords['dry_run'].values[0])
+            kwargs['dry_run'] = dry_run
+        if 'fit_dinr' in cmd.cmd.keywords:
+            fit_dinr = bool(cmd.cmd.keywords['fit_dinr'].values[0])
+            kwargs['fit_dinr'] = fit_dinr
+        if 'fit_dscale' in cmd.cmd.keywords:
+            fit_dscale = bool(cmd.cmd.keywords['fit_dscale'].values[0])
+            kwargs['fit_dscale'] = fit_dscale
+        if 'max_ellipticity' in cmd.cmd.keywords:
+            max_ellipticity = float(cmd.cmd.keywords['max_ellipticity'].values[0])
+            kwargs['max_ellipticity'] = max_ellipticity
+        if 'max_size' in cmd.cmd.keywords:
+            max_size = float(cmd.cmd.keywords['max_size'].values[0])
+            kwargs['max_size'] = max_size
+        if 'min_size' in cmd.cmd.keywords:
+            min_size = float(cmd.cmd.keywords['min_size'].values[0])
+            kwargs['min_size'] = min_size
+        if 'max_residual' in cmd.cmd.keywords:
+            max_residual = float(cmd.cmd.keywords['max_residual'].values[0])
+            kwargs['max_residual'] = max_residual
+        if 'exposure_delay' in cmd.cmd.keywords:
+            exposure_delay = int(cmd.cmd.keywords['exposure_delay'].values[0])
+            kwargs['exposure_delay'] = exposure_delay
+        if 'tec_off' in cmd.cmd.keywords:
+            tec_off = bool(cmd.cmd.keywords['tec_off'].values[0])
+            kwargs['tec_off'] = tec_off
 
         try:
-            controller.initialize_autoguide(cmd=cmd, design=design, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time, cadence=cadence, center=center, magnitude=magnitude)
+            controller.initialize_autoguide(cmd=cmd, design=design, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time, cadence=cadence, center=center, **kwargs)
         except Exception as e:
             self.actor.logger.exception('AgCmd.initialize_autoguide:')
             cmd.fail('text="AgCmd.initialize_autoguide: {}"'.format(e))
@@ -487,6 +567,24 @@ class AgCmd:
         if 'fit_dscale' in cmd.cmd.keywords:
             fit_dscale = bool(cmd.cmd.keywords['fit_dscale'].values[0])
             kwargs['fit_dscale'] = fit_dscale
+        if 'max_ellipticity' in cmd.cmd.keywords:
+            max_ellipticity = float(cmd.cmd.keywords['max_ellipticity'].values[0])
+            kwargs['max_ellipticity'] = max_ellipticity
+        if 'max_size' in cmd.cmd.keywords:
+            max_size = float(cmd.cmd.keywords['max_size'].values[0])
+            kwargs['max_size'] = max_size
+        if 'min_size' in cmd.cmd.keywords:
+            min_size = float(cmd.cmd.keywords['min_size'].values[0])
+            kwargs['min_size'] = min_size
+        if 'max_residual' in cmd.cmd.keywords:
+            max_residual = float(cmd.cmd.keywords['max_residual'].values[0])
+            kwargs['max_residual'] = max_residual
+        if 'exposure_delay' in cmd.cmd.keywords:
+            exposure_delay = int(cmd.cmd.keywords['exposure_delay'].values[0])
+            kwargs['exposure_delay'] = exposure_delay
+        if 'tec_off' in cmd.cmd.keywords:
+            tec_off = bool(cmd.cmd.keywords['tec_off'].values[0])
+            kwargs['tec_off'] = tec_off
 
         try:
             controller.reconfigure_autoguide(cmd=cmd, **kwargs)
