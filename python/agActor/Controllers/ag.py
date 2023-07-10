@@ -38,7 +38,7 @@ class ag:
     MAX_SIZE = 20.0  # pix
     MIN_SIZE = 0.92  # pix
     MAX_RESIDUAL = 0.2  # mm
-    EXPOSURE_DELAY = 0  # ms
+    EXPOSURE_DELAY = 100  # ms
     TEC_OFF = False
 
     class Params:
