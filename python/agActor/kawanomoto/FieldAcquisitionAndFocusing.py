@@ -14,7 +14,7 @@ else:
     from . import Subaru_POPT2_PFS
 
 ### Subaru location
-sbr_lat =   +19.8225
+sbr_lat =   +19.8255
 sbr_lon =  +204.523972222
 sbr_hei = +4163.0
 Lsbr = ac.EarthLocation(lat=sbr_lat,lon=sbr_lon,height=sbr_hei)
