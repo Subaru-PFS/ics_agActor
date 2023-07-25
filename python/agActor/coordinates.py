@@ -54,8 +54,8 @@ def dp2det(icam, x_dp, y_dp):
 
     ia = numpy.array(icam, dtype=numpy.int_)
 
-    x_dp -= - _DYDP[ia]
-    y_dp -= _DXDP[ia]
+    x_dp = x_dp - (- _DYDP[ia])
+    y_dp = y_dp - _DXDP[ia]
 
     p = 0.013  # mm
     r = 241.314  # mm
@@ -106,8 +106,8 @@ def det2dp(icam, x_det, y_det):
 
     _sin = _SINDTDP[ia]
     _cos = _COSDTDP[ia]
-    x_det -= 511.5 + 24
-    y_det -= 511.5 + 9
+    x_det = x_det - (511.5 + 24)
+    y_det = y_det - (511.5 + 9)
     _x_det = _cos * x_det - _sin * y_det
     _y_det = _sin * x_det + _cos * y_det
 
