@@ -397,16 +397,12 @@ def get_objects(
     icrs_c = SkyCoord(ra=ra, dec=dec, frame='icrs')
     altaz_c = icrs_c.transform_to(frame_tc)
 
-    # celestial north pole
-    icrs_p = SkyCoord(ra=0 * units.deg, dec=90 * units.deg, frame='icrs')
-    altaz_p = icrs_p.transform_to(frame_tc)
-    parallactic_angle = altaz_c.position_angle(altaz_p).to(units.deg).value
-
     if inr is None:
-        inr = parallactic_angle + inst_pa - Subaru_POPT2_PFS.inr_zero_offset
-        inr %= 360
-        if inr >= 270:
-            inr -= 360
+        # celestial north pole
+        icrs_p = SkyCoord(ra=0 * units.deg, dec=90 * units.deg, frame='icrs')
+        altaz_p = icrs_p.transform_to(frame_tc)
+        parallactic_angle = altaz_c.position_angle(altaz_p).to(units.deg).value
+        inr = (parallactic_angle + inst_pa + 180) % 360 - 180
 
     if adc is None:
         if filter_id is None:
@@ -473,7 +469,7 @@ def get_objects(
         ]
     )
 
-    return objects, altaz_c.az.to(units.deg).value, altaz_c.alt.to(units.deg).value, (inr + 180) % 360 - 180, adc
+    return objects, altaz_c.az.to(units.deg).value, altaz_c.alt.to(units.deg).value, inr, adc
 
 
 if __name__ == '__main__':

@@ -95,7 +95,7 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
     inst_pa = kwargs.get('inst_pa')
     magnitude = kwargs.get('magnitude', 20.0)
     if all(x is None for x in (design_id, design_path)):
-        guide_objects, *_ = gaia.get_objects(ra=ra, dec=dec, obstime=taken_at, inr=inr, adc=adc, m2pos3=m2_pos3, obswl=obswl, magnitude=magnitude)
+        guide_objects, *_ = gaia.get_objects(ra=ra, dec=dec, obstime=taken_at, inst_pa=inst_pa, adc=adc, m2pos3=m2_pos3, obswl=obswl, magnitude=magnitude)
     else:
         if design_path is not None:
             guide_objects, _ra, _dec, _inst_pa = pfs_design(design_id, design_path, logger=logger).guide_objects(magnitude=magnitude, obstime=taken_at)
@@ -114,10 +114,10 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
     logger and logger.info('ra={},dec={},inst_pa={},inr={}'.format(ra, dec, inst_pa, inr))
     _kwargs = _filter_kwargs(kwargs)
     logger and logger.info('_kwargs={}'.format(_kwargs))
-    return (ra, dec, inst_pa, *_acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, m2_pos3=m2_pos3, obswl=obswl, altazimuth=altazimuth, logger=logger, **_kwargs))
+    return (ra, dec, inst_pa, *_acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst_pa, m2_pos3=m2_pos3, obswl=obswl, altazimuth=altazimuth, logger=logger, **_kwargs))
 
 
-def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr, m2_pos3=6.0, obswl=0.62, altazimuth=False, logger=None, **kwargs):
+def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst_pa=0.0, m2_pos3=6.0, obswl=0.62, altazimuth=False, logger=None, **kwargs):
 
     def semi_axes(xy, x2, y2):
 
@@ -144,7 +144,7 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inr,
     _kwargs = _map_kwargs(kwargs)
     logger and logger.info('_kwargs={}'.format(_kwargs))
     pfs = FieldAcquisitionAndFocusing.PFS()
-    dra, ddec, dinr, dscale, *diags = pfs.FA(_guide_objects, _detected_objects, ra, dec, taken_at.astimezone(tz=timezone.utc) if isinstance(taken_at, datetime) else datetime.fromtimestamp(taken_at, tz=timezone.utc) if isinstance(taken_at, Number) else taken_at, adc, inr, m2_pos3, obswl, **_kwargs)
+    dra, ddec, dinr, dscale, *diags = pfs.FAinstpa(_guide_objects, _detected_objects, ra, dec, taken_at.astimezone(tz=timezone.utc) if isinstance(taken_at, datetime) else datetime.fromtimestamp(taken_at, tz=timezone.utc) if isinstance(taken_at, Number) else taken_at, adc, inst_pa, m2_pos3, obswl, **_kwargs)
     dra *= 3600
     ddec *= 3600
     dinr *= 3600

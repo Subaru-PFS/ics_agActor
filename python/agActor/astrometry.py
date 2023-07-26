@@ -22,21 +22,23 @@ def measure(
         detected_objects,
         ra,
         dec,
-        obstime,
-        inr,
-        adc,
+        obstime=None,
+        inst_pa=0,
+        inr=None,
+        adc=0,
+        m2_pos3=6.0,
         temperature=0,
         relative_humidity=0,
         pressure=620,
-        m2_pos3=6.0,
         obswl=0.62,
         logger=None
 ):
 
-    logger and logger.info('ra={},dec={},obstime={},inr={},adc={},m2_pos3={},obswl={}'.format(ra, dec, obstime, inr, adc, m2_pos3, obswl))
+    logger and logger.info('ra={},dec={},obstime={},inst_pa={},inr={},adc={},m2_pos3={},temperature={},relative_humidity={},pressure={},obswl={}'.format(ra, dec, obstime, inst_pa, inr, adc, m2_pos3, temperature, relative_humidity, pressure, obswl))
+
     ra = Angle(ra, unit=units.deg)
     dec = Angle(dec, unit=units.deg)
-    obstime = Time(obstime.astimezone(tz=timezone.utc)) if isinstance(obstime, datetime) else Time(obstime, format='unix') if isinstance(obstime, Number) else Time(obstime)
+    obstime = Time(obstime.astimezone(tz=timezone.utc)) if isinstance(obstime, datetime) else Time(obstime, format='unix') if isinstance(obstime, Number) else Time(obstime) if obstime is not None else Time.now()
 
     import subaru
 
@@ -51,6 +53,15 @@ def measure(
     # field center in the horizontal coordinates
     icrs_c = SkyCoord(ra=ra, dec=dec, frame='icrs')
     altaz_c = icrs_c.transform_to(frame_tc)
+
+    if inr is None:
+        # celestial north pole
+        icrs_p = SkyCoord(ra=0 * units.deg, dec=90 * units.deg, frame='icrs')
+        altaz_p = icrs_p.transform_to(frame_tc)
+        parallactic_angle = altaz_c.position_angle(altaz_p).to(units.deg).value
+        inr = (parallactic_angle + inst_pa + 180) % 360 - 180
+        logger and logger.info('parallactic_angle={},inst_pa={},inr={}'.format(parallactic_angle, inst_pa, inr))
+
     # detected stellar objects in the equatorial coordinates
     icam, x_det, y_det, flags = numpy.array(detected_objects)[:, (0, 3, 4, -1)].T
     x_dp, y_dp = coordinates.det2dp(numpy.rint(icam), x_det, y_det)
@@ -59,6 +70,7 @@ def measure(
     separation, position_angle = popt2.focalplane2celestial(x_fp, y_fp, adc, inr, alt, m2_pos3, obswl, flags)
     altaz = altaz_c.directional_offset_by(-position_angle * units.deg, separation * units.deg)
     icrs = altaz.transform_to('icrs')
+
     # source_id, ra, dec, mag
     counter = itertools.count()
     mag = 0
@@ -73,6 +85,7 @@ def measure(
             ('mag', numpy.float32)
         ]
     )
+
     return objects
 
 
@@ -81,15 +94,15 @@ if __name__ == '__main__':
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument('--design-id', type=int, required=True, help='design identifier')
+    parser.add_argument('--design-id', type=lambda x: int(x, 0), required=True, help='design identifier')
     parser.add_argument('--frame-id', type=int, required=True, help='frame identifier')
     parser.add_argument('--obswl', type=float, default=0.62, help='wavelength of observation (um)')
     args, _ = parser.parse_known_args()
 
     from opdb import opDB as opdb
 
-    _, ra, dec, *_ = opdb.query_pfs_design(args.design_id)
-    _, _, taken_at, _, _, inr, adc, temperature, relative_humidity, pressure, m2_pos3 = opdb.query_agc_exposure(args.frame_id)
+    _, ra, dec, inst_pa, *_ = opdb.query_pfs_design(args.design_id)
+    _, _, taken_at, _, _, _, adc, temperature, relative_humidity, pressure, m2_pos3 = opdb.query_agc_exposure(args.frame_id)
     detected_objects = opdb.query_agc_data(args.frame_id)
 
     import logging
@@ -101,12 +114,12 @@ if __name__ == '__main__':
         ra=ra,
         dec=dec,
         obstime=taken_at,
-        inr=inr,
+        inst_pa=inst_pa,
         adc=adc,
+        m2_pos3=m2_pos3,
         temperature=temperature,
         relative_humidity=relative_humidity,
         pressure=pressure,
-        m2_pos3=m2_pos3,
         obswl=args.obswl,
         logger=logger
     )
