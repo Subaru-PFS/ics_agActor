@@ -2,7 +2,7 @@ import numpy
 from opdb import opDB as opdb
 
 
-def write_agc_guide_offset(*, frame_id, ra=None, dec=None, pa=None, delta_ra=None, delta_dec=None, delta_insrot=None, delta_az=None, delta_el=None, delta_z=None, delta_zs=None):
+def write_agc_guide_offset(*, frame_id, ra=None, dec=None, pa=None, delta_ra=None, delta_dec=None, delta_insrot=None, delta_scale=None, delta_az=None, delta_el=None, delta_z=None, delta_zs=None):
 
     params = dict(
         guide_ra=ra,
@@ -11,6 +11,7 @@ def write_agc_guide_offset(*, frame_id, ra=None, dec=None, pa=None, delta_ra=Non
         guide_delta_ra=delta_ra,
         guide_delta_dec=delta_dec,
         guide_delta_insrot=delta_insrot,
+        guide_delta_scale=delta_scale,
         guide_delta_az=delta_az,
         guide_delta_el=delta_el,
         guide_delta_z=delta_z

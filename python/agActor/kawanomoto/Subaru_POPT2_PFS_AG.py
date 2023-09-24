@@ -358,8 +358,8 @@ class PFS():
         
         ra_offset    = 0.0
         de_offset    = 0.0
-        inr_offset   = 0.0
-        scale_offset = 0.0
+        inr_offset   = np.nan
+        scale_offset = np.nan
 
         if inrflag == 1 and scaleflag == 1:
             ra_offset    = A[0][0] * d_ra

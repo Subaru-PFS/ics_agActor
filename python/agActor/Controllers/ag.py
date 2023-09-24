@@ -377,6 +377,7 @@ class AgThread(threading.Thread):
                                 delta_ra=dra,
                                 delta_dec=ddec,
                                 delta_insrot=dinr,
+                                delta_scale=dscale,
                                 delta_az=daz,
                                 delta_el=dalt,
                                 delta_z=dz,
