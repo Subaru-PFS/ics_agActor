@@ -6,9 +6,6 @@ import astropy.units as au
 import astropy.time as at
 import astropy.coordinates as ac
 
-from astropy.utils import iers
-iers.conf.auto_download = True
-
 if __name__ == '__main__':
     import Subaru_POPT2_PFS as pfs
 else:
@@ -155,31 +152,32 @@ class PFS():
     def RADECInRScaleShift(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1):
         inrflag   = 1
         scaleflag = 1
-        ra_offset, de_offset, inr_offset, scale_offset, mr, *ex = PFS.RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag, scaleflag)
+        ra_offset, de_offset, inr_offset, scale_offset, mr = PFS.RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag, scaleflag)
         rs = mr[:,6]**2+mr[:,7]**2
         rs[mr[:,8]==0.0]=np.nan
         md = np.nanmedian(np.sqrt(rs))
-        return ra_offset, de_offset, inr_offset, scale_offset, mr, md, *ex
+        return ra_offset, de_offset, inr_offset, scale_offset, mr, md
 
     def RADECInRShift(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1):
         inrflag   = 1
         scaleflag = 0
-        ra_offset, de_offset, inr_offset, scale_offset, mr, *ex = PFS.RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag, scaleflag)
+        ra_offset, de_offset, inr_offset, scale_offset, mr = PFS.RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag, scaleflag)
         rs = mr[:,6]**2+mr[:,7]**2
         rs[mr[:,8]==0.0]=np.nan
         md = np.nanmedian(np.sqrt(rs))
-        return ra_offset, de_offset, inr_offset, scale_offset, mr, md, *ex
+        return ra_offset, de_offset, inr_offset, scale_offset, mr, md
     
     def RADECShift(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1):
         inrflag   = 0
         scaleflag = 0
-        ra_offset, de_offset, inr_offset, scale_offset, mr, *ex = PFS.RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag, scaleflag)
+        ra_offset, de_offset, inr_offset, scale_offset, mr = PFS.RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag, scaleflag)
         rs = mr[:,6]**2+mr[:,7]**2
         rs[mr[:,8]==0.0]=np.nan
         md = np.nanmedian(np.sqrt(rs))
-        return ra_offset, de_offset, inr_offset, scale_offset, mr, md, *ex
+        return ra_offset, de_offset, inr_offset, scale_offset, mr, md
 
-    def RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag, scaleflag, maxresid=0.2):
+    def RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag, scaleflag, maxresid=0.5):
+        
         cat_xdp_0 = v0[:,0]
         cat_ydp_0 = v0[:,1]
         cat_mag_0 = v0[:,2]
@@ -249,39 +247,37 @@ class PFS():
 
         min_dist_index   = np.nanargmin(dist, axis=1)
         min_dist_indices = np.array(range(n_obj)),min_dist_index
-
-        f = dist[min_dist_indices]<2
-
-        # print(f)
         
-        match_obj_xdp  = obj_xdp[f]
-        match_obj_ydp  = obj_ydp[f]
-        match_obj_int  = obj_int[f]
-        match_obj_flag = obj_flag[f]
+        f  = dist[min_dist_indices] < 2.0
+        
+        match_obj_xdp  = obj_xdp
+        match_obj_ydp  = obj_ydp
+        match_obj_int  = obj_int
+        match_obj_flag = obj_flag
 
-        match_cat_xdp_0 = (cat_xdp_0[min_dist_index])[f]
-        match_cat_ydp_0 = (cat_ydp_0[min_dist_index])[f]
-        match_cat_mag_0 = (cat_mag_0[min_dist_index])[f]
-        match_dxra_0    = (dxra_0[min_dist_index])[f]
-        match_dyra_0    = (dyra_0[min_dist_index])[f]
-        match_dxde_0    = (dxde_0[min_dist_index])[f]
-        match_dyde_0    = (dyde_0[min_dist_index])[f]
-        match_dxinr_0   = (dxinr_0[min_dist_index])[f]
-        match_dyinr_0   = (dyinr_0[min_dist_index])[f]
-        match_dxscl_0   = (dxscl_0[min_dist_index])[f]
-        match_dyscl_0   = (dyscl_0[min_dist_index])[f]
+        match_cat_xdp_0 = (cat_xdp_0[min_dist_index])
+        match_cat_ydp_0 = (cat_ydp_0[min_dist_index])
+        match_cat_mag_0 = (cat_mag_0[min_dist_index])
+        match_dxra_0    = (dxra_0[min_dist_index])
+        match_dyra_0    = (dyra_0[min_dist_index])
+        match_dxde_0    = (dxde_0[min_dist_index])
+        match_dyde_0    = (dyde_0[min_dist_index])
+        match_dxinr_0   = (dxinr_0[min_dist_index])
+        match_dyinr_0   = (dyinr_0[min_dist_index])
+        match_dxscl_0   = (dxscl_0[min_dist_index])
+        match_dyscl_0   = (dyscl_0[min_dist_index])
 
-        match_cat_xdp_1 = (cat_xdp_1[min_dist_index])[f]
-        match_cat_ydp_1 = (cat_ydp_1[min_dist_index])[f]
-        match_cat_mag_1 = (cat_mag_1[min_dist_index])[f]
-        match_dxra_1    = (dxra_1[min_dist_index])[f]
-        match_dyra_1    = (dyra_1[min_dist_index])[f]
-        match_dxde_1    = (dxde_1[min_dist_index])[f]
-        match_dyde_1    = (dyde_1[min_dist_index])[f]
-        match_dxinr_1   = (dxinr_1[min_dist_index])[f]
-        match_dyinr_1   = (dyinr_1[min_dist_index])[f]
-        match_dxscl_1   = (dxscl_1[min_dist_index])[f]
-        match_dyscl_1   = (dyscl_1[min_dist_index])[f]
+        match_cat_xdp_1 = (cat_xdp_1[min_dist_index])
+        match_cat_ydp_1 = (cat_ydp_1[min_dist_index])
+        match_cat_mag_1 = (cat_mag_1[min_dist_index])
+        match_dxra_1    = (dxra_1[min_dist_index])
+        match_dyra_1    = (dyra_1[min_dist_index])
+        match_dxde_1    = (dxde_1[min_dist_index])
+        match_dyde_1    = (dyde_1[min_dist_index])
+        match_dxinr_1   = (dxinr_1[min_dist_index])
+        match_dyinr_1   = (dyinr_1[min_dist_index])
+        match_dxscl_1   = (dxscl_1[min_dist_index])
+        match_dyscl_1   = (dyscl_1[min_dist_index])
 
         match_cat_xdp = np.copy(match_cat_xdp_0)
         match_cat_ydp = np.copy(match_cat_ydp_0)
@@ -327,35 +323,38 @@ class PFS():
         erry = match_obj_ydp - match_cat_ydp 
         err  = np.array([np.concatenate([errx,erry])]).transpose()
 
-        A, residual, rank, sv = np.linalg.lstsq(basis, err, rcond = None)
+        newbasis = basis[np.concatenate([f,f])]
+        newerr   = err[np.concatenate([f,f])]
+        A, residual, rank, sv = np.linalg.lstsq(newbasis, newerr, rcond = None)
 
-        # print(A)
-        
         match_obj_xy = np.stack([match_obj_xdp,match_obj_ydp]).transpose()
         match_cat_xy = np.stack([match_cat_xdp,match_cat_ydp]).transpose()
         err_xy       = np.stack([errx,erry]).transpose()
         resid_xy = (((err-np.dot(basis,A))[:,0]).reshape([2,-1])).transpose()
 
-        #### one iteration to remove dr >= maxresid mm data
-        resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
-        vc  = np.where(np.concatenate([resid_r, resid_r], 0) < maxresid)
-        # vcc = np.where(resid_r<maxresid)
-        vcx = np.array([resid_r<maxresid]).transpose()
-        basis2 = basis[vc]
-        err2   = err[vc]
-        A, residual, rank, sv = np.linalg.lstsq(basis2, err2, rcond = None)
-        # match_obj_xy = np.stack([match_obj_xdp,match_obj_ydp]).transpose()[vcc]
-        # match_cat_xy = np.stack([match_cat_xdp,match_cat_ydp]).transpose()[vcc]
-        # errx = match_obj_xdp[vcc] - match_cat_xdp[vcc]
-        # erry = match_obj_ydp[vcc] - match_cat_ydp[vcc]
-        # err  = np.array([np.concatenate([errx,erry])]).transpose()
-        # err_xy = np.stack([errx,erry]).transpose()
-        # resid_xy = (((err2-np.dot(basis2,A))[:,0]).reshape([2,-1])).transpose()
-        resid_xy = (((err-np.dot(basis,A))[:,0]).reshape([2,-1])).transpose()
-        ####
+        #### outlier rejection (threshold = min (0.5mm, 3 * median of residual))
+        rej_thres_lim = maxresid
+        rej_thres = np.min(np.array([np.nanmedian(np.sqrt(np.sum(resid_xy**2,axis=1)))*3, rej_thres_lim]))
+        for rej_itr in range(5):
+            resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
 
-        mr = np.block([match_obj_xy, match_cat_xy, err_xy, resid_xy, vcx])
-        
+            vc  = np.where(np.concatenate([resid_r, resid_r], 0) < rej_thres)
+            vch = np.where(np.concatenate([resid_r], 0) < rej_thres)
+
+            basis2 = basis[vc]
+            err2   = err[vc]
+            A, residual, rank, sv = np.linalg.lstsq(basis2, err2, rcond = None)
+            resid_xy = (((err-np.dot(basis,A))[:,0]).reshape([2,-1])).transpose()
+            rej_thres_old = rej_thres
+            resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
+            rej_thres = np.min(np.array([np.nanmedian(resid_r[vch])*3,rej_thres_lim]))
+            if(rej_thres == rej_thres_old):
+                break
+            
+        resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
+        vcx = np.array([resid_r<rej_thres]).transpose()
+        mr = np.block([match_obj_xy, match_cat_xy, err_xy, resid_xy, vcx, min_dist_index.reshape(-1,1)])
+
         ra_offset    = 0.0
         de_offset    = 0.0
         inr_offset   = np.nan
@@ -378,7 +377,7 @@ class PFS():
             ra_offset    = A[0][0] * d_ra
             de_offset    = A[1][0] * d_de
         
-        return ra_offset, de_offset, inr_offset, scale_offset, mr, min_dist_index[f], f
+        return ra_offset, de_offset, inr_offset, scale_offset, mr
 
     def makeBasis(self, tel_ra, tel_de, str_ra, str_de, t, adc, inr, m2pos3, wl):
         v_0,v_1 = PFS.makeBasisFp(self, tel_ra, tel_de, str_ra, str_de, t, adc, inr, m2pos3, wl)
