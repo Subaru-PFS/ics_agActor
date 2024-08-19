@@ -11,7 +11,7 @@ from kawanomoto import Subaru_POPT2_PFS
 
 
 iers.conf.auto_download = True
-solar_system_ephemeris.set('de430')
+solar_system_ephemeris.set('de440')
 
 _subaru = Subaru_POPT2_PFS.Subaru()
 popt2 = Subaru_POPT2_PFS.POPT2()
