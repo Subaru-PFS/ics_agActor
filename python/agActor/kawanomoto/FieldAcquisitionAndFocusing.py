@@ -33,7 +33,7 @@ PFS_a6 = -0.006588
 
 class PFS():
     def FA(self, carray, darray, tel_ra, tel_de, dt, adc, inr, m2pos3, wl, inrflag=1, scaleflag=0, maxellip=0.6, maxsize=20.0, minsize=0.92, maxresid=0.5):
-        tel_coord = ac.SkyCoord(ra=tel_ra, dec=tel_de, unit=(au.deg, au.deg), frame='fk5')
+        tel_coord = ac.SkyCoord(ra=tel_ra, dec=tel_de, unit=(au.deg, au.deg), frame='icrs')
         frame_subaru = ac.AltAz(obstime  = dt, location = Lsbr,\
                                 pressure = sbr_press*au.hPa, obswl = wl*au.micron)
         tel_altaz = tel_coord.transform_to(frame_subaru)
