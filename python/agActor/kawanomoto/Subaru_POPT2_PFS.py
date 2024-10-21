@@ -57,8 +57,8 @@ class Subaru():
         pr  = 0.0   # Subaru InR ignore atmospheric refraction
         wl  = 0.62  # so wavelength is selected freely in visible light
 
-        tel_coord = ac.SkyCoord(ra=tel_ra, dec=tel_de, unit=(au.deg, au.deg), frame='icrs',equinox='J2000.0')
-        np_coord  = ac.SkyCoord(ra=0.0,    dec=90.0,   unit=(au.deg, au.deg), frame='icrs',equinox=t) # north pole at observing time
+        tel_coord = ac.SkyCoord(ra=tel_ra, dec=tel_de, unit=(au.deg, au.deg), frame='fk5',equinox='J2000.0')
+        np_coord  = ac.SkyCoord(ra=0.0,    dec=90.0,   unit=(au.deg, au.deg), frame='fk5',equinox=t) # north pole at observing time
         frame_subaru = ac.AltAz(obstime  = t, location = Lsbr, \
                                 pressure = pr*au.hPa, obswl = wl*au.micron)
         tel_altaz = tel_coord.transform_to(frame_subaru)
@@ -74,8 +74,8 @@ class Subaru():
         return tel_altaz.az.degree,tel_altaz.alt.degree
 
     def starSepZPA(self, tel_ra, tel_de, str_ra, str_de, wl, t):
-        tel_coord = ac.SkyCoord(ra=tel_ra, dec=tel_de, unit=(au.deg, au.deg), frame='icrs')
-        str_coord = ac.SkyCoord(ra=str_ra, dec=str_de, unit=(au.deg, au.deg), frame='icrs')
+        tel_coord = ac.SkyCoord(ra=tel_ra, dec=tel_de, unit=(au.deg, au.deg), frame='fk5')
+        str_coord = ac.SkyCoord(ra=str_ra, dec=str_de, unit=(au.deg, au.deg), frame='fk5')
         frame_subaru = ac.AltAz(obstime  = t, location = Lsbr,\
                                 pressure = sbr_press*au.hPa, obswl = wl*au.micron)
         tel_altaz = tel_coord.transform_to(frame_subaru)
@@ -102,12 +102,14 @@ class Subaru():
 
     def radec2radecplxpm(self, gaia_epoch, str_ra, str_de, str_plx, str_pmRA, str_pmDE, t):
         str_plx[np.where(str_plx<0.00001)]=0.00001
-        str_coord = ac.SkyCoord(ra=str_ra, dec=str_de, unit=(au.deg, au.deg),
+        tmp_coord = ac.SkyCoord(ra=str_ra, dec=str_de, unit=(au.deg, au.deg), frame='icrs')
+        tmp_coord2 = tmp_coord.transform_to('fk5')
+        str_coord = ac.SkyCoord(ra=tmp_coord2.ra, dec=tmp_coord2.dec, unit=(au.deg, au.deg),
                                 distance=ac.Distance(parallax=str_plx * au.mas, allow_negative=False),             
                                 pm_ra_cosdec = str_pmRA * au.mas/au.yr,
                                 pm_dec = str_pmDE * au.mas/au.yr,
                                 obstime=at.Time(gaia_epoch, format='decimalyear'),
-                                frame='icrs')
+                                frame='fk5')
         str_coord_obstime = str_coord.apply_space_motion(at.Time(t))
         ra = str_coord_obstime.ra.degree
         de = str_coord_obstime.dec.degree
@@ -605,7 +607,7 @@ class PFS():
 
 class distCorr():
     def __init__(self):
-        self.correction_factor = 0.0
+        self.correction_factor = -1.0
 
     def xy2dxdy(self, xt, yt):
         #### 2024/03/16, after rot. center correction
