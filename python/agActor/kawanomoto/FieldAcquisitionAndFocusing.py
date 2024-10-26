@@ -6,12 +6,8 @@ import astropy.units as au
 import astropy.time as at
 import astropy.coordinates as ac
 
-if __name__ == '__main__':
-    import Subaru_POPT2_PFS_AG
-    import Subaru_POPT2_PFS
-else:
-    from . import Subaru_POPT2_PFS_AG
-    from . import Subaru_POPT2_PFS
+import Subaru_POPT2_PFS_AG
+import Subaru_POPT2_PFS
 
 ### Subaru location
 sbr_lat =   +19.8255
@@ -32,7 +28,7 @@ PFS_a5 =  0.006647
 PFS_a6 = -0.006588
 
 class PFS():
-    def FA(self, carray, darray, tel_ra, tel_de, dt, adc, inr, m2pos3, wl, inrflag=1, scaleflag=0, maxellip=0.6, maxsize=20.0, minsize=0.92, maxresid=0.5):
+    def FA(self, carray, darray, tel_ra, tel_de, dt, adc, inr, m2pos3, wl):
         tel_coord = ac.SkyCoord(ra=tel_ra, dec=tel_de, unit=(au.deg, au.deg), frame='icrs')
         frame_subaru = ac.AltAz(obstime  = dt, location = Lsbr,\
                                 pressure = sbr_press*au.hPa, obswl = wl*au.micron)
@@ -53,26 +49,21 @@ class PFS():
         v_0 = (np.insert(v_0,2, carray[:,2], axis=1))
         v_1 = (np.insert(v_1,2, carray[:,2], axis=1))
 
-        _darray = np.copy(darray)
-        _darray[:,7] = darray[:,7].astype(np.uint8) & 7  # ignore "fwhm not converged" flag
+        maxellip = 0.6
+        maxsize  =20.0
+        minsize  = 0.92
+        filtered_darray = pfs.sourceFilter(darray, maxellip, maxsize, minsize)
 
-        filtered_darray, v = pfs.sourceFilter(_darray, maxellip, maxsize, minsize)
-
-        ra_offset,de_offset,inr_offset, scale_offset, mr = \
-            pfs.RADECInRShiftA(filtered_darray[:,2],\
+        ra_offset,de_offset,inr_offset, scale_offset, mr, md = \
+            pfs.RADECInRScaleShift(filtered_darray[:,2],\
                                    filtered_darray[:,3],\
                                    filtered_darray[:,4],\
                                    filtered_darray[:,7],\
-                                   v_0, v_1,\
-                                   inrflag, scaleflag, maxresid)
+                                   v_0, v_1)
 
-        rs = mr[:,6]**2+mr[:,7]**2
-        rs[mr[:,8]==0.0]=np.nan
-        md = np.nanmedian(np.sqrt(rs))
+        return ra_offset,de_offset,inr_offset, scale_offset, mr, md
 
-        return ra_offset,de_offset,inr_offset, scale_offset, mr, md, v
-
-    def FAinstpa(self, carray, darray, tel_ra, tel_de, dt, adc, instpa, m2pos3, wl, inrflag=1, scaleflag=0, maxellip=0.6, maxsize=20.0, minsize=0.92, maxresid=0.5):
+    def FAinstpa(self, carray, darray, tel_ra, tel_de, dt, adc, instpa, m2pos3, wl):
         subaru = Subaru_POPT2_PFS.Subaru()
         inr0 = subaru.radec2inr(tel_ra, tel_de, dt)
         inr = inr0 + instpa
@@ -88,37 +79,32 @@ class PFS():
         v_1 = (np.insert(v_1,2, carray[:,2], axis=1))
 
         ### source filtering (substantially no filtering here)
-        #maxellip =  2.0e+00
-        #maxsize  =  1.0e+12
-        #minsize  = -1.0e+00
-
-        _darray = np.copy(darray)
-        _darray[:,7] = darray[:,7].astype(np.uint8) & 7  # ignore "fwhm not converged" flag
-
-        filtered_darray, v = pfs.sourceFilter(_darray, maxellip, maxsize, minsize)
+        maxellip =  2.0e+00
+        maxsize  =  1.0e+12
+        minsize  = -1.0e+00
+        filtered_darray = pfs.sourceFilter(darray, maxellip, maxsize, minsize)
 
         ### limit number of detection
         # limit_number = 20 ### should be same size of catalog list in design ...
         # limit_flux = (np.sort(filtered_darray[:,4])[::-1])[limit_number]
         # filtered_darray = filtered_darray[np.where(filtered_darray[:,4]>=limit_flux)]
         
-        ra_offset,de_offset,inr_offset, scale_offset, mr = \
-            pfs.RADECInRShiftA(filtered_darray[:,2],\
+        ra_offset,de_offset,inr_offset, scale_offset, mr, md = \
+            pfs.RADECInRScaleShift(filtered_darray[:,2],\
                                    filtered_darray[:,3],\
                                    filtered_darray[:,4],\
                                    filtered_darray[:,7],\
-                                   v_0, v_1,\
-                                   inrflag, scaleflag, maxresid)
+                                   v_0, v_1)
 
-        rs = mr[:,6]**2+mr[:,7]**2
-        rs[mr[:,8]==0.0]=np.nan
-        md = np.nanmedian(np.sqrt(rs))
-
-        return ra_offset,de_offset,inr_offset, scale_offset, mr, md, v
+        return ra_offset,de_offset,inr_offset, scale_offset, mr, md
         
-    def Focus(self, agarray, maxellip=0.6, maxsize=20.0, minsize=0.92):
+    def Focus(self, agarray):
         pfs  = Subaru_POPT2_PFS_AG.PFS()
 
+        maxellip = 0.6
+        maxsize  =20.0
+        minsize  = 0.92
+        
         md = pfs.agarray2momentdifference(agarray, maxellip, maxsize, minsize)
 
         df = np.array([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
