@@ -6,8 +6,8 @@ import astropy.units as au
 import astropy.time as at
 import astropy.coordinates as ac
 
-import Subaru_POPT2_PFS_AG
-import Subaru_POPT2_PFS
+from . import Subaru_POPT2_PFS_AG
+from . import Subaru_POPT2_PFS
 
 ### Subaru location
 sbr_lat =   +19.8255

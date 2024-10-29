@@ -228,7 +228,7 @@ class PFS():
         dist  = np.sqrt(xdiff**2+ydiff**2)
 
         min_dist_index   = np.nanargmin(dist, axis=1)
-        min_dist_indices = np.array(range(n_obj)),min_dist_index        
+        min_dist_indices = np.array(range(n_obj), dtype='int'),min_dist_index
         rCRA = np.median((xdiff[min_dist_indices]*dyde[min_dist_index]-ydiff[min_dist_indices]*dxde[min_dist_index])/(dxra[min_dist_index]*dyde[min_dist_index]-dyra[min_dist_index]*dxde[min_dist_index]))
         rCDE = np.median((xdiff[min_dist_indices]*dyra[min_dist_index]-ydiff[min_dist_indices]*dxra[min_dist_index])/(dxde[min_dist_index]*dyra[min_dist_index]-dyde[min_dist_index]*dxra[min_dist_index]))
 
@@ -246,7 +246,7 @@ class PFS():
         dist  = np.sqrt(xdiff**2+ydiff**2)
 
         min_dist_index   = np.nanargmin(dist, axis=1)
-        min_dist_indices = np.array(range(n_obj)),min_dist_index
+        min_dist_indices = np.array(range(n_obj), dtype='int'),min_dist_index
         
         f  = dist[min_dist_indices] < 2.0
         
