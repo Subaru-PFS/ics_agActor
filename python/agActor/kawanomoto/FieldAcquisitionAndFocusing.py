@@ -52,7 +52,7 @@ class PFS():
         maxellip = 0.6
         maxsize  =20.0
         minsize  = 0.92
-        filtered_darray = pfs.sourceFilter(darray, maxellip, maxsize, minsize)
+        filtered_darray, v = pfs.sourceFilter(darray, maxellip, maxsize, minsize)
 
         ra_offset,de_offset,inr_offset, scale_offset, mr, md = \
             pfs.RADECInRScaleShift(filtered_darray[:,2],\
@@ -61,7 +61,7 @@ class PFS():
                                    filtered_darray[:,7],\
                                    v_0, v_1)
 
-        return ra_offset,de_offset,inr_offset, scale_offset, mr, md
+        return ra_offset,de_offset,inr_offset, scale_offset, mr, md, v
 
     def FAinstpa(self, carray, darray, tel_ra, tel_de, dt, adc, instpa, m2pos3, wl, inrflag=1, scaleflag=0, maxellip=0.6, maxsize=20.0, minsize=0.92, maxresid=0.5):
         subaru = Subaru_POPT2_PFS.Subaru()
@@ -82,7 +82,7 @@ class PFS():
         maxellip =  2.0e+00
         maxsize  =  1.0e+12
         minsize  = -1.0e+00
-        filtered_darray = pfs.sourceFilter(darray, maxellip, maxsize, minsize)
+        filtered_darray, v = pfs.sourceFilter(darray, maxellip, maxsize, minsize)
 
         ### limit number of detection
         # limit_number = 20 ### should be same size of catalog list in design ...
@@ -96,7 +96,7 @@ class PFS():
                                    filtered_darray[:,7],\
                                    v_0, v_1)
 
-        return ra_offset,de_offset,inr_offset, scale_offset, mr, md
+        return ra_offset,de_offset,inr_offset, scale_offset, mr, md, v
         
     def Focus(self, agarray, maxellip=0.6, maxsize=20.0, minsize=0.92):
         pfs  = Subaru_POPT2_PFS_AG.PFS()

@@ -147,7 +147,7 @@ class PFS():
         oarray[:,6] = ag_smmi[v]
         oarray[:,7] = ag_flag[v]
         
-        return oarray
+        return oarray, v
 
     def RADECInRScaleShift(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1):
         inrflag   = 1
@@ -757,7 +757,7 @@ class PFS():
     def agarray2momentdifference(self, array, maxellip, maxsize, minsize):
         ##### array 
         ### ccdid objectid xcent[mm] ycent[mm] flx[counts] semimajor[pix] semiminor[pix] Flag[0 or 1]
-        filtered_agarray = PFS.sourceFilter(self, array, maxellip, maxsize, minsize)
+        filtered_agarray, v = PFS.sourceFilter(self, array, maxellip, maxsize, minsize)
         outarray=np.array([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
 
         for ccdid in range(1,7):
