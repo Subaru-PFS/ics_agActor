@@ -9,7 +9,7 @@ import astropy.coordinates as ac
 from astropy.utils import iers
 iers.conf.auto_download = False
 
-import Subaru_POPT2_PFS as pfs
+from . import Subaru_POPT2_PFS as pfs
 
 ### ccd pixel size
 ccdpxsz  = 0.013
