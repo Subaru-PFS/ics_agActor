@@ -28,7 +28,7 @@ PFS_a5 =  0.006647
 PFS_a6 = -0.006588
 
 class PFS():
-    def FA(self, carray, darray, tel_ra, tel_de, dt, adc, inr, m2pos3, wl):
+    def FA(self, carray, darray, tel_ra, tel_de, dt, adc, inr, m2pos3, wl, inrflag=1, scaleflag=0, maxellip=0.6, maxsize=20.0, minsize=0.92, maxresid=0.5):
         tel_coord = ac.SkyCoord(ra=tel_ra, dec=tel_de, unit=(au.deg, au.deg), frame='icrs')
         frame_subaru = ac.AltAz(obstime  = dt, location = Lsbr,\
                                 pressure = sbr_press*au.hPa, obswl = wl*au.micron)
@@ -63,7 +63,7 @@ class PFS():
 
         return ra_offset,de_offset,inr_offset, scale_offset, mr, md
 
-    def FAinstpa(self, carray, darray, tel_ra, tel_de, dt, adc, instpa, m2pos3, wl):
+    def FAinstpa(self, carray, darray, tel_ra, tel_de, dt, adc, instpa, m2pos3, wl, inrflag=1, scaleflag=0, maxellip=0.6, maxsize=20.0, minsize=0.92, maxresid=0.5):
         subaru = Subaru_POPT2_PFS.Subaru()
         inr0 = subaru.radec2inr(tel_ra, tel_de, dt)
         inr = inr0 + instpa
@@ -98,7 +98,7 @@ class PFS():
 
         return ra_offset,de_offset,inr_offset, scale_offset, mr, md
         
-    def Focus(self, agarray):
+    def Focus(self, agarray, maxellip=0.6, maxsize=20.0, minsize=0.92):
         pfs  = Subaru_POPT2_PFS_AG.PFS()
 
         maxellip = 0.6
