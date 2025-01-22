@@ -6,8 +6,8 @@ import astropy.time as at
 import astropy.coordinates as ac
 
 ### unknown scale factor
-Unknown_Scale_Factor_AG    = 1.0 + 6.2e-04 # focus offset glass added 20230421      # + 1.7e-04
-Unknown_Scale_Factor_cobra = 1.0
+Unknown_Scale_Factor_AG = 1.0 + 6.2e-04 # focus offset glass added 20230421   # + 1.7e-04
+Unknown_Scale_Factor_cobra = 1.0 - 5.0e-5
 
 ### constants proper to WFC optics
 wfc_scale_M2POS3_coeff = 1.01546e-4
@@ -56,7 +56,7 @@ class Subaru():
     def radec2inr(self, tel_ra, tel_de, t):
         pr  = 0.0   # Subaru InR ignore atmospheric refraction
         wl  = 0.62  # so wavelength is selected freely in visible light
- 
+
         tel_coord = ac.SkyCoord(ra=tel_ra, dec=tel_de, unit=(au.deg, au.deg), frame='fk5',equinox='J2000.0')
         np_coord  = ac.SkyCoord(ra=0.0,    dec=90.0,   unit=(au.deg, au.deg), frame='fk5',equinox=t) # north pole at observing time
         frame_subaru = ac.AltAz(obstime  = t, location = Lsbr, \
@@ -67,7 +67,7 @@ class Subaru():
         return inr_cal
 
     def radec2azel(self, tel_ra, tel_de, wl, t):
-        tel_coord = ac.SkyCoord(ra=tel_ra, dec=tel_de, unit=(au.deg, au.deg), frame='fk5',equinox='J2000.0')
+        tel_coord = ac.SkyCoord(ra=tel_ra, dec=tel_de, unit=(au.deg, au.deg), frame='icrs',equinox='J2000.0')
         frame_subaru = ac.AltAz(obstime  = t, location = Lsbr, \
                                 pressure = sbr_press*au.hPa, obswl = wl*au.micron)
         tel_altaz = tel_coord.transform_to(frame_subaru)
@@ -90,19 +90,21 @@ class Subaru():
         str_sep = str_sep*au.degree
         str_zpa = str_zpa*au.degree
 
-        tel_coord = ac.SkyCoord(ra=tel_ra, dec=tel_de, unit=(au.deg, au.deg), frame='fk5')
+        tel_coord = ac.SkyCoord(ra=tel_ra, dec=tel_de, unit=(au.deg, au.deg), frame='icrs')
         frame_subaru = ac.AltAz(obstime  = t, location = Lsbr,\
                                 pressure = sbr_press*au.hPa, obswl = wl*au.micron)
         tel_altaz = tel_coord.transform_to(frame_subaru)
         str_altaz = tel_altaz.directional_offset_by(str_zpa, str_sep)
-        str_coord = str_altaz.transform_to('fk5')
+        str_coord = str_altaz.transform_to('icrs')
         ra = str_coord.ra.degree
         de = str_coord.dec.degree
-        return ra,de
+        return ra, de
 
     def radec2radecplxpm(self, gaia_epoch, str_ra, str_de, str_plx, str_pmRA, str_pmDE, t):
         str_plx[np.where(str_plx<0.00001)]=0.00001
-        str_coord = ac.SkyCoord(ra=str_ra, dec=str_de, unit=(au.deg, au.deg),
+        tmp_coord = ac.SkyCoord(ra=str_ra, dec=str_de, unit=(au.deg, au.deg), frame='icrs')
+        tmp_coord2 = tmp_coord.transform_to('fk5')
+        str_coord = ac.SkyCoord(ra=tmp_coord2.ra, dec=tmp_coord2.dec, unit=(au.deg, au.deg),
                                 distance=ac.Distance(parallax=str_plx * au.mas, allow_negative=False),             
                                 pm_ra_cosdec = str_pmRA * au.mas/au.yr,
                                 pm_dec = str_pmDE * au.mas/au.yr,
@@ -111,7 +113,7 @@ class Subaru():
         str_coord_obstime = str_coord.apply_space_motion(at.Time(t))
         ra = str_coord_obstime.ra.degree
         de = str_coord_obstime.dec.degree
-        return ra,de
+        return ra, de
 
 class POPT2():
     def diff_index_pbl1yold_bsl7y(self, wl):
@@ -388,7 +390,7 @@ class POPT2():
             -1.01811037e-03*((3*(x**2+y**2)-2)*y) \
             +2.07395905e-04*(6*(x**2+y**2)**2-6*(x**2+y**2)+1)
 
-        return adx,ady
+        return adx, ady
 
     def additionaldistortion2(self, xt, yt, inr, el):
         x = xt / 270.0
@@ -417,14 +419,14 @@ class POPT2():
         telx = POPT2.ZX(self, x,y,cx) * (1.0+(m2pos3-6.0)*wfc_scale_M2POS3_coeff) * Unknown_Scale_Factor_AG
         tely = POPT2.ZY(self, x,y,cy) * (1.0+(m2pos3-6.0)*wfc_scale_M2POS3_coeff) * Unknown_Scale_Factor_AG
 
-        adtelx,adtely   = POPT2.additionaldistortion(self, telx,tely)
+        adtelx,adtely = POPT2.additionaldistortion(self, telx,tely)
         telx = telx + adtelx
         tely = tely + adtely
-        
+
         adtelx2,adtely2   = POPT2.additionaldistortion2(self, telx,tely,inr,el)
         telx = telx + adtelx2
         tely = tely + adtely2
-        
+
         return telx,tely
 
     def focalplane2celestial_wisp(self, xt, yt, adc, inr, el, m2pos3, wl):
@@ -452,7 +454,7 @@ class POPT2():
         t = np.rad2deg(t)
 
         return s, t
-        
+
     def celestial2focalplane_wosp(self, sep, zpa, adc, inr, el, m2pos3, wl):
         s = np.deg2rad(sep)
         t = np.deg2rad(zpa)
@@ -470,12 +472,12 @@ class POPT2():
         adtelx,adtely = POPT2.additionaldistortion(self, telx,tely)
         telx = telx + adtelx
         tely = tely + adtely
-        
+
         adtelx2,adtely2 = POPT2.additionaldistortion2(self, telx,tely,inr,el)
         telx = telx + adtelx2
         tely = tely + adtely2
-        
-        return telx,tely
+
+        return telx, tely
 
     def focalplane2celestial_wosp(self, xt, yt, adc, inr, el, m2pos3, wl):
         adtelx2,adtely2 = POPT2.additionaldistortion2(self, xt, yt, inr, el)
@@ -520,14 +522,16 @@ class POPT2():
         adtelx,adtely = POPT2.additionaldistortion(self, telx,tely)
         telx = telx + adtelx
         tely = tely + adtely
-        
+
+        # We are still not sure distortion found in 2023 April/May run is applied to Cobra.
         # adtelx2,adtely2 = POPT2.additionaldistortion2(self, telx,tely,inr,el)
         # telx = telx + adtelx2
         # tely = tely + adtely2
-        
+
         return telx,tely
 
     def focalplane2celestial_cobra(self, xt, yt, adc, inr, el, m2pos3, wl):
+        # We are still not sure distortion found in 2023 April/May run is applied to Cobra.
         # adtelx2,adtely2 = POPT2.additionaldistortion2(self, xt, yt, inr, el)
         # xt = xt - adtelx2
         # yt = yt - adtely2
@@ -599,6 +603,44 @@ class PFS():
         xdp  = ypfi
         ydp  = xpfi
         return xdp, ydp
+
+
+class distCorr():
+    def __init__(self):
+        self.correction_factor = -1.0
+
+    def xy2dxdy(self, xt, yt):
+        #### 2024/03/16, after rot. center correction
+        z0x  =    +6.13679631573732e-03
+        z1x  =    -1.30385657868192e-02
+        z2x  =    +2.38637664956091e-02
+        z3x  =    -7.12248999631302e-03
+        z4x  =    +1.43989657864945e-02
+        z5x  =    +1.71599705259336e-02
+        z6x  =    +6.46495265443865e-04
+        z7x  =    -9.83219999113761e-05
+        z8x  =    +2.92435019965087e-02
+        z9x  =    -1.75203496499541e-04
+        z12x =    +1.01007499985897e-03
+        z0y  =    -3.29466999940409e-03
+        z1y  =    +1.55727674977550e-02
+        z2y  =    -1.59169510482724e-02
+        z3y  =    +1.17914578909012e-02
+        z4y  =    -7.62166473415474e-03
+        z5y  =    +1.15573584183977e-02
+        z6y  =    +9.02940500030079e-03
+        z7y  =    +1.90820354988039e-02
+        z8y  =    -2.68632299740984e-03
+        z9y  =    +5.20598052522325e-03
+        z12y =    -1.90307999915411e-03
+        
+        # xt,yt in mm
+        x = xt / 270.0
+        y = yt / 270.0
+        ox = z0x + z1x*y + z2x*x + z3x*2*x*y + z4x*(2*(x**2+y**2)-1) + z5x*(x**2-y**2) + z6x*( 3*(x**2+y**2)-4*y**2)*y + z7x*( 3*(x**2+y**2)-2)*y + z8x*( 3*(x**2+y**2)-2)*x + z9x*(-3*(x**2+y**2)+4*x**2)*x + z12x*(6*(x**2+y**2)**2-6*(x**2+y**2)+1)
+        oy = z0y + z1y*y + z2y*x + z3y*2*x*y + z4y*(2*(x**2+y**2)-1) + z5y*(x**2-y**2) + z6y*( 3*(x**2+y**2)-4*y**2)*y + z7y*( 3*(x**2+y**2)-2)*y + z8y*( 3*(x**2+y**2)-2)*x + z9y*(-3*(x**2+y**2)+4*x**2)*x + z12y*(6*(x**2+y**2)**2-6*(x**2+y**2)+1)
+
+        return ox,oy
 
 ###
 if __name__ == "__main__":

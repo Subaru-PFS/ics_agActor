@@ -236,7 +236,7 @@ class AgCmd:
             # retrieve guide star coordinates from opdb
             # retrieve metrics of detected objects from opdb
             # compute offsets, scale, transparency, and seeing
-            dalt = daz = None
+            dalt = daz = numpy.nan
             if guide:
                 cmd.inform('detectionState=1')
                 # convert equatorial coordinates to horizontal coordinates
@@ -365,7 +365,7 @@ class AgCmd:
                 return
             cmd.inform('text="dz={}"'.format(dz))
             # send corrections to gen2 (or iic)
-            cmd.inform('guideErrors={},{},{},{},{},{},{},{}'.format(frame_id, None, None, None, None, None, dz, None))
+            cmd.inform('guideErrors={},{},{},{},{},{},{},{}'.format(frame_id, numpy.nan, numpy.nan, numpy.nan, numpy.nan, numpy.nan, dz, numpy.nan))
             cmd.inform('focusErrors={},{},{},{},{},{},{}'.format(frame_id, *dzs))
             # store results in opdb
             if self.with_opdb_agc_guide_offset:

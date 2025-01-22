@@ -10,7 +10,7 @@ import numpy
 
 
 iers.conf.auto_download = True
-solar_system_ephemeris.set('de430')
+solar_system_ephemeris.set('de440')
 
 
 class pfsDesign:

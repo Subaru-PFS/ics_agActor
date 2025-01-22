@@ -7,16 +7,9 @@ import astropy.time as at
 import astropy.coordinates as ac
 
 from astropy.utils import iers
-iers.conf.auto_download = True
+iers.conf.auto_download = False
 
-if __name__ == '__main__':
-    import Subaru_POPT2_PFS as pfs
-else:
-    from . import Subaru_POPT2_PFS as pfs
-
-###
-pfs.Unknown_Scale_Factor_AG = 1 + 6.2e-4
-pfs.inr_zero_offset = -90
+from . import Subaru_POPT2_PFS as pfs
 
 ### ccd pixel size
 ccdpxsz  = 0.013
@@ -36,6 +29,10 @@ ccdoffy2_pfi = -np.array([-0.013, +0.012, +0.030, +0.013, -0.015, -0.024]) ## co
 glassx_pfi = np.array([-0.004,+0.011,+0.001,+0.000,+0.012,-0.015])
 glassy_pfi = np.array([+0.003,-0.006,-0.008,+0.011,-0.001,-0.005])
 
+### ccd pos offset in pfi coord. after remove shutter
+remshx_pfi = np.array([-0.099,+0.000,-0.019,+0.000,-0.081,+0.000])
+remshy_pfi = np.array([+0.002,+0.000,-0.019,+0.000,+0.094,+0.000])
+
 ### ccd rotation angle 
 ccdrot_pfi = np.array([-0.253368, +0.234505, +0.329449, +0.416894, +0.0589071, +0.234977])*np.pi/180.0
 
@@ -54,7 +51,7 @@ pfi_parity = -1.0 # -1 or +1,
 # pfs_detector_zero_offset_y =  0.00 # in mm
 
 # ### Subaru location
-# sbr_lat =   +19.8255
+# sbr_lat =   +19.8225
 # sbr_lon =  +204.523972222
 # sbr_hei = +4163.0
 # Lsbr = ac.EarthLocation(lat=sbr_lat,lon=sbr_lon,height=sbr_hei)
@@ -67,8 +64,8 @@ pfi_parity = -1.0 # -1 or +1,
 #         pr  = 0.0   # Subaru InR ignore atmospheric refraction
 #         wl  = 0.62  # so wavelength is selected freely in visible light
  
-#         tel_coord = ac.SkyCoord(ra=tel_ra, dec=tel_de, unit=(au.deg, au.deg), frame='fk5',equinox='J2000.0')
-#         np_coord  = ac.SkyCoord(ra=0.0,    dec=90.0,   unit=(au.deg, au.deg), frame='fk5',equinox=t)
+#         tel_coord = ac.SkyCoord(ra=tel_ra, dec=tel_de, unit=(au.deg, au.deg), frame='icrs',equinox='J2000.0')
+#         np_coord  = ac.SkyCoord(ra=0.0,    dec=90.0,   unit=(au.deg, au.deg), frame='icrs',equinox=t)
 #         frame_subaru = ac.AltAz(obstime  = t, location = Lsbr, \
 #                                 pressure = pr*au.hPa, obswl = wl*au.micron)
 #         tel_altaz = tel_coord.transform_to(frame_subaru)
@@ -77,8 +74,8 @@ pfi_parity = -1.0 # -1 or +1,
 #         return inr_cal
 
 #     def starSepZPA(self, tel_ra, tel_de, str_ra, str_de, wl, t):
-#         tel_coord = ac.SkyCoord(ra=tel_ra, dec=tel_de, unit=(au.deg, au.deg), frame='fk5')
-#         str_coord = ac.SkyCoord(ra=str_ra, dec=str_de, unit=(au.deg, au.deg), frame='fk5')
+#         tel_coord = ac.SkyCoord(ra=tel_ra, dec=tel_de, unit=(au.deg, au.deg), frame='icrs')
+#         str_coord = ac.SkyCoord(ra=str_ra, dec=str_de, unit=(au.deg, au.deg), frame='icrs')
 #         frame_subaru = ac.AltAz(obstime  = t, location = Lsbr,\
 #                                 pressure = sbr_press*au.hPa, obswl = wl*au.micron)
 #         tel_altaz = tel_coord.transform_to(frame_subaru)
@@ -92,12 +89,12 @@ pfi_parity = -1.0 # -1 or +1,
 #         str_sep = str_sep*au.degree
 #         str_zpa = str_zpa*au.degree
 
-#         tel_coord = ac.SkyCoord(ra=tel_ra, dec=tel_de, unit=(au.deg, au.deg), frame='fk5')
+#         tel_coord = ac.SkyCoord(ra=tel_ra, dec=tel_de, unit=(au.deg, au.deg), frame='icrs')
 #         frame_subaru = ac.AltAz(obstime  = t, location = Lsbr,\
 #                                 pressure = sbr_press*au.hPa, obswl = wl*au.micron)
 #         tel_altaz = tel_coord.transform_to(frame_subaru)
 #         str_altaz = tel_altaz.directional_offset_by(str_zpa, str_sep)
-#         str_coord = str_altaz.transform_to('fk5')
+#         str_coord = str_altaz.transform_to('icrs')
 #         ra = str_coord.ra.degree
 #         de = str_coord.dec.degree
 #         return ra,de
@@ -109,7 +106,7 @@ pfi_parity = -1.0 # -1 or +1,
 #                                 pm_ra_cosdec = str_pmRA * au.mas/au.yr,
 #                                 pm_dec = str_pmDE * au.mas/au.yr,
 #                                 obstime=Time(gaia_epoch, format='decimalyear'),
-#                                 frame='fk5')
+#                                 frame='icrs')
 #         str_coord_obstime = str_coord.apply_space_motion(at.Time(t))
 #         ra = str_coord_obstime.ra.degree
 #         de = str_coord_obstime.dec.degree
@@ -155,31 +152,32 @@ class PFS():
     def RADECInRScaleShift(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1):
         inrflag   = 1
         scaleflag = 1
-        ra_offset, de_offset, inr_offset, scale_offset, mr, *ex = PFS.RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag, scaleflag)
+        ra_offset, de_offset, inr_offset, scale_offset, mr = PFS.RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag, scaleflag)
         rs = mr[:,6]**2+mr[:,7]**2
         rs[mr[:,8]==0.0]=np.nan
         md = np.nanmedian(np.sqrt(rs))
-        return ra_offset, de_offset, inr_offset, scale_offset, mr, md, *ex
+        return ra_offset, de_offset, inr_offset, scale_offset, mr, md
 
     def RADECInRShift(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1):
         inrflag   = 1
         scaleflag = 0
-        ra_offset, de_offset, inr_offset, scale_offset, mr, *ex = PFS.RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag, scaleflag)
+        ra_offset, de_offset, inr_offset, scale_offset, mr = PFS.RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag, scaleflag)
         rs = mr[:,6]**2+mr[:,7]**2
         rs[mr[:,8]==0.0]=np.nan
         md = np.nanmedian(np.sqrt(rs))
-        return ra_offset, de_offset, inr_offset, scale_offset, mr, md, *ex
+        return ra_offset, de_offset, inr_offset, scale_offset, mr, md
     
     def RADECShift(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1):
         inrflag   = 0
         scaleflag = 0
-        ra_offset, de_offset, inr_offset, scale_offset, mr, *ex = PFS.RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag, scaleflag)
+        ra_offset, de_offset, inr_offset, scale_offset, mr = PFS.RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag, scaleflag)
         rs = mr[:,6]**2+mr[:,7]**2
         rs[mr[:,8]==0.0]=np.nan
         md = np.nanmedian(np.sqrt(rs))
-        return ra_offset, de_offset, inr_offset, scale_offset, mr, md, *ex
+        return ra_offset, de_offset, inr_offset, scale_offset, mr, md
 
-    def RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag, scaleflag, maxresid=0.2):
+    def RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag, scaleflag):
+        
         cat_xdp_0 = v0[:,0]
         cat_ydp_0 = v0[:,1]
         cat_mag_0 = v0[:,2]
@@ -230,7 +228,7 @@ class PFS():
         dist  = np.sqrt(xdiff**2+ydiff**2)
 
         min_dist_index   = np.nanargmin(dist, axis=1)
-        min_dist_indices = np.array(range(n_obj)),min_dist_index        
+        min_dist_indices = np.array(range(n_obj), dtype='int'),min_dist_index
         rCRA = np.median((xdiff[min_dist_indices]*dyde[min_dist_index]-ydiff[min_dist_indices]*dxde[min_dist_index])/(dxra[min_dist_index]*dyde[min_dist_index]-dyra[min_dist_index]*dxde[min_dist_index]))
         rCDE = np.median((xdiff[min_dist_indices]*dyra[min_dist_index]-ydiff[min_dist_indices]*dxra[min_dist_index])/(dxde[min_dist_index]*dyra[min_dist_index]-dyde[min_dist_index]*dxra[min_dist_index]))
 
@@ -248,40 +246,38 @@ class PFS():
         dist  = np.sqrt(xdiff**2+ydiff**2)
 
         min_dist_index   = np.nanargmin(dist, axis=1)
-        min_dist_indices = np.array(range(n_obj)),min_dist_index
-
-        f = dist[min_dist_indices]<2
-
-        # print(f)
+        min_dist_indices = np.array(range(n_obj), dtype='int'),min_dist_index
         
-        match_obj_xdp  = obj_xdp[f]
-        match_obj_ydp  = obj_ydp[f]
-        match_obj_int  = obj_int[f]
-        match_obj_flag = obj_flag[f]
+        f  = dist[min_dist_indices] < 2.0
+        
+        match_obj_xdp  = obj_xdp
+        match_obj_ydp  = obj_ydp
+        match_obj_int  = obj_int
+        match_obj_flag = obj_flag
 
-        match_cat_xdp_0 = (cat_xdp_0[min_dist_index])[f]
-        match_cat_ydp_0 = (cat_ydp_0[min_dist_index])[f]
-        match_cat_mag_0 = (cat_mag_0[min_dist_index])[f]
-        match_dxra_0    = (dxra_0[min_dist_index])[f]
-        match_dyra_0    = (dyra_0[min_dist_index])[f]
-        match_dxde_0    = (dxde_0[min_dist_index])[f]
-        match_dyde_0    = (dyde_0[min_dist_index])[f]
-        match_dxinr_0   = (dxinr_0[min_dist_index])[f]
-        match_dyinr_0   = (dyinr_0[min_dist_index])[f]
-        match_dxscl_0   = (dxscl_0[min_dist_index])[f]
-        match_dyscl_0   = (dyscl_0[min_dist_index])[f]
+        match_cat_xdp_0 = (cat_xdp_0[min_dist_index])
+        match_cat_ydp_0 = (cat_ydp_0[min_dist_index])
+        match_cat_mag_0 = (cat_mag_0[min_dist_index])
+        match_dxra_0    = (dxra_0[min_dist_index])
+        match_dyra_0    = (dyra_0[min_dist_index])
+        match_dxde_0    = (dxde_0[min_dist_index])
+        match_dyde_0    = (dyde_0[min_dist_index])
+        match_dxinr_0   = (dxinr_0[min_dist_index])
+        match_dyinr_0   = (dyinr_0[min_dist_index])
+        match_dxscl_0   = (dxscl_0[min_dist_index])
+        match_dyscl_0   = (dyscl_0[min_dist_index])
 
-        match_cat_xdp_1 = (cat_xdp_1[min_dist_index])[f]
-        match_cat_ydp_1 = (cat_ydp_1[min_dist_index])[f]
-        match_cat_mag_1 = (cat_mag_1[min_dist_index])[f]
-        match_dxra_1    = (dxra_1[min_dist_index])[f]
-        match_dyra_1    = (dyra_1[min_dist_index])[f]
-        match_dxde_1    = (dxde_1[min_dist_index])[f]
-        match_dyde_1    = (dyde_1[min_dist_index])[f]
-        match_dxinr_1   = (dxinr_1[min_dist_index])[f]
-        match_dyinr_1   = (dyinr_1[min_dist_index])[f]
-        match_dxscl_1   = (dxscl_1[min_dist_index])[f]
-        match_dyscl_1   = (dyscl_1[min_dist_index])[f]
+        match_cat_xdp_1 = (cat_xdp_1[min_dist_index])
+        match_cat_ydp_1 = (cat_ydp_1[min_dist_index])
+        match_cat_mag_1 = (cat_mag_1[min_dist_index])
+        match_dxra_1    = (dxra_1[min_dist_index])
+        match_dyra_1    = (dyra_1[min_dist_index])
+        match_dxde_1    = (dxde_1[min_dist_index])
+        match_dyde_1    = (dyde_1[min_dist_index])
+        match_dxinr_1   = (dxinr_1[min_dist_index])
+        match_dyinr_1   = (dyinr_1[min_dist_index])
+        match_dxscl_1   = (dxscl_1[min_dist_index])
+        match_dyscl_1   = (dyscl_1[min_dist_index])
 
         match_cat_xdp = np.copy(match_cat_xdp_0)
         match_cat_ydp = np.copy(match_cat_ydp_0)
@@ -327,39 +323,42 @@ class PFS():
         erry = match_obj_ydp - match_cat_ydp 
         err  = np.array([np.concatenate([errx,erry])]).transpose()
 
-        A, residual, rank, sv = np.linalg.lstsq(basis, err, rcond = None)
+        newbasis = basis[np.concatenate([f,f])]
+        newerr   = err[np.concatenate([f,f])]
+        A, residual, rank, sv = np.linalg.lstsq(newbasis, newerr, rcond = None)
 
-        # print(A)
-        
         match_obj_xy = np.stack([match_obj_xdp,match_obj_ydp]).transpose()
         match_cat_xy = np.stack([match_cat_xdp,match_cat_ydp]).transpose()
         err_xy       = np.stack([errx,erry]).transpose()
         resid_xy = (((err-np.dot(basis,A))[:,0]).reshape([2,-1])).transpose()
 
-        #### one iteration to remove dr >= maxresid mm data
-        resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
-        vc  = np.where(np.concatenate([resid_r, resid_r], 0) < maxresid)
-        # vcc = np.where(resid_r<maxresid)
-        vcx = np.array([resid_r<maxresid]).transpose()
-        basis2 = basis[vc]
-        err2   = err[vc]
-        A, residual, rank, sv = np.linalg.lstsq(basis2, err2, rcond = None)
-        # match_obj_xy = np.stack([match_obj_xdp,match_obj_ydp]).transpose()[vcc]
-        # match_cat_xy = np.stack([match_cat_xdp,match_cat_ydp]).transpose()[vcc]
-        # errx = match_obj_xdp[vcc] - match_cat_xdp[vcc]
-        # erry = match_obj_ydp[vcc] - match_cat_ydp[vcc]
-        # err  = np.array([np.concatenate([errx,erry])]).transpose()
-        # err_xy = np.stack([errx,erry]).transpose()
-        # resid_xy = (((err2-np.dot(basis2,A))[:,0]).reshape([2,-1])).transpose()
-        resid_xy = (((err-np.dot(basis,A))[:,0]).reshape([2,-1])).transpose()
-        ####
+        #### outlier rejection (threshold = min (0.5mm, 3 * median of residual))
+        rej_thres_lim = 0.5
+        rej_thres = np.min(np.array([np.nanmedian(np.sqrt(np.sum(resid_xy**2,axis=1)))*3, rej_thres_lim]))
+        for rej_itr in range(5):
+            resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
 
-        mr = np.block([match_obj_xy, match_cat_xy, err_xy, resid_xy, vcx])
-        
+            vc  = np.where(np.concatenate([resid_r, resid_r], 0) < rej_thres)
+            vch = np.where(np.concatenate([resid_r], 0) < rej_thres)
+
+            basis2 = basis[vc]
+            err2   = err[vc]
+            A, residual, rank, sv = np.linalg.lstsq(basis2, err2, rcond = None)
+            resid_xy = (((err-np.dot(basis,A))[:,0]).reshape([2,-1])).transpose()
+            rej_thres_old = rej_thres
+            resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
+            rej_thres = np.min(np.array([np.nanmedian(resid_r[vch])*3,rej_thres_lim]))
+            if(rej_thres == rej_thres_old):
+                break
+            
+        resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
+        vcx = np.array([resid_r<rej_thres]).transpose()
+        mr = np.block([match_obj_xy, match_cat_xy, err_xy, resid_xy, vcx, min_dist_index.reshape(-1,1)])
+
         ra_offset    = 0.0
         de_offset    = 0.0
-        inr_offset   = np.nan
-        scale_offset = np.nan
+        inr_offset   = 0.0
+        scale_offset = 0.0
 
         if inrflag == 1 and scaleflag == 1:
             ra_offset    = A[0][0] * d_ra
@@ -378,11 +377,11 @@ class PFS():
             ra_offset    = A[0][0] * d_ra
             de_offset    = A[1][0] * d_de
         
-        return ra_offset, de_offset, inr_offset, scale_offset, mr, min_dist_index[f], f
+        return ra_offset, de_offset, inr_offset, scale_offset, mr
 
     def makeBasis(self, tel_ra, tel_de, str_ra, str_de, t, adc, inr, m2pos3, wl):
-        v_0,v_1 = PFS.makeBasisFp(self, tel_ra, tel_de, str_ra, str_de, t, adc, inr, m2pos3, wl)
-        # v_0,v_1 = PFS.makeBasisPfi(self, tel_ra, tel_de, str_ra, str_de, t, adc, inr, m2pos3, wl)
+        # v_0,v_1 = PFS.makeBasisFp(self, tel_ra, tel_de, str_ra, str_de, t, adc, inr, m2pos3, wl)
+        v_0,v_1 = PFS.makeBasisPfi(self, tel_ra, tel_de, str_ra, str_de, t, adc, inr, m2pos3, wl)
         return v_0,v_1
     
     def makeBasisFp(self, tel_ra, tel_de, str_ra, str_de, t, adc, inr, m2pos3, wl):
@@ -538,8 +537,8 @@ class PFS():
         ccdoffy = ccdoffy1_pfi
         ccdoffx = ccdoffx + ccdoffx2_pfi
         ccdoffy = ccdoffy + ccdoffy2_pfi
-        ccdoffx = ccdoffx + glassx_pfi
-        ccdoffy = ccdoffy + glassy_pfi
+        ccdoffx = ccdoffx + glassx_pfi + remshx_pfi
+        ccdoffy = ccdoffy + glassy_pfi + remshy_pfi
         ccdrot  = ccdrot_pfi
 
         ccdid  = dsc[:,0].astype(int)
@@ -594,16 +593,16 @@ class PFS():
         # ccdoffy = np.array([+0.405, +0.055, +0.357, -0.270, -0.444, -0.067])
         # ccdoffx = ccdoffx - np.array([+0.015, +0.025, +0.014, +0.002, +0.022, +0.004]) ## correction by focus 2.70 data only (with CCD Y offset 8 -> 9 / 2022-09-06)
         # ccdoffy = ccdoffy - np.array([-0.013, +0.012, +0.030, +0.013, -0.015, -0.024]) ## correction by focus 2.70 data only (with CCD Y offset 8 -> 9 / 2022-09-06)
-        # ccdoffx = ccdoffx + glassx_pfi
-        # ccdoffy = ccdoffy + glassy_pfi
+        # ccdoffx = ccdoffx + glassx_pfi + remshx_pfi
+        # ccdoffy = ccdoffy + glassy_pfi + remshy_pfi
         # ccdrot  = np.array([-0.253368, +0.234505, +0.329449, +0.416894, +0.0589071, +0.234977])*np.pi/180.0
 
         ccdoffx = ccdoffx1_pfi
         ccdoffy = ccdoffy1_pfi
         ccdoffx = ccdoffx + ccdoffx2_pfi
         ccdoffy = ccdoffy + ccdoffy2_pfi
-        ccdoffx = ccdoffx + glassx_pfi
-        ccdoffy = ccdoffy + glassy_pfi
+        ccdoffx = ccdoffx + glassx_pfi + remshx_pfi
+        ccdoffy = ccdoffy + glassy_pfi + remshy_pfi
         ccdrot  = ccdrot_pfi
         
         ### inarray
@@ -648,16 +647,16 @@ class PFS():
         # ccdoffy = np.array([-0.668, +0.081, +0.180, +0.357, +0.138, -0.077])
         # ccdoffx = ccdoffx - np.array([-0.013, +0.012, +0.030, +0.013, -0.015, -0.024]) ## correction by focus 2.70 data only (with CCD Y offset 8 -> 9 / 2022-09-06)
         # ccdoffy = ccdoffy - np.array([+0.015, +0.025, +0.014, +0.002, +0.022, +0.004]) ## correction by focus 2.70 data only (with CCD Y offset 8 -> 9 / 2022-09-06)
-        # ccdoffx = ccdoffx + glassy_pfi
-        # ccdoffy = ccdoffy + glassx_pfi
+        # ccdoffx = ccdoffx + glassy_pfi + remshy_pfi
+        # ccdoffy = ccdoffy + glassx_pfi + remshx_pfi
         # ccdrot  = np.array([-0.253368, +0.234505, +0.329449, +0.416894, +0.0589071, +0.234977])*np.pi/180.0
 
         ccdoffx = ccdoffy1_pfi
         ccdoffy = ccdoffx1_pfi
         ccdoffx = ccdoffx + ccdoffy2_pfi
         ccdoffy = ccdoffy + ccdoffx2_pfi
-        ccdoffx = ccdoffx + glassy_pfi
-        ccdoffy = ccdoffy + glassx_pfi
+        ccdoffx = ccdoffx + glassy_pfi + remshy_pfi
+        ccdoffy = ccdoffy + glassx_pfi + remshx_pfi
         ccdrot  = ccdrot_pfi
         
         ccdid  = dsc[:,0].astype(int)
@@ -711,16 +710,16 @@ class PFS():
         # ccdoffy = np.array([-0.668, +0.081, +0.180, +0.357, +0.138, -0.077])
         # ccdoffx = ccdoffx - np.array([-0.013, +0.012, +0.030, +0.013, -0.015, -0.024]) ## correction by focus 2.70 data only (with CCD Y offset 8 -> 9 / 2022-09-06)
         # ccdoffy = ccdoffy - np.array([+0.015, +0.025, +0.014, +0.002, +0.022, +0.004]) ## correction by focus 2.70 data only (with CCD Y offset 8 -> 9 / 2022-09-06)
-        # ccdoffx = ccdoffx + glassy_pfi
-        # ccdoffy = ccdoffy + glassx_pfi
+        # ccdoffx = ccdoffx + glassy_pfi + remshy_pfi
+        # ccdoffy = ccdoffy + glassx_pfi + remshx_pfi
         # ccdrot  = np.array([-0.253368, +0.234505, +0.329449, +0.416894, +0.0589071, +0.234977])*np.pi/180.0
 
         ccdoffx = ccdoffy1_pfi
         ccdoffy = ccdoffx1_pfi
         ccdoffx = ccdoffx + ccdoffy2_pfi
         ccdoffy = ccdoffy + ccdoffx2_pfi
-        ccdoffx = ccdoffx + glassy_pfi
-        ccdoffy = ccdoffy + glassx_pfi
+        ccdoffx = ccdoffx + glassy_pfi + remshy_pfi
+        ccdoffy = ccdoffy + glassx_pfi + remshx_pfi
         ccdrot  = ccdrot_pfi
                 
         ### inarray
@@ -758,7 +757,7 @@ class PFS():
     def agarray2momentdifference(self, array, maxellip, maxsize, minsize):
         ##### array 
         ### ccdid objectid xcent[mm] ycent[mm] flx[counts] semimajor[pix] semiminor[pix] Flag[0 or 1]
-        filtered_agarray, _ = PFS.sourceFilter(self, array, maxellip, maxsize, minsize)
+        filtered_agarray, v = PFS.sourceFilter(self, array, maxellip, maxsize, minsize)
         outarray=np.array([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
 
         for ccdid in range(1,7):
@@ -798,7 +797,7 @@ if __name__ == "__main__":
     # wl      = float(telarray['WAVELEN'])
     # datetime= dateobs+"T"+utstr+"Z"
     # t       = at.Time(datetime)
-    # coord   = ac.SkyCoord(ra=ra2000, dec=dec2000, unit=(au.hourangle, au.deg),frame='fk5')
+    # coord   = ac.SkyCoord(ra=ra2000, dec=dec2000, unit=(au.hourangle, au.deg),frame='icrs')
     # tel_ra  = coord.ra.degree
     # tel_de  = coord.dec.degree
 

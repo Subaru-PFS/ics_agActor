@@ -10,7 +10,7 @@ from kawanomoto import Subaru_POPT2_PFS
 
 
 iers.conf.auto_download = True
-solar_system_ephemeris.set('de430')
+solar_system_ephemeris.set('de440')
 
 _popt2 = Subaru_POPT2_PFS.POPT2()
 _pfs = Subaru_POPT2_PFS.PFS()
@@ -312,7 +312,7 @@ def search(ra, dec, radius=0.027 + 0.003, magnitude=20.0):
         columns = ('source_id', 'ref_epoch', 'ra', 'ra_error', 'dec', 'dec_error', 'parallax', 'parallax_error', 'pmra', 'pmra_error', 'pmdec', 'pmdec_error', 'phot_g_mean_mag')
         _units = (units.dimensionless_unscaled, units.yr, units.deg, units.mas, units.deg, units.mas, units.mas, units.mas, units.mas / units.yr, units.mas / units.yr, units.mas / units.yr, units.mas / units.yr, units.mag)
 
-        host = 'g2sim-cat'  # 'g2db' for production use
+        host = '133.40.167.46'  # 'g2db' for production use
         port = 5438
         user = 'gen2'  # 'obsuser' for production use
 

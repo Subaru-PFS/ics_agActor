@@ -6,7 +6,7 @@ class opDB:
     @staticmethod
     def _connect():
 
-        return psycopg2.connect(dbname='opdb', host='localhost', user='pfs')
+        return psycopg2.connect(dbname='opdb', host='db-ics', user='pfs')
 
     @staticmethod
     def fetchall(statement, params=None):
