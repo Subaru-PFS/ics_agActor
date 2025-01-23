@@ -34,7 +34,7 @@ remshx_pfi = np.array([-0.099,+0.000,-0.019,+0.000,-0.081,+0.000])
 remshy_pfi = np.array([+0.002,+0.000,-0.019,+0.000,+0.094,+0.000])
 
 ### ccd pos offset in pfi coord. after ag1 focus correction (TBD)
-ag1fcx_pfi = np.array([+0.000,+0.000,+0.000,+0.000,+0.000,+0.000])
+ag1fcx_pfi = np.array([-0.234,+0.000,+0.000,+0.000,+0.000,+0.000])
 ag1fcy_pfi = np.array([+0.000,+0.000,+0.000,+0.000,+0.000,+0.000])
 
 ### ccd offset in pfi
