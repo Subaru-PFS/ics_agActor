@@ -353,25 +353,25 @@ class PFS():
         match_cat_xy = np.stack([match_cat_xdp,match_cat_ydp]).transpose()
         err_xy       = np.stack([errx,erry]).transpose()
         resid_xy = (((err-np.dot(basis,A))[:,0]).reshape([2,-1])).transpose()
-
+        rej_thres = 2.0
         #### outlier rejection (threshold = min (0.5mm, 3 * median of residual))
-        rej_thres_lim = 0.5
-        rej_thres = np.min(np.array([np.nanmedian(np.sqrt(np.sum(resid_xy**2,axis=1)))*3, rej_thres_lim]))
-        for rej_itr in range(5):
-            resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
+        # rej_thres_lim = 0.5
+        # rej_thres = np.min(np.array([np.nanmedian(np.sqrt(np.sum(resid_xy**2,axis=1)))*3, rej_thres_lim]))
+        # for rej_itr in range(5):
+        #     resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
 
-            vc  = np.where(np.concatenate([resid_r, resid_r], 0) < rej_thres)
-            vch = np.where(np.concatenate([resid_r], 0) < rej_thres)
+        #     vc  = np.where(np.concatenate([resid_r, resid_r], 0) < rej_thres)
+        #     vch = np.where(np.concatenate([resid_r], 0) < rej_thres)
 
-            basis2 = basis[vc]
-            err2   = err[vc]
-            A, residual, rank, sv = np.linalg.lstsq(basis2, err2, rcond = None)
-            resid_xy = (((err-np.dot(basis,A))[:,0]).reshape([2,-1])).transpose()
-            rej_thres_old = rej_thres
-            resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
-            rej_thres = np.min(np.array([np.nanmedian(resid_r[vch])*3,rej_thres_lim]))
-            if(rej_thres == rej_thres_old):
-                break
+        #     basis2 = basis[vc]
+        #     err2   = err[vc]
+        #     A, residual, rank, sv = np.linalg.lstsq(basis2, err2, rcond = None)
+        #     resid_xy = (((err-np.dot(basis,A))[:,0]).reshape([2,-1])).transpose()
+        #     rej_thres_old = rej_thres
+        #     resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
+        #     rej_thres = np.min(np.array([np.nanmedian(resid_r[vch])*3,rej_thres_lim]))
+        #     if(rej_thres == rej_thres_old):
+        #         break
 
         resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
         vcx = np.array([resid_r<rej_thres]).transpose()
