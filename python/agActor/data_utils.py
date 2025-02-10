@@ -83,7 +83,7 @@ if __name__ == '__main__':
     ra, dec, pa, dra, ddec, dinr, _, dalt, daz, *values = field_acquisition.acquire_field(
         design=(args.design_id, args.design_path), frame_id=args.frame_id, obswl=args.obswl, altazimuth=True,
         logger=logger
-        )
+    )
     print('ra={},dec={},pa={},dra={},ddec={},dinr={},dalt={},daz={}'.format(ra, dec, pa, dra, ddec, dinr, dalt, daz))
     guide_objects, detected_objects, identified_objects, dx, dy, size, peak, flux = values
     print('guide_objects={}'.format(guide_objects))
@@ -95,8 +95,8 @@ if __name__ == '__main__':
     write_agc_guide_offset(
         frame_id=args.frame_id, ra=ra, dec=dec, pa=pa, delta_ra=dra, delta_dec=ddec, delta_insrot=dinr, delta_az=daz,
         delta_el=dalt, delta_z=dz, delta_zs=dzs
-        )
+    )
     write_agc_match(
         design_id=args.design_id, frame_id=args.frame_id, guide_objects=guide_objects,
         detected_objects=detected_objects, identified_objects=identified_objects
-        )
+    )

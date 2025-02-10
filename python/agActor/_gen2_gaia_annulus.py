@@ -3,15 +3,11 @@ from numbers import Number
 
 import numpy
 from astropy import units
-from astropy.coordinates import AltAz, Angle, Distance, SkyCoord, solar_system_ephemeris
+from astropy.coordinates import AltAz, Angle, Distance, SkyCoord
 from astropy.time import Time
-from astropy.utils import iers
 
 import coordinates
 from kawanomoto import Subaru_POPT2_PFS
-
-iers.conf.auto_download = True
-solar_system_ephemeris.set('de440')
 
 _popt2 = Subaru_POPT2_PFS.POPT2()
 _pfs = Subaru_POPT2_PFS.PFS()
@@ -315,8 +311,8 @@ def search(ra, dec, inner_radius=0.7325 - 0.03, outer_radius=0.7325 + 0.03, magn
         columns = ('source_id', 'ref_epoch', 'ra', 'ra_error', 'dec', 'dec_error', 'parallax', 'parallax_error', 'pmra',
                    'pmra_error', 'pmdec', 'pmdec_error', 'phot_g_mean_mag')
         _units = (
-        units.dimensionless_unscaled, units.yr, units.deg, units.mas, units.deg, units.mas, units.mas, units.mas,
-        units.mas / units.yr, units.mas / units.yr, units.mas / units.yr, units.mas / units.yr, units.mag)
+            units.dimensionless_unscaled, units.yr, units.deg, units.mas, units.deg, units.mas, units.mas, units.mas,
+            units.mas / units.yr, units.mas / units.yr, units.mas / units.yr, units.mas / units.yr, units.mag)
 
         host = '133.40.167.46'  # 'g2db' for production use
         port = 5438
@@ -329,12 +325,12 @@ def search(ra, dec, inner_radius=0.7325 - 0.03, outer_radius=0.7325 + 0.03, magn
                         + ' OR '.join(
                     ['(q3c_radial_query(ra,dec,{},{},{}) AND NOT q3c_radial_query(ra,dec,{},{},{}))'.format(
                         _ra, _dec, outer_radius, _ra, _dec, inner_radius
-                        ) for _ra, _dec in zip(ra, dec)]
-                    ) \
+                    ) for _ra, _dec in zip(ra, dec)]
+                ) \
                         + (') AND phot_g_mean_mag<={} AND pmra IS NOT NULL AND pmdec IS NOT NULL AND parallax IS NOT '
                            'NULL ORDER BY phot_g_mean_mag').format(
                     magnitude
-                    )
+                )
                 cursor.execute(query)
                 objects = cursor.fetchall()
                 return Table(rows=objects, names=columns, units=_units)
@@ -401,15 +397,15 @@ def get_objects(
     dec = Angle(dec, unit=units.deg)
     obstime = Time(obstime.astimezone(tz=timezone.utc)) if isinstance(obstime, datetime) else Time(
         obstime, format='unix'
-        ) if isinstance(
+    ) if isinstance(
         obstime, Number
-        ) else Time(obstime) if obstime is not None else Time.now()
+    ) else Time(obstime) if obstime is not None else Time.now()
 
     import subaru
     frame_tc = AltAz(
         obstime=obstime, location=subaru.location, temperature=temperature * units.deg_C,
         relative_humidity=relative_humidity / 100, pressure=pressure * units.hPa, obswl=obswl * units.micron
-        )
+    )
 
     # field center
     icrs_c = SkyCoord(ra=ra, dec=dec, frame='icrs')
@@ -503,7 +499,7 @@ if __name__ == '__main__':
     group.add_argument('--inr', type=float, default=None, help='instrument rotator angle, east of north (deg)')
     parser.add_argument(
         '--adc', type=float, default=None, help='position of the atmospheric dispersion compensator (mm)'
-        )
+    )
     parser.add_argument('--filter-id', type=int, default=107, help='filter identifier for ADC (101-108)')
     parser.add_argument('--temperature', type=float, default=0, help='air temperature (deg C)')
     parser.add_argument('--relative-humidity', type=float, default=0, help='relative humidity (%%)')

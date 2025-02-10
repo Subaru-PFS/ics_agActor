@@ -1,10 +1,6 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 
-from astropy.utils import iers
-
-iers.conf.auto_download = False
-
 from . import Subaru_POPT2_PFS as pfs
 
 ### ccd pixel size
@@ -20,10 +16,10 @@ ccdoffy1_pfi = np.array([+0.405, +0.055, +0.357, -0.270, -0.444, -0.067])
 ### ccd offset 2
 ccdoffx2_pfi = -np.array(
     [+0.015, +0.025, +0.014, +0.002, +0.022, +0.004]
-    )  ## correction by focus 2.70 data only (with CCD Y offset 8 -> 9 / 2022-09-06)
+)  ## correction by focus 2.70 data only (with CCD Y offset 8 -> 9 / 2022-09-06)
 ccdoffy2_pfi = -np.array(
     [-0.013, +0.012, +0.030, +0.013, -0.015, -0.024]
-    )  ## correction by focus 2.70 data only (with CCD Y offset 8 -> 9 / 2022-09-06)
+)  ## correction by focus 2.70 data only (with CCD Y offset 8 -> 9 / 2022-09-06)
 
 ### ccd pos offset in pfi coord. after installing additional window glass 
 glassx_pfi = np.array([-0.004, +0.011, +0.001, +0.000, +0.012, -0.015])
@@ -155,7 +151,7 @@ class PFS():
         scaleflag = 1
         ra_offset, de_offset, inr_offset, scale_offset, mr = PFS.RADECInRShiftA(
             self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag, scaleflag
-            )
+        )
         rs = mr[:, 6] ** 2 + mr[:, 7] ** 2
         rs[mr[:, 8] == 0.0] = np.nan
         md = np.nanmedian(np.sqrt(rs))
@@ -166,7 +162,7 @@ class PFS():
         scaleflag = 0
         ra_offset, de_offset, inr_offset, scale_offset, mr = PFS.RADECInRShiftA(
             self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag, scaleflag
-            )
+        )
         rs = mr[:, 6] ** 2 + mr[:, 7] ** 2
         rs[mr[:, 8] == 0.0] = np.nan
         md = np.nanmedian(np.sqrt(rs))
@@ -177,7 +173,7 @@ class PFS():
         scaleflag = 0
         ra_offset, de_offset, inr_offset, scale_offset, mr = PFS.RADECInRShiftA(
             self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag, scaleflag
-            )
+        )
         rs = mr[:, 6] ** 2 + mr[:, 7] ** 2
         rs[mr[:, 8] == 0.0] = np.nan
         md = np.nanmedian(np.sqrt(rs))
@@ -238,12 +234,12 @@ class PFS():
         min_dist_indices = np.array(range(n_obj), dtype='int'), min_dist_index
         rCRA = np.median(
             (xdiff[min_dist_indices] * dyde[min_dist_index] - ydiff[min_dist_indices] * dxde[min_dist_index]) / (
-                    dxra[min_dist_index] * dyde[min_dist_index] - dyra[min_dist_index] * dxde[min_dist_index])
-            )
+                dxra[min_dist_index] * dyde[min_dist_index] - dyra[min_dist_index] * dxde[min_dist_index])
+        )
         rCDE = np.median(
             (xdiff[min_dist_indices] * dyra[min_dist_index] - ydiff[min_dist_indices] * dxra[min_dist_index]) / (
-                    dxde[min_dist_index] * dyra[min_dist_index] - dyde[min_dist_index] * dxra[min_dist_index])
-            )
+                dxde[min_dist_index] * dyra[min_dist_index] - dyde[min_dist_index] * dxra[min_dist_index])
+        )
 
         xdiff_0 = np.transpose([obj_xdp]) - (cat_xdp_0 + rCRA * dxra + rCDE * dxde)
         ydiff_0 = np.transpose([obj_ydp]) - (cat_ydp_0 + rCRA * dyra + rCDE * dyde)
@@ -462,10 +458,10 @@ class PFS():
         v_a = np.transpose(np.stack([xdp0, ydp0, dxdpdra, dydpdra, dxdpdde, dydpdde, dxdpdinr, dydpdinr]))
         v_0 = np.transpose(
             np.stack([xdp0_0, ydp0_0, dxdpdra_0, dydpdra_0, dxdpdde_0, dydpdde_0, dxdpdinr_0, dydpdinr_0])
-            )
+        )
         v_1 = np.transpose(
             np.stack([xdp0_1, ydp0_1, dxdpdra_1, dydpdra_1, dxdpdde_1, dydpdde_1, dxdpdinr_1, dydpdinr_1])
-            )
+        )
 
         # return xdp0,ydp0, dxdpdra,dydpdra, dxdpdde,dydpdde, dxdpdinr,dydpdinr
         return v_0, v_1
@@ -535,10 +531,10 @@ class PFS():
         v_a = np.transpose(np.stack([xdp0, ydp0, dxdpdra, dydpdra, dxdpdde, dydpdde, dxdpdinr, dydpdinr]))
         v_0 = np.transpose(
             np.stack([xdp0_0, ydp0_0, dxdpdra_0, dydpdra_0, dxdpdde_0, dydpdde_0, dxdpdinr_0, dydpdinr_0])
-            )
+        )
         v_1 = np.transpose(
             np.stack([xdp0_1, ydp0_1, dxdpdra_1, dydpdra_1, dxdpdde_1, dydpdde_1, dxdpdinr_1, dydpdinr_1])
-            )
+        )
 
         # return xdp0,ydp0, dxdpdra,dydpdra, dxdpdde,dydpdde, dxdpdinr,dydpdinr
         return v_0, v_1
@@ -605,7 +601,7 @@ class PFS():
              [smma],
              [smmi],
              [flag]]
-            ).transpose()
+        ).transpose()
 
         return outarray
 
@@ -664,7 +660,7 @@ class PFS():
              [spotid],
              [xpix],
              [ypix]]
-            ).transpose()
+        ).transpose()
         return outarray
 
     def agpixel2fppos(self, dsc):
@@ -730,7 +726,7 @@ class PFS():
              [smma],
              [smmi],
              [flag]]
-            ).transpose()
+        ).transpose()
 
         return outarray
 
@@ -787,7 +783,7 @@ class PFS():
              [spotid],
              [xpix],
              [ypix]]
-            ).transpose()
+        ).transpose()
         return outarray
 
     def agarray2momentdifference(self, array, maxellip, maxsize, minsize):

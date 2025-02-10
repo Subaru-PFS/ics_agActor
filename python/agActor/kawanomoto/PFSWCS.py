@@ -29,7 +29,7 @@ class PFSWCS():
         coord = ac.SkyCoord(
             ra=ra2000, dec=dec2000, unit=(au.hourangle, au.deg),
             frame='fk5'
-            )
+        )
         tel_ra = coord.ra.degree
         tel_de = coord.dec.degree
         inr = inrstr
@@ -41,15 +41,15 @@ class PFSWCS():
         agcenterposy = agcenter_radius * np.sin(angle0)
 
         sep, zpa = popt2.focalplane2celestial(
-            agcenterposx, \
-            agcenterposy, \
-            adc, \
-            inr, \
-            el, \
-            m2pos3, \
-            wl, \
+            agcenterposx,
+            agcenterposy,
+            adc,
+            inr,
+            el,
+            m2pos3,
+            wl,
             flag
-            )
+        )
 
         ra, de = subaru.starRADEC(tel_ra, tel_de, sep, zpa, wl, dt)
         ra = ra[0]
@@ -86,7 +86,7 @@ class PFSWCS():
         coord = ac.SkyCoord(
             ra=ra2000, dec=dec2000, unit=(au.hourangle, au.deg),
             frame='fk5'
-            )
+        )
         tel_ra = coord.ra.degree
         tel_de = coord.dec.degree
         # inr = inrstr
@@ -117,28 +117,28 @@ class PFSWCS():
              [0, 0, 0, 0],
              [0, u, 0, 0],
              [u, 0, 0, 0]]
-            )
+        )
 
         b = np.array(
             [[0, 0, 0, u],
              [0, 0, u, 0],
              [0, 0, 0, 0],
              [0, 0, 0, 0]]
-            )
+        )
 
         ap = np.array(
             [[0, 0, 0, 0],
              [0, 0, 0, 0],
              [0, ups, 0, 0],
              [ups, 0, 0, 0]]
-            )
+        )
 
         bp = np.array(
             [[0, 0, 0, ups],
              [0, 0, ups, 0],
              [0, 0, 0, 0],
              [0, 0, 0, 0]]
-            )
+        )
 
         w = WCS(naxis=2)
         w.wcs.crpix = [512.5, 19075.11538]

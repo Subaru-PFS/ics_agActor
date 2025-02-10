@@ -4,15 +4,11 @@ from numbers import Number
 
 import numpy
 from astropy import units
-from astropy.coordinates import AltAz, Angle, SkyCoord, solar_system_ephemeris
+from astropy.coordinates import AltAz, Angle, SkyCoord
 from astropy.time import Time
-from astropy.utils import iers
 
 import coordinates
 from kawanomoto import Subaru_POPT2_PFS
-
-iers.conf.auto_download = True
-solar_system_ephemeris.set('de440')
 
 _subaru = Subaru_POPT2_PFS.Subaru()
 popt2 = Subaru_POPT2_PFS.POPT2()
@@ -39,16 +35,16 @@ def measure(
         'ra={},dec={},obstime={},inst_pa={},inr={},adc={},m2_pos3={},temperature={},relative_humidity={},pressure={},'
         'obswl={}'.format(
             ra, dec, obstime, inst_pa, inr, adc, m2_pos3, temperature, relative_humidity, pressure, obswl
-            )
         )
+    )
 
     ra = Angle(ra, unit=units.deg)
     dec = Angle(dec, unit=units.deg)
     obstime = Time(obstime.astimezone(tz=timezone.utc)) if isinstance(obstime, datetime) else Time(
         obstime, format='unix'
-        ) if isinstance(
+    ) if isinstance(
         obstime, Number
-        ) else Time(obstime) if obstime is not None else Time.now()
+    ) else Time(obstime) if obstime is not None else Time.now()
 
     import subaru
 
@@ -114,7 +110,7 @@ if __name__ == '__main__':
     _, ra, dec, inst_pa, *_ = opdb.query_pfs_design(args.design_id)
     _, _, taken_at, _, _, _, adc, temperature, relative_humidity, pressure, m2_pos3 = opdb.query_agc_exposure(
         args.frame_id
-        )
+    )
     detected_objects = opdb.query_agc_data(args.frame_id)
 
     import logging

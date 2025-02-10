@@ -105,7 +105,7 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
             )
     else:
         if design_path is not None:
-            guide_objects, _ra, _dec, _inst_pa = pfs_design(design_id, design_path, logger=logger).guide_objects(
+            guide_objects, _ra, _dec, _inst_pa = pfs_design(design_id, design_path, logger=logger).get_guide_objects(
                 magnitude=magnitude, obstime=taken_at
                 )
         else:

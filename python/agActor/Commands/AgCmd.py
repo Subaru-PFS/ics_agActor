@@ -5,10 +5,10 @@ import time
 import numpy
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from agActor import data_utils, field_acquisition, focus as _focus, pfs_design
-from agActor.Controllers.ag import ag
-from agActor.telescope_center import telCenter as tel_center
-from kawanomoto import Subaru_POPT2_PFS  # *NOT* 'from agActor.kawanomoto import Subaru_POPT2_PFS'
+from .. import data_utils, field_acquisition, focus as _focus, pfs_design
+from ..Controllers.ag import ag
+from ..telescope_center import telCenter as tel_center
+from ..kawanomoto import Subaru_POPT2_PFS  # *NOT* 'from agActor.kawanomoto import Subaru_POPT2_PFS'
 
 
 class AgCmd:

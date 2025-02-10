@@ -32,7 +32,7 @@ class PFS():
         frame_subaru = ac.AltAz(
             obstime=dt, location=Lsbr, \
             pressure=sbr_press * au.hPa, obswl=wl * au.micron
-            )
+        )
         tel_altaz = tel_coord.transform_to(frame_subaru)
         az = tel_altaz.az.degree + 180.0
         el = tel_altaz.alt.degree
@@ -40,17 +40,17 @@ class PFS():
         PFS_beta = (np.arctan2(
             (PFS_a3 - (PFS_a4 + PFS_a5) * np.cos(az / 180 * np.pi)),
             (PFS_a2 + (PFS_a4 + PFS_a5) * np.sin(az / 180 * np.pi))
-            )) * 180 / np.pi + 180.0
+        )) * 180 / np.pi + 180.0
         PFS_z = np.sqrt(
             (PFS_a3 - (PFS_a4 + PFS_a5) * np.cos(az / 180 * np.pi)) ** 2 + (
-                    PFS_a2 + (PFS_a4 + PFS_a5) * np.sin(az / 180 * np.pi)) ** 2
-            )
+                PFS_a2 + (PFS_a4 + PFS_a5) * np.sin(az / 180 * np.pi)) ** 2
+        )
         PFS_eps = np.arctan2(
             (np.sin(PFS_z / 180 * np.pi) * (np.sin(az / 180 * np.pi - PFS_beta / 180 * np.pi))), (
-                    np.cos(PFS_z / 180 * np.pi) * np.cos(el / 180 * np.pi) - np.sin(PFS_z / 180 * np.pi) * np.sin(
-                    el / 180 * np.pi
-                    ) * np.cos(az / 180 * np.pi - PFS_beta / 180 * np.pi))
-            ) / np.pi * 180
+                np.cos(PFS_z / 180 * np.pi) * np.cos(el / 180 * np.pi) - np.sin(PFS_z / 180 * np.pi) * np.sin(
+                el / 180 * np.pi
+            ) * np.cos(az / 180 * np.pi - PFS_beta / 180 * np.pi))
+        ) / np.pi * 180
         # print("#",PFS_eps, az, el)
         pfs = Subaru_POPT2_PFS_AG.PFS()
         v_0, v_1 = \
@@ -58,7 +58,7 @@ class PFS():
                 tel_ra, tel_de, \
                 carray[:, 0], carray[:, 1], \
                 dt, adc, inr + PFS_eps, m2pos3, wl
-                )
+            )
 
         v_0 = (np.insert(v_0, 2, carray[:, 2], axis=1))
         v_1 = (np.insert(v_1, 2, carray[:, 2], axis=1))
@@ -75,7 +75,7 @@ class PFS():
                 filtered_darray[:, 4], \
                 filtered_darray[:, 7], \
                 v_0, v_1
-                )
+            )
 
         return ra_offset, de_offset, inr_offset, scale_offset, mr, md, v
 
@@ -93,7 +93,7 @@ class PFS():
                 tel_ra, tel_de, \
                 carray[:, 0], carray[:, 1], \
                 dt, adc, inr, m2pos3, wl
-                )
+            )
 
         v_0 = (np.insert(v_0, 2, carray[:, 2], axis=1))
         v_1 = (np.insert(v_1, 2, carray[:, 2], axis=1))
@@ -109,14 +109,13 @@ class PFS():
         # limit_flux = (np.sort(filtered_darray[:,4])[::-1])[limit_number]
         # filtered_darray = filtered_darray[np.where(filtered_darray[:,4]>=limit_flux)]
 
-        ra_offset, de_offset, inr_offset, scale_offset, mr, md = \
-            pfs.RADECInRScaleShift(
-                filtered_darray[:, 2], \
-                filtered_darray[:, 3], \
-                filtered_darray[:, 4], \
-                filtered_darray[:, 7], \
-                v_0, v_1
-                )
+        ra_offset, de_offset, inr_offset, scale_offset, mr, md = pfs.RADECInRScaleShift(
+            filtered_darray[:, 2],
+            filtered_darray[:, 3],
+            filtered_darray[:, 4],
+            filtered_darray[:, 7],
+            v_0, v_1
+        )
 
         return ra_offset, de_offset, inr_offset, scale_offset, mr, md, v
 

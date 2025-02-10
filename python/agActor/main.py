@@ -4,16 +4,16 @@ import argparse
 import queue
 
 from actorcore.ICC import ICC
-from agActor.agcc import Agcc
-from agActor.gen2 import Gen2
-from agActor.mlp1 import Mlp1
+
+from .agcc import Agcc
+from .gen2 import Gen2
+from .mlp1 import Mlp1
 
 
 class AgActor(ICC):
 
     # Keyword arguments for this class
-    _kwargs = {
-    }
+    _kwargs = {}
 
     def __init__(self, name, **kwargs):
 
@@ -60,7 +60,7 @@ class AgActor(ICC):
             # self.models['mlp1'].keyVarDict[''].addCallback(self.mlp1.receiveStatusKeys, callNow=False)
             self.models['gen2'].keyVarDict['tel_axes'].addCallback(
                 self.gen2.receiveStatusKeys, callNow=False
-                )  # for timestamp only
+            )  # for timestamp only
 
     # override
     def connectionLost(self, reason):

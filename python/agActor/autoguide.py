@@ -70,7 +70,7 @@ def set_design_agc(*, frame_id=None, obswl=0.62, logger=None, **kwargs):
             taken_at = kwargs.get('taken_at')
             magnitude = kwargs.get('magnitude', 20.0)
             logger and logger.info('taken_at={},magnitude={}'.format(taken_at, magnitude))
-            guide_objects, *_ = pfs_design(design_id, design_path, logger=logger).guide_objects(
+            guide_objects, *_ = pfs_design(design_id, design_path, logger=logger).get_guide_objects(
                 magnitude=magnitude, obstime=taken_at
                 )
         elif design_id is not None:
