@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools >= 64.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+dynamic = ["version"]
+name = "ics-ag-actor"
+description = "ICS actor for the Auto Guider"
+readme = "README.md"
+requires-python = ">=3.11"
+
+[tool.setuptools.packages.find]
+where = ["python/"]
+include = ["agActor"]
+
+[tool.setuptools.dynamic]
+version = {attr = "agActor.version.__version__", file = "python/agActor/version.py"}
+
+[tool.black]
+line-length = 110
+target-version = ["py311"]
+
+[tool.isort]
+profile = "black"
+line_length = 110
