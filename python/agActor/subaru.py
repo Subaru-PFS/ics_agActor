@@ -1,7 +1,7 @@
 from astropy import units
 from astropy.coordinates import Angle, EarthLocation
 
-#location = EarthLocation.of_site('Subaru Telescope')
+# location = EarthLocation.of_site('Subaru Telescope')
 
 # subaru coordinates (NAD83 ~ WGS 1984 at 0.1" level, height of elevation axis)
 height = elevation = 4163 * units.m

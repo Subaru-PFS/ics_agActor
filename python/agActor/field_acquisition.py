@@ -1,14 +1,15 @@
 from datetime import datetime, timezone
 from numbers import Number
+
 import numpy
+
 import _gen2_gaia as gaia
-#import _gen2_gaia_annulus as gaia
+# import _gen2_gaia_annulus as gaia
 import coordinates
-from opdb import opDB as opdb
-from pfs_design import pfsDesign as pfs_design
 import to_altaz
 from kawanomoto import FieldAcquisitionAndFocusing
-
+from opdb import opDB as opdb
+from pfs_design import pfsDesign as pfs_design
 
 # mapping of keys and value types between field_acquisition.py and FieldAcquisitionAndFocusing.py
 _KEYMAP = {
@@ -72,10 +73,14 @@ def _get_tel_status(*, frame_id, logger=None, **kwargs):
             logger and logger.info('visit_id={},sequence_id={}'.format(visit_id, sequence_id))
             # use visit_id from agc_exposure table
             _, _, _inr, _adc, _m2_pos3, _, _, _, _, _taken_at = opdb.query_tel_status(visit_id, sequence_id)
-        if taken_at is None: taken_at = _taken_at
-        if inr is None: inr = _inr
-        if adc is None: adc = _adc
-        if m2_pos3 is None: m2_pos3 = _m2_pos3
+        if taken_at is None:
+            taken_at = _taken_at
+        if inr is None:
+            inr = _inr
+        if adc is None:
+            adc = _adc
+        if m2_pos3 is None:
+            m2_pos3 = _m2_pos3
     logger and logger.info('taken_at={},inr={},adc={},m2_pos3={}'.format(taken_at, inr, adc, m2_pos3))
     return taken_at, inr, adc, m2_pos3
 
@@ -86,7 +91,7 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
     _parse_kwargs(kwargs)
     taken_at, inr, adc, m2_pos3 = _get_tel_status(frame_id=frame_id, logger=logger, **kwargs)
     detected_objects = opdb.query_agc_data(frame_id)
-    #logger and logger.info('detected_objects={}'.format(detected_objects))
+    # logger and logger.info('detected_objects={}'.format(detected_objects))
     design_id = kwargs.get('design_id')
     design_path = kwargs.get('design_path')
     logger and logger.info('design_id={},design_path={}'.format(design_id, design_path))
@@ -95,29 +100,45 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
     inst_pa = kwargs.get('inst_pa')
     magnitude = kwargs.get('magnitude', 20.0)
     if all(x is None for x in (design_id, design_path)):
-        guide_objects, *_ = gaia.get_objects(ra=ra, dec=dec, obstime=taken_at, inst_pa=inst_pa, adc=adc, m2pos3=m2_pos3, obswl=obswl, magnitude=magnitude)
+        guide_objects, *_ = gaia.get_objects(
+            ra=ra, dec=dec, obstime=taken_at, inst_pa=inst_pa, adc=adc, m2pos3=m2_pos3, obswl=obswl, magnitude=magnitude
+            )
     else:
         if design_path is not None:
-            guide_objects, _ra, _dec, _inst_pa = pfs_design(design_id, design_path, logger=logger).guide_objects(magnitude=magnitude, obstime=taken_at)
+            guide_objects, _ra, _dec, _inst_pa = pfs_design(design_id, design_path, logger=logger).guide_objects(
+                magnitude=magnitude, obstime=taken_at
+                )
         else:
             _, _ra, _dec, _inst_pa, *_ = opdb.query_pfs_design(design_id)
             guide_objects = opdb.query_pfs_design_agc(design_id)
-        if ra is None: ra = _ra
-        if dec is None: dec = _dec
-        if inst_pa is None: inst_pa = _inst_pa
+        if ra is None:
+            ra = _ra
+        if dec is None:
+            dec = _dec
+        if inst_pa is None:
+            inst_pa = _inst_pa
     logger and logger.info('ra={},dec={},inst_pa={}'.format(ra, dec, inst_pa))
-    #logger and logger.info('guide_objects={}'.format(guide_objects))
-    if 'dra' in kwargs: ra += kwargs.get('dra') / 3600
-    if 'ddec' in kwargs: dec += kwargs.get('ddec') / 3600
-    if 'dpa' in kwargs: inst_pa += kwargs.get('dpa') / 3600
-    if 'dinr' in kwargs: inr += kwargs.get('dinr') / 3600
+    # logger and logger.info('guide_objects={}'.format(guide_objects))
+    if 'dra' in kwargs:
+        ra += kwargs.get('dra') / 3600
+    if 'ddec' in kwargs:
+        dec += kwargs.get('ddec') / 3600
+    if 'dpa' in kwargs:
+        inst_pa += kwargs.get('dpa') / 3600
+    if 'dinr' in kwargs:
+        inr += kwargs.get('dinr') / 3600
     logger and logger.info('ra={},dec={},inst_pa={},inr={}'.format(ra, dec, inst_pa, inr))
     _kwargs = _filter_kwargs(kwargs)
     logger and logger.info('_kwargs={}'.format(_kwargs))
-    return (ra, dec, inst_pa, *_acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst_pa, m2_pos3=m2_pos3, obswl=obswl, altazimuth=altazimuth, logger=logger, **_kwargs))
+    return (ra, dec, inst_pa, *_acquire_field(
+        guide_objects, detected_objects, ra, dec, taken_at, adc, inst_pa, m2_pos3=m2_pos3, obswl=obswl,
+        altazimuth=altazimuth, logger=logger, **_kwargs
+        ))
 
 
-def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst_pa=0.0, m2_pos3=6.0, obswl=0.62, altazimuth=False, logger=None, **kwargs):
+def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst_pa=0.0, m2_pos3=6.0, obswl=0.62,
+                   altazimuth=False, logger=None, **kwargs
+                   ):
 
     def semi_axes(xy, x2, y2):
 
@@ -144,7 +165,15 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst
     _kwargs = _map_kwargs(kwargs)
     logger and logger.info('_kwargs={}'.format(_kwargs))
     pfs = FieldAcquisitionAndFocusing.PFS()
-    dra, ddec, dinr, dscale, *diags = pfs.FAinstpa(_guide_objects, _detected_objects, ra, dec, taken_at.astimezone(tz=timezone.utc) if isinstance(taken_at, datetime) else datetime.fromtimestamp(taken_at, tz=timezone.utc) if isinstance(taken_at, Number) else taken_at, adc, inst_pa, m2_pos3, obswl, **_kwargs)
+    dra, ddec, dinr, dscale, *diags = pfs.FAinstpa(
+        _guide_objects, _detected_objects, ra, dec, taken_at.astimezone(tz=timezone.utc) if isinstance(
+            taken_at, datetime
+            ) else datetime.fromtimestamp(
+            taken_at, tz=timezone.utc
+            ) if isinstance(
+            taken_at, Number
+            ) else taken_at, adc, inst_pa, m2_pos3, obswl, **_kwargs
+        )
     dra *= 3600
     ddec *= 3600
     dinr *= 3600
@@ -190,9 +219,12 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst
                 int(x[0]),  # index of identified guide object
                 float(x[1]), float(x[2]),  # detector plane coordinates of detected object
                 float(x[3]), float(x[4]),  # detector plane coordinates of identified guide object
-                *coordinates.dp2det(detected_objects[k][0], float(x[3]), float(x[4]))  # detector coordinates of identified guide object
+                *coordinates.dp2det(detected_objects[k][0], float(x[3]), float(x[4]))
+            # detector coordinates of identified guide object
             )
-            for k, x in ((int(index_v[i]), x) for i, x in enumerate(zip(mr[:, 9], mr[:, 0], mr[:, 1], mr[:, 2], mr[:, 3], mr[:, 8])) if int(x[5]))
+            for k, x in
+            ((int(index_v[i]), x) for i, x in enumerate(zip(mr[:, 9], mr[:, 0], mr[:, 1], mr[:, 2], mr[:, 3], mr[:, 8]))
+             if int(x[5]))
         ],
         dtype=[
             ('detected_object_id', numpy.int16),
@@ -211,12 +243,17 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst
     size = 0  # pix
     peak = 0  # pix
     flux = 0  # pix
-    esq = (identified_objects['detected_object_x'] - identified_objects['guide_object_x']) ** 2 + (identified_objects['detected_object_y'] - identified_objects['guide_object_y']) ** 2  # squares of pointing errors in detector plane coordinates
+    esq = (identified_objects['detected_object_x'] - identified_objects['guide_object_x']) ** 2 + (
+            identified_objects['detected_object_y'] - identified_objects[
+            'guide_object_y']) ** 2  # squares of pointing errors in detector plane coordinates
     n = len(esq) - numpy.isnan(esq).sum()
     if n > 0:
         i = numpy.argpartition(esq, n // 2)[n // 2]  # index of "median" of identified objects
         k = identified_objects['detected_object_id'][i]  # index of "median" of detected objects
-        a, b = semi_axes(detected_objects['central_moment_11'][k], detected_objects['central_moment_20'][k], detected_objects['central_moment_02'][k])
+        a, b = semi_axes(
+            detected_objects['central_moment_11'][k], detected_objects['central_moment_20'][k],
+            detected_objects['central_moment_02'][k]
+            )
         size = (a * b) ** 0.5
         peak = detected_objects['peak'][k]
         flux = detected_objects['moment_00'][k]
@@ -264,13 +301,15 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(name='field_acquisition')
-    ra, dec, inst_pa, dra, ddec, dinr, dscale, *values = acquire_field(frame_id=args.frame_id, obswl=args.obswl, altazimuth=args.altazimuth, logger=logger, **kwargs)
+    ra, dec, inst_pa, dra, ddec, dinr, dscale, *values = acquire_field(
+        frame_id=args.frame_id, obswl=args.obswl, altazimuth=args.altazimuth, logger=logger, **kwargs
+        )
     print('ra={},dec={},inst_pa={},dra={},ddec={},dinr={},dscale={}'.format(ra, dec, inst_pa, dra, ddec, dinr, dscale))
     if args.altazimuth:
         dalt, daz, *values = values
         print('dalt={},daz={}'.format(dalt, daz))
     guide_objects, detected_objects, identified_objects, dx, dy, size, peak, flux = values
-    #print('guide_objects={}'.format(guide_objects))
-    #print('detected_objects={}'.format(detected_objects))
-    #print('identified_objects={}'.format(identified_objects))
+    # print('guide_objects={}'.format(guide_objects))
+    # print('detected_objects={}'.format(detected_objects))
+    # print('identified_objects={}'.format(identified_objects))
     print('dx={},dy={},size={},peak={},flux={}'.format(dx, dy, size, peak, flux))

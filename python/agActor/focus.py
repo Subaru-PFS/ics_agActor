@@ -1,7 +1,7 @@
 import numpy
-from opdb import opDB as opdb
-from kawanomoto import FieldAcquisitionAndFocusing
 
+from kawanomoto import FieldAcquisitionAndFocusing
+from opdb import opDB as opdb
 
 # mapping of keys and value types between focus.py and FieldAcquisitionAndFocusing.py
 _KEYMAP = {
@@ -32,10 +32,9 @@ def focus(*, frame_id, logger=None, **kwargs):
 
 def _focus(detected_objects, logger=None, **kwargs):
 
-    #logger and logger.info('detected_objects={}'.format(detected_objects))
+    # logger and logger.info('detected_objects={}'.format(detected_objects))
 
     def semi_axes(xy, x2, y2):
-
         p = (x2 + y2) / 2
         q = numpy.sqrt(numpy.square((x2 - y2) / 2) + numpy.square(xy))
         a = numpy.sqrt(p + q)

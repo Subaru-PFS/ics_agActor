@@ -1,8 +1,11 @@
 import numpy
+
 from opdb import opDB as opdb
 
 
-def write_agc_guide_offset(*, frame_id, ra=None, dec=None, pa=None, delta_ra=None, delta_dec=None, delta_insrot=None, delta_scale=None, delta_az=None, delta_el=None, delta_z=None, delta_zs=None):
+def write_agc_guide_offset(*, frame_id, ra=None, dec=None, pa=None, delta_ra=None, delta_dec=None, delta_insrot=None,
+                           delta_scale=None, delta_az=None, delta_el=None, delta_z=None, delta_zs=None
+                           ):
 
     params = dict(
         guide_ra=ra,
@@ -51,7 +54,7 @@ def write_agc_match(*, design_id, frame_id, guide_objects, detected_objects, ide
             ('flags', numpy.int32)
         ]
     )
-    #print(data)
+    # print(data)
     opdb.insert_agc_match(frame_id, design_id, data)
 
 
@@ -77,7 +80,10 @@ if __name__ == '__main__':
     import field_acquisition
     import focus
 
-    ra, dec, pa, dra, ddec, dinr, _, dalt, daz, *values = field_acquisition.acquire_field(design=(args.design_id, args.design_path), frame_id=args.frame_id, obswl=args.obswl, altazimuth=True, logger=logger)
+    ra, dec, pa, dra, ddec, dinr, _, dalt, daz, *values = field_acquisition.acquire_field(
+        design=(args.design_id, args.design_path), frame_id=args.frame_id, obswl=args.obswl, altazimuth=True,
+        logger=logger
+        )
     print('ra={},dec={},pa={},dra={},ddec={},dinr={},dalt={},daz={}'.format(ra, dec, pa, dra, ddec, dinr, dalt, daz))
     guide_objects, detected_objects, identified_objects, dx, dy, size, peak, flux = values
     print('guide_objects={}'.format(guide_objects))
@@ -86,5 +92,11 @@ if __name__ == '__main__':
     print('dx={},dy={},size={},peak={},flux={}'.format(dx, dy, size, peak, flux))
     dz, dzs = focus._focus(detected_objects=detected_objects, logger=logger)
     print('dz={},dzs={}'.format(dz, dzs))
-    write_agc_guide_offset(frame_id=args.frame_id, ra=ra, dec=dec, pa=pa, delta_ra=dra, delta_dec=ddec, delta_insrot=dinr, delta_az=daz, delta_el=dalt, delta_z=dz, delta_zs=dzs)
-    write_agc_match(design_id=args.design_id, frame_id=args.frame_id, guide_objects=guide_objects, detected_objects=detected_objects, identified_objects=identified_objects)
+    write_agc_guide_offset(
+        frame_id=args.frame_id, ra=ra, dec=dec, pa=pa, delta_ra=dra, delta_dec=ddec, delta_insrot=dinr, delta_az=daz,
+        delta_el=dalt, delta_z=dz, delta_zs=dzs
+        )
+    write_agc_match(
+        design_id=args.design_id, frame_id=args.frame_id, guide_objects=guide_objects,
+        detected_objects=detected_objects, identified_objects=identified_objects
+        )

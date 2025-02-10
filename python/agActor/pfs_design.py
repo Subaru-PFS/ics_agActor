@@ -1,13 +1,13 @@
+import os
 from datetime import datetime, timezone
 from numbers import Number
-import os
+
+import fitsio
+import numpy
 from astropy import units
 from astropy.coordinates import Angle, Distance, SkyCoord, solar_system_ephemeris
 from astropy.time import Time
 from astropy.utils import iers
-import fitsio
-import numpy
-
 
 iers.conf.auto_download = True
 solar_system_ephemeris.set('de440')
@@ -43,7 +43,11 @@ class pfsDesign:
 
     def guide_objects(self, magnitude=20.0, obstime=None):
 
-        _obstime = Time(obstime.astimezone(tz=timezone.utc)) if isinstance(obstime, datetime) else Time(obstime, format='unix') if isinstance(obstime, Number) else Time(obstime) if obstime is not None else Time.now()
+        _obstime = Time(obstime.astimezone(tz=timezone.utc)) if isinstance(obstime, datetime) else Time(
+            obstime, format='unix'
+            ) if isinstance(
+            obstime, Number
+            ) else Time(obstime) if obstime is not None else Time.now()
         self.logger and self.logger.info('magnitude={},obstime={},_obstime={}'.format(magnitude, obstime, _obstime))
         with fitsio.FITS(self.design_path) as fits:
             header = fits[0].read_header()
@@ -65,9 +69,9 @@ class pfsDesign:
         _icrs_d = _icrs.apply_space_motion(new_obstime=_obstime)  # of date
         _guide_objects['ra'] = _icrs_d.ra.deg
         _guide_objects['dec'] = _icrs_d.dec.deg
-        #guide_objects = tuple(map(tuple, _guide_objects[['objId', 'ra', 'dec', 'magnitude', 'agId', 'agX', 'agY']]))
+        # guide_objects = tuple(map(tuple, _guide_objects[['objId', 'ra', 'dec', 'magnitude', 'agId', 'agX', 'agY']]))
         guide_objects = _guide_objects[['objId', 'ra', 'dec', 'magnitude', 'agId', 'agX', 'agY']]
-        #guide_objects.dtype.names = ('source_id', 'ra', 'dec', 'mag', 'camera_id', 'x', 'y')
+        # guide_objects.dtype.names = ('source_id', 'ra', 'dec', 'mag', 'camera_id', 'x', 'y')
         return guide_objects, ra, dec, inst_pa
 
     @staticmethod
@@ -103,5 +107,7 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(name='pfs_design')
-    guide_objects, ra, dec, inst_pa = pfsDesign(design_id, design_path, logger=logger).guide_objects(magnitude=magnitude, obstime=obstime)
+    guide_objects, ra, dec, inst_pa = pfsDesign(design_id, design_path, logger=logger).guide_objects(
+        magnitude=magnitude, obstime=obstime
+        )
     print('guide_objects={},ra={},dec={},inst_pa={}'.format(guide_objects, ra, dec, inst_pa))
