@@ -12,7 +12,7 @@ dependencies = [
     "astropy",
     "jplephem",
     "numpy",
-    "psycopg2"
+    "psycopg2",
     "sdss-opscore",
 ]
 
