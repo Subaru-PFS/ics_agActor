@@ -1,30 +1,33 @@
 from datetime import datetime, timezone
 from numbers import Number
+
 from astropy import units
-from astropy.coordinates import AltAz, Angle, SkyCoord, solar_system_ephemeris
+from astropy.coordinates import AltAz, Angle, SkyCoord
 from astropy.time import Time
-from astropy.utils import iers
 
-
-iers.conf.auto_download = True
-solar_system_ephemeris.set('de440')
+import subaru
 
 
 def to_altaz(
-        ra,
-        dec,
-        obstime=None,
-        temperature=0,
-        relative_humidity=0,
-        pressure=620,
-        obswl=0.62,
-        dra=0,
-        ddec=0
+    ra,
+    dec,
+    obstime=None,
+    temperature=0,
+    relative_humidity=0,
+    pressure=620,
+    obswl=0.62,
+    dra=0,
+    ddec=0
 ):
+    """ Convert the given RA/Dec to AltAz for the given location and time."""
 
     ra = Angle(ra, unit=units.deg)
     dec = Angle(dec, unit=units.deg)
-    obstime = Time(obstime.astimezone(tz=timezone.utc)) if isinstance(obstime, datetime) else Time(obstime, format='unix') if isinstance(obstime, Number) else Time(obstime) if obstime is not None else Time.now()
+    obstime = Time(obstime.astimezone(tz=timezone.utc)) if isinstance(obstime, datetime) else Time(
+        obstime, format='unix'
+    ) if isinstance(
+        obstime, Number
+    ) else Time(obstime) if obstime is not None else Time.now()
 
     temperature *= units.deg_C
     relative_humidity /= 100
@@ -34,11 +37,16 @@ def to_altaz(
     dra *= units.arcsec
     ddec *= units.arcsec
 
-    import subaru
-    frame = AltAz(obstime=obstime, location=subaru.location, temperature=temperature, relative_humidity=relative_humidity, pressure=pressure, obswl=obswl)
+    altaz_frame = AltAz(
+        obstime=obstime,
+        location=subaru.location,
+        temperature=temperature,
+        relative_humidity=relative_humidity,
+        pressure=pressure, obswl=obswl
+    )
 
-    icrs = SkyCoord(ra=[ra, ra + dra], dec=[dec, dec + ddec], frame='icrs')
-    altaz = icrs.transform_to(frame)
+    coords = SkyCoord(ra=[ra, ra + dra], dec=[dec, dec + ddec], frame='icrs')
+    altaz = coords.transform_to(altaz_frame)
 
     alt = altaz[0].alt.to(units.deg).value
     az = altaz[0].az.to(units.deg).value
