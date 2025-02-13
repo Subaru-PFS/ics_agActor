@@ -323,7 +323,7 @@ def search(ra, dec, inner_radius=0.7325 - 0.03, outer_radius=0.7325 + 0.03, magn
             with connection.cursor() as cursor:
                 query = 'SELECT {} FROM gaia3 WHERE ('.format(','.join(columns)) \
                     + ' OR '.join(['(q3c_radial_query(ra,dec,{},{},{}) AND NOT q3c_radial_query(ra,dec,{},{},{}))'.format(_ra, _dec, outer_radius, _ra, _dec, inner_radius) for _ra, _dec in zip(ra, dec)]) \
-                    + ') AND phot_g_mean_mag<={} AND pmra IS NOT NULL AND pmdec IS NOT NULL AND parallax IS NOT NULL ORDER BY phot_g_mean_mag'.format(magnitude)
+                    + ') AND pmra IS NOT NULL AND pmdec IS NOT NULL AND parallax IS NOT NULL ORDER BY phot_g_mean_mag'
                 cursor.execute(query)
                 objects = cursor.fetchall()
                 return Table(rows=objects, names=columns, units=_units)
