@@ -51,8 +51,9 @@ class pfsDesign:
             dec = header['DEC']
             inst_pa = header['POSANG']
             _guide_objects = fits['guidestars'].read()
-        _guide_objects = _guide_objects[numpy.where(_guide_objects['magnitude'] <= magnitude)]
+
         _guide_objects['parallax'][numpy.where(_guide_objects['parallax'] < 1e-6)] = 1e-6
+
         _icrs = SkyCoord(
             ra=_guide_objects['ra'] * units.deg,
             dec=_guide_objects['dec'] * units.deg,
@@ -65,9 +66,9 @@ class pfsDesign:
         _icrs_d = _icrs.apply_space_motion(new_obstime=_obstime)  # of date
         _guide_objects['ra'] = _icrs_d.ra.deg
         _guide_objects['dec'] = _icrs_d.dec.deg
-        #guide_objects = tuple(map(tuple, _guide_objects[['objId', 'ra', 'dec', 'magnitude', 'agId', 'agX', 'agY']]))
+
         guide_objects = _guide_objects[['objId', 'ra', 'dec', 'magnitude', 'agId', 'agX', 'agY']]
-        #guide_objects.dtype.names = ('source_id', 'ra', 'dec', 'mag', 'camera_id', 'x', 'y')
+
         return guide_objects, ra, dec, inst_pa
 
     @staticmethod
