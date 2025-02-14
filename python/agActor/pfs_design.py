@@ -41,10 +41,10 @@ class pfsDesign:
             inst_pa = header['POSANG']
         return ra, dec, inst_pa
 
-    def guide_objects(self, magnitude=20.0, obstime=None):
+    def guide_objects(self, obstime=None):
 
         _obstime = Time(obstime.astimezone(tz=timezone.utc)) if isinstance(obstime, datetime) else Time(obstime, format='unix') if isinstance(obstime, Number) else Time(obstime) if obstime is not None else Time.now()
-        self.logger and self.logger.info('magnitude={},obstime={},_obstime={}'.format(magnitude, obstime, _obstime))
+        self.logger and self.logger.info('obstime={},_obstime={}'.format(obstime, _obstime))
         with fitsio.FITS(self.design_path) as fits:
             header = fits[0].read_header()
             ra = header['RA']
@@ -104,5 +104,5 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(name='pfs_design')
-    guide_objects, ra, dec, inst_pa = pfsDesign(design_id, design_path, logger=logger).guide_objects(magnitude=magnitude, obstime=obstime)
+    guide_objects, ra, dec, inst_pa = pfsDesign(design_id, design_path, logger=logger).guide_objects(obstime=obstime)
     print('guide_objects={},ra={},dec={},inst_pa={}'.format(guide_objects, ra, dec, inst_pa))
