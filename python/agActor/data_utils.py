@@ -1,4 +1,6 @@
 import numpy
+from numpy._typing import ArrayLike
+
 from opdb import opDB as opdb
 
 
@@ -26,7 +28,7 @@ def write_agc_guide_offset(*, frame_id, ra=None, dec=None, pa=None, delta_ra=Non
     opdb.insert_agc_guide_offset(frame_id, **params)
 
 
-def write_agc_match(*, design_id, frame_id, guide_objects, detected_objects, identified_objects):
+def write_agc_match(*, design_id, frame_id, guide_objects: ArrayLike, detected_objects: ArrayLike, identified_objects: ArrayLike):
 
     data = numpy.array(
         [

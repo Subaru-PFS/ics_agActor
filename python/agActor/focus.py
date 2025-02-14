@@ -1,7 +1,12 @@
 import numpy
-from opdb import opDB as opdb
-from kawanomoto import FieldAcquisitionAndFocusing
+import numpy as np
+from logging import Logger
 
+from numpy._typing import ArrayLike
+
+from kawanomoto import FieldAcquisitionAndFocusing
+from opdb import opDB as opdb
+from python.agActor.field_acquisition import semi_axes
 
 # mapping of keys and value types between focus.py and FieldAcquisitionAndFocusing.py
 _KEYMAP = {
@@ -30,18 +35,7 @@ def focus(*, frame_id, logger=None, **kwargs):
     return _focus(detected_objects, logger=logger, **_kwargs)
 
 
-def _focus(detected_objects, logger=None, **kwargs):
-
-    #logger and logger.info('detected_objects={}'.format(detected_objects))
-
-    def semi_axes(xy, x2, y2):
-
-        p = (x2 + y2) / 2
-        q = numpy.sqrt(numpy.square((x2 - y2) / 2) + numpy.square(xy))
-        a = numpy.sqrt(p + q)
-        b = numpy.sqrt(p - q)
-        return a, b
-
+def _focus(detected_objects: ArrayLike, logger: Logger | None = None, **kwargs):
     _detected_objects = numpy.array(
         [
             (
@@ -57,13 +51,16 @@ def _focus(detected_objects, logger=None, **kwargs):
         ]
     )
     _kwargs = _map_kwargs(kwargs)
-    logger and logger.info('_kwargs={}'.format(_kwargs))
+    logger and logger.info(f"_kwargs={_kwargs}")
+
     pfs = FieldAcquisitionAndFocusing.PFS()
     dzs = pfs.Focus(_detected_objects, **_kwargs)
-    logger and logger.info('dzs={}'.format(dzs))
-    dz = numpy.nanmedian(dzs)
-    logger and logger.info('dz={}'.format(dz))
-    return dz, dzs
+
+    logger and logger.info(f"{dzs=}")
+    median_dz = numpy.nanmedian(dzs)
+    logger and logger.info(f"{median_dz=}")
+
+    return median_dz, dzs
 
 
 if __name__ == '__main__':

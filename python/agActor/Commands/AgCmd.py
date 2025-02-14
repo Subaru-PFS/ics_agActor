@@ -1,13 +1,15 @@
 #!/usr/bin/env python
 
 import time
-import numpy
+import numpy as np
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from agActor import field_acquisition, focus as _focus, data_utils, pfs_design
-from agActor.telescope_center import telCenter as tel_center
-from agActor.Controllers.ag import ag
-from kawanomoto import Subaru_POPT2_PFS  # *NOT* 'from agActor.kawanomoto import Subaru_POPT2_PFS'
+from .. import field_acquisition, focus as _focus, data_utils, pfs_design
+from ..telescope_center import telCenter as tel_center
+from ..Controllers.ag import ag
+from ..kawanomoto import Subaru_POPT2_PFS  # *NOT* 'from agActor.kawanomoto import Subaru_POPT2_PFS'
+
+FILENAMES = ('/dev/shm/guide_objects.npy', '/dev/shm/detected_objects.npy', '/dev/shm/identified_objects.npy')
 
 
 class AgCmd:
@@ -167,15 +169,17 @@ class AgCmd:
             tec_off = bool(cmd.cmd.keywords['tec_off'].values[0])
 
         try:
-            cmd.inform('exposureTime={}'.format(exposure_time))
+            cmd.inform(f"exposureTime={exposure_time}")
+
             # start an exposure
-            cmdStr = 'expose object exptime={} centroid=1'.format(exposure_time / 1000)
+            cmdStr = f"expose object exptime={exposure_time / 1000} centroid=1"
             if visit_id is not None:
-                cmdStr += ' visit={}'.format(visit_id)
+                cmdStr += f' visit={visit_id}'
             if exposure_delay > 0:
-                cmdStr += ' threadDelay={}'.format(exposure_delay)
+                cmdStr += f' threadDelay={exposure_delay}'
             if tec_off:
                 cmdStr += ' tecOFF'
+
             result = self.actor.queueCommand(
                 actor='agcc',
                 cmdStr=cmdStr,
@@ -183,96 +187,154 @@ class AgCmd:
             )
             time.sleep((exposure_time + 7 * exposure_delay) / 1000 / 2)
             telescope_state = None
+
             if self.with_mlp1_status:
                 telescope_state = self.actor.mlp1.telescopeState
-                self.actor.logger.info('AgCmd.acquire_field: telescopeState={}'.format(telescope_state))
+                self.actor.logger.info(f"AgCmd.acquire_field: telescopeState={telescope_state}")
                 kwargs['inr'] = telescope_state['rotator_real_angle']
+
             if self.with_gen2_status or self.with_opdb_tel_status:
                 # update gen2 status values
                 self.actor.queueCommand(
                     actor='gen2',
-                    cmdStr='updateTelStatus caller={}'.format(self.actor.name),
+                    cmdStr=f"updateTelStatus caller={self.actor.name}",
                     timeLim=5
                 ).get()
+
                 if self.with_gen2_status:
                     tel_status = self.actor.gen2.tel_status
-                    self.actor.logger.info('AgCmd.acquire_field: tel_status={}'.format(tel_status))
+                    self.actor.logger.info(f"AgCmd.acquire_field: tel_status={tel_status}")
                     kwargs['tel_status'] = tel_status
                     _tel_center = tel_center(actor=self.actor, center=center, design=design, tel_status=tel_status)
                     if all(x is None for x in (center, design)):
                         center, _offset = _tel_center.dither  # dithered center and guide offset correction (insrot only)
-                        self.actor.logger.info('AgCmd.acquire_field: center={}'.format(center))
+                        self.actor.logger.info(f"AgCmd.acquire_field: center={center}")
                     else:
                         _offset = _tel_center.offset  # dithering and guide offset correction
                     if offset is None:
                         offset = _offset
-                        self.actor.logger.info('AgCmd.acquire_field: offset={}'.format(offset))
+                        self.actor.logger.info(f"AgCmd.acquire_field: offset={offset}")
+
                 if self.with_opdb_tel_status:
                     status_update = self.actor.gen2.statusUpdate
                     status_id = (status_update['visit'], status_update['sequenceNum'])
-                    self.actor.logger.info('AgCmd.acquire_field: status_id={}'.format(status_id))
+                    self.actor.logger.info(f"AgCmd.acquire_field: status_id={status_id}")
                     kwargs['status_id'] = status_id
+
             # wait for an exposure to complete
             result.get()
+
             frame_id = self.actor.agcc.frameId
-            self.actor.logger.info('AgCmd.acquire_field: frameId={}'.format(frame_id))
+            self.actor.logger.info(f"AgCmd.acquire_field: frameId={frame_id}")
             data_time = self.actor.agcc.dataTime
-            self.actor.logger.info('AgCmd.acquire_field: dataTime={}'.format(data_time))
+            self.actor.logger.info(f"AgCmd.acquire_field: dataTime={data_time}")
             taken_at = data_time + (exposure_time + 7 * exposure_delay) / 1000 / 2
-            self.actor.logger.info('AgCmd.acquire_field: taken_at={}'.format(taken_at))
+            self.actor.logger.info(f"AgCmd.acquire_field: taken_at={taken_at}")
+
             if self.with_agcc_timestamp:
-                kwargs['taken_at'] = taken_at  # unix timestamp, not timezone-aware datetime
+                # unix timestamp, not timezone-aware datetime
+                kwargs['taken_at'] = taken_at
+
             if self.with_mlp1_status:
                 # possibly override timestamp from agcc
                 taken_at = self.actor.mlp1.setUnixDay(telescope_state['az_el_detect_time'], taken_at)
                 kwargs['taken_at'] = taken_at
+
             if center is not None:
                 kwargs['center'] = center
+
             if offset is not None:
                 kwargs['offset'] = offset
+
             if dinr is not None:
                 kwargs['dinr'] = dinr
+
             # retrieve field center coordinates from opdb
             # retrieve exposure information from opdb
             # retrieve guide star coordinates from opdb
             # retrieve metrics of detected objects from opdb
             # compute offsets, scale, transparency, and seeing
-            dalt = daz = numpy.nan
+
+            dalt = daz = np.nan
+
+            cmd.inform('detectionState=1')
+            offset_info = field_acquisition.get_offset_info(
+                design=design,
+                frame_id=frame_id,
+                altazimuth=guide,
+                logger=self.actor.logger,
+                **kwargs
+            )
+
             if guide:
-                cmd.inform('detectionState=1')
-                # convert equatorial coordinates to horizontal coordinates
-                ra, dec, inst_pa, dra, ddec, dinr, dscale, dalt, daz, *values = field_acquisition.acquire_field(design=design, frame_id=frame_id, altazimuth=True, logger=self.actor.logger, **kwargs)  # design takes precedence over center
-                cmd.inform('text="ra={},dec={},inst_pa={},dra={},ddec={},dinr={},dscale={},dalt={},daz={}"'.format(ra, dec, inst_pa, dra, ddec, dinr, dscale, dalt, daz))
-                filenames = ('/dev/shm/guide_objects.npy', '/dev/shm/detected_objects.npy', '/dev/shm/identified_objects.npy')
-                for filename, value in zip(filenames, values):
-                    numpy.save(filename, value)
-                cmd.inform('data={},{},{},"{}","{}","{}"'.format(ra, dec, inst_pa, *filenames))
-                cmd.inform('detectionState=0')
-                dx, dy, size, peak, flux = values[3], values[4], values[5], values[6], values[7]
+                cmd.inform('text="ra={},dec={},inst_pa={},dra={},ddec={},dinr={},dscale={},dalt={},daz={}"'.format(
+                    offset_info.ra,
+                    offset_info.dec,
+                    offset_info.inst_pa,
+                    offset_info.dra,
+                    offset_info.ddec,
+                    offset_info.dinr,
+                    offset_info.dscale,
+                    offset_info.dalt,
+                    offset_info.daz
+                ))
+            else:
+                cmd.inform('text="dra={},ddec={},dinr={},dscale={}"'.format(
+                    offset_info.dra,
+                    offset_info.ddec,
+                    offset_info.dinr,
+                    offset_info.dscale
+                ))
+
+            # Save the detected, guide, and identified objects.
+            np.save(FILENAMES[0], offset_info.guide_objects)
+            np.save(FILENAMES[1], offset_info.detected_objects)
+            np.save(FILENAMES[2], offset_info.identified_objects)
+
+            cmd.inform('data={},{},{},"{}","{}","{}"'.format(offset_info.ra, offset_info.dec, offset_info.inst_pa, *FILENAMES))
+            cmd.inform('detectionState=0')
+
+            ra = offset_info.ra
+            dec = offset_info.dec
+            inst_pa = offset_info.inst_pa
+            dx = offset_info.dx
+            dy = offset_info.dy
+            dra = offset_info.dra
+            ddec = offset_info.ddec
+            dinr = offset_info.dinr
+            dscale = offset_info.dscale
+            dalt = offset_info.dalt
+            daz = offset_info.daz
+            spot_size = offset_info.spot_size
+            peak_intensity = offset_info.peak_intensity
+            flux = offset_info.flux
+
+            if guide:
                 # send corrections to mlp1 and gen2 (or iic)
                 result = self.actor.queueCommand(
                     actor='mlp1',
                     # daz, dalt: arcsec, positive feedback; dx, dy: mas, HSC -> PFS; size: mas; peak, flux: adu
-                    cmdStr='guide azel={},{} ready={} time={} delay=0 xy={},{} size={} intensity={} flux={}'.format(- daz, - dalt, int(not dry_run), taken_at, dx * 1e3, - dy * 1e3, size * 13 / 98e-3, peak, flux),
+                    cmdStr='guide azel={},{} ready={} time={} delay=0 xy={},{} size={} intensity={} flux={}'.format(
+                        - daz,
+                        - dalt,
+                        int(not dry_run),
+                        taken_at,
+                        dx * 1e3,
+                        - dy * 1e3,
+                        spot_size * 13 / 98e-3,
+                        peak_intensity,
+                        flux),
                     timeLim=5
                 )
                 result.get()
                 #cmd.inform('guideReady=1')
-            else:
-                cmd.inform('detectionState=1')
-                ra, dec, inst_pa, dra, ddec, dinr, dscale, *values = field_acquisition.acquire_field(design=design, frame_id=frame_id, logger=self.actor.logger, **kwargs)  # design takes precedence over center
-                cmd.inform('text="dra={},ddec={},dinr={},dscale={}"'.format(dra, ddec, dinr, dscale))
-                filenames = ('/dev/shm/guide_objects.npy', '/dev/shm/detected_objects.npy', '/dev/shm/identified_objects.npy')
-                for filename, value in zip(filenames, values):
-                    numpy.save(filename, value)
-                cmd.inform('data={},{},{},"{}","{}","{}"'.format(ra, dec, inst_pa, *filenames))
-                cmd.inform('detectionState=0')
-                # send corrections to gen2 (or iic)
+
             # always compute focus offset and tilt
-            dz, dzs = _focus._focus(detected_objects=values[1], logger=self.actor.logger)
+            dz, dzs = _focus._focus(detected_objects=offset_info.detected_objects, logger=self.actor.logger)
             # send corrections to gen2 (or iic)
-            cmd.inform('guideErrors={},{},{},{},{},{},{},{}'.format(frame_id, dra, ddec, dinr, daz, dalt, dz, dscale))
+            cmd.inform('guideErrors={},{},{},{},{},{},{},{}'.format(frame_id, offset_info.dra, offset_info.ddec, dinr, daz, dalt, dz, offset_info.dscale))
             cmd.inform('focusErrors={},{},{},{},{},{},{}'.format(frame_id, *dzs))
+
             # store results in opdb
             if self.with_opdb_agc_guide_offset:
                 data_utils.write_agc_guide_offset(
@@ -293,13 +355,13 @@ class AgCmd:
                 data_utils.write_agc_match(
                     design_id=design_id if design_id is not None else pfs_design.pfsDesign.to_design_id(design_path) if design_path is not None else 0,
                     frame_id=frame_id,
-                    guide_objects=values[0],
-                    detected_objects=values[1],
-                    identified_objects=values[2]
+                    guide_objects=offset_info.guide_objects,
+                    detected_objects=offset_info.detected_objects,
+                    identified_objects=offset_info.identified_objects,
                 )
         except Exception as e:
             self.actor.logger.exception('AgCmd.acquire_field:')
-            cmd.fail('text="AgCmd.acquire_field: {}"'.format(e))
+            cmd.fail(f'text="AgCmd.acquire_field: {e}"')
             return
         cmd.finish()
 
@@ -361,12 +423,12 @@ class AgCmd:
             # retrieve detected objects from agcc (or opdb)
             # compute focus offset and tilt
             dz, dzs = _focus.focus(frame_id=frame_id, logger=self.actor.logger, **kwargs)
-            if numpy.isnan(dz):
+            if np.isnan(dz):
                 cmd.fail('text="AgCmd.focus: dz={}"'.format(dz))
                 return
             cmd.inform('text="dz={}"'.format(dz))
             # send corrections to gen2 (or iic)
-            cmd.inform('guideErrors={},{},{},{},{},{},{},{}'.format(frame_id, numpy.nan, numpy.nan, numpy.nan, numpy.nan, numpy.nan, dz, numpy.nan))
+            cmd.inform('guideErrors={},{},{},{},{},{},{},{}'.format(frame_id, np.nan, np.nan, np.nan, np.nan, np.nan, dz, np.nan))
             cmd.inform('focusErrors={},{},{},{},{},{},{}'.format(frame_id, *dzs))
             # store results in opdb
             if self.with_opdb_agc_guide_offset:

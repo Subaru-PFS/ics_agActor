@@ -1,16 +1,13 @@
 from datetime import datetime, timezone
 from numbers import Number
+
 import numpy
 from astropy import units
-from astropy.coordinates import AltAz, Angle, Distance, SkyCoord, solar_system_ephemeris
+from astropy.coordinates import AltAz, Angle, Distance, SkyCoord
 from astropy.time import Time
-from astropy.utils import iers
+
 import coordinates
 from kawanomoto import Subaru_POPT2_PFS
-
-
-iers.conf.auto_download = True
-solar_system_ephemeris.set('de440')
 
 _popt2 = Subaru_POPT2_PFS.POPT2()
 _pfs = Subaru_POPT2_PFS.PFS()
@@ -277,7 +274,7 @@ def z2adc(z, filter_id):
     return numpy.clip(y_adc, 0, 22)
 
 
-def search(ra, dec, radius=0.027 + 0.003, magnitude=20.0):
+def search(ra, dec, radius=0.027 + 0.003):
     """
     Search guide stellar objects from Gaia DR3 sources.
 
@@ -288,9 +285,7 @@ def search(ra, dec, radius=0.027 + 0.003, magnitude=20.0):
     dec : array_like
         The declinations (ICRS) of the search centers (deg)
     radius : scalar
-        The radius of the cones (deg)
-    magnitude : scalar
-        The magnitude limit of the guide stellar objects
+        The radius of the cones (deg).
 
     Returns
     -------
@@ -298,7 +293,7 @@ def search(ra, dec, radius=0.027 + 0.003, magnitude=20.0):
         The table of the Gaia DR3 sources inside the search areas
     """
 
-    def _search(ra, dec, radius, magnitude):
+    def _search(ra, dec, radius):
         """Perform search of Gaia DR3."""
 
         if numpy.isscalar(ra):
@@ -309,41 +304,46 @@ def search(ra, dec, radius=0.027 + 0.003, magnitude=20.0):
         import psycopg2
         from astropy.table import Table
 
-        columns = ('source_id', 'ref_epoch', 'ra', 'ra_error', 'dec', 'dec_error', 'parallax', 'parallax_error', 'pmra', 'pmra_error', 'pmdec', 'pmdec_error', 'phot_g_mean_mag')
-        _units = (units.dimensionless_unscaled, units.yr, units.deg, units.mas, units.deg, units.mas, units.mas, units.mas, units.mas / units.yr, units.mas / units.yr, units.mas / units.yr, units.mas / units.yr, units.mag)
+        columns = ('source_id', 'ref_epoch', 'ra', 'ra_error', 'dec', 'dec_error', 'parallax', 'parallax_error', 'pmra',
+                   'pmra_error', 'pmdec', 'pmdec_error', 'phot_g_mean_mag')
+        _units = (units.dimensionless_unscaled, units.yr, units.deg, units.mas, units.deg, units.mas, units.mas,
+                  units.mas, units.mas / units.yr, units.mas / units.yr, units.mas / units.yr, units.mas / units.yr,
+                  units.mag)
 
         host = '133.40.167.46'  # 'g2db' for production use
         port = 5438
         user = 'gen2'  # 'obsuser' for production use
-
         dsn = 'host={} port={} user={} dbname=star_catalog'.format(host, port, user)
+
         with psycopg2.connect(dsn) as connection:
             with connection.cursor() as cursor:
-                query = 'SELECT {} FROM gaia3 WHERE ('.format(','.join(columns)) \
-                    + ' OR '.join(['q3c_radial_query(ra,dec,{},{},{})'.format(_ra, _dec, radius) for _ra, _dec in zip(ra, dec)]) \
-                    + ') AND pmra IS NOT NULL AND pmdec IS NOT NULL AND parallax IS NOT NULL ORDER BY phot_g_mean_mag'
+                columns_str = ','.join(columns)
+                # Do a radial query with given radius for each ra/dec pair.
+                where_str = ' OR '.join(
+                    [f'q3c_radial_query(ra, dec, {_ra}, {_dec}, {radius})' for _ra, _dec in zip(ra, dec)]
+                    )
+                query = f'SELECT {columns_str} FROM gaia3 WHERE {where_str}'
                 cursor.execute(query)
-                objects = cursor.fetchall()
-                return Table(rows=objects, names=columns, units=_units)
+                rows = cursor.fetchall()
+                return Table(rows=rows, names=columns, units=_units)
 
-    return _search(ra, dec, radius, magnitude)
+    return _search(ra, dec, radius)
 
 
 def get_objects(
-        ra,
-        dec,
-        obstime=None,
-        cameras=[0, 1, 2, 3, 4, 5],
-        inst_pa=0,
-        inr=None,
-        adc=None,
-        filter_id=None,
-        temperature=0,
-        relative_humidity=0,
-        pressure=620,
-        obswl=0.62,
-        m2pos3=6.0,
-        magnitude=20.0
+    ra,
+    dec,
+    obstime=None,
+    cameras=[0, 1, 2, 3, 4, 5],
+    inst_pa=0,
+    inr=None,
+    adc=None,
+    filter_id=None,
+    temperature=0,
+    relative_humidity=0,
+    pressure=620,
+    obswl=0.62,
+    m2pos3=6.0,
 ):
     """
     Get list of guide stellar objects.
@@ -376,8 +376,6 @@ def get_objects(
         The wavelength of the observation (um)
     m2pos3 : scalar
         The z position of the hexapod (mm)
-    magnitude : scalar
-        The magnitude limit of the guide stellar objects
 
     Returns
     -------
@@ -389,10 +387,18 @@ def get_objects(
 
     ra = Angle(ra, unit=units.deg)
     dec = Angle(dec, unit=units.deg)
-    obstime = Time(obstime.astimezone(tz=timezone.utc)) if isinstance(obstime, datetime) else Time(obstime, format='unix') if isinstance(obstime, Number) else Time(obstime) if obstime is not None else Time.now()
+
+    obstime = Time(obstime.astimezone(tz=timezone.utc)) if isinstance(obstime, datetime) else Time(
+        obstime, format='unix'
+        ) if isinstance(
+        obstime, Number
+        ) else Time(obstime) if obstime is not None else Time.now()
 
     import subaru
-    frame_tc = AltAz(obstime=obstime, location=subaru.location, temperature=temperature * units.deg_C, relative_humidity=relative_humidity / 100, pressure=pressure * units.hPa, obswl=obswl * units.micron)
+    frame_tc = AltAz(
+        obstime=obstime, location=subaru.location, temperature=temperature * units.deg_C,
+        relative_humidity=relative_humidity / 100, pressure=pressure * units.hPa, obswl=obswl * units.micron
+        )
 
     # field center
     icrs_c = SkyCoord(ra=ra, dec=dec, frame='icrs')
@@ -420,8 +426,8 @@ def get_objects(
     altaz = altaz_c.directional_offset_by(- position_angle * units.deg, separation * units.deg)
     icrs = altaz.transform_to('icrs')
 
-    _objects = search(icrs.ra.deg, icrs.dec.deg, magnitude=magnitude)
-    _objects['parallax'][numpy.where(_objects['parallax'] < 1e-6)] = 1e-6
+    _objects = search(icrs.ra.deg, icrs.dec.deg)
+
     _icrs = SkyCoord(
         ra=_objects['ra'], dec=_objects['dec'], frame='icrs',
         distance=Distance(parallax=Angle(_objects['parallax'])),
@@ -453,17 +459,17 @@ def get_objects(
             )
             for _source_id, _skycoord, _mag, _camera_id, _x_det, _y_det, _x_dp, _y_dp, _x_fp, _y_fp
             in zip(
-                _objects['source_id'],
-                _icrs_d,
-                _objects['phot_g_mean_mag'],
-                icam,
-                x_det,
-                y_det,
-                x_dp,
-                y_dp,
-                x_fp,
-                y_fp
-            )
+            _objects['source_id'],
+            _icrs_d,
+            _objects['phot_g_mean_mag'],
+            icam,
+            x_det,
+            y_det,
+            x_dp,
+            y_dp,
+            x_fp,
+            y_fp
+        )
         ],
         dtype=[
             ('source_id', numpy.int64),  # u8 (80) not supported by FITSIO
@@ -495,7 +501,9 @@ if __name__ == '__main__':
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--inst-pa', type=float, default=0, help='position angle of the instrument, east of north (deg)')
     group.add_argument('--inr', type=float, default=None, help='instrument rotator angle, east of north (deg)')
-    parser.add_argument('--adc', type=float, default=None, help='position of the atmospheric dispersion compensator (mm)')
+    parser.add_argument(
+        '--adc', type=float, default=None, help='position of the atmospheric dispersion compensator (mm)'
+        )
     parser.add_argument('--filter-id', type=int, default=107, help='filter identifier for ADC (101-108)')
     parser.add_argument('--temperature', type=float, default=0, help='air temperature (deg C)')
     parser.add_argument('--relative-humidity', type=float, default=0, help='relative humidity (%%)')
