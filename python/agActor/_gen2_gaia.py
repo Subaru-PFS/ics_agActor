@@ -344,7 +344,6 @@ def get_objects(
         pressure=620,
         obswl=0.62,
         m2pos3=6.0,
-        magnitude=20.0
 ):
     """
     Get list of guide stellar objects.
@@ -377,8 +376,6 @@ def get_objects(
         The wavelength of the observation (um)
     m2pos3 : scalar
         The z position of the hexapod (mm)
-    magnitude : scalar
-        The magnitude limit of the guide stellar objects
 
     Returns
     -------
@@ -421,7 +418,7 @@ def get_objects(
     altaz = altaz_c.directional_offset_by(- position_angle * units.deg, separation * units.deg)
     icrs = altaz.transform_to('icrs')
 
-    _objects = search(icrs.ra.deg, icrs.dec.deg, magnitude=magnitude)
+    _objects = search(icrs.ra.deg, icrs.dec.deg)
     _objects['parallax'][numpy.where(_objects['parallax'] < 1e-6)] = 1e-6
     _icrs = SkyCoord(
         ra=_objects['ra'], dec=_objects['dec'], frame='icrs',
