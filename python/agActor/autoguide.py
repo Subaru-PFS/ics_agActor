@@ -61,7 +61,7 @@ def set_design_agc(*, frame_id=None, obswl=0.62, logger=None, **kwargs):
             taken_at = kwargs.get('taken_at')
             magnitude = kwargs.get('magnitude', 20.0)
             logger and logger.info('taken_at={},magnitude={}'.format(taken_at, magnitude))
-            guide_objects, *_ = pfs_design(design_id, design_path, logger=logger).guide_objects(magnitude=magnitude, obstime=taken_at)
+            guide_objects, *_ = pfs_design(design_id, design_path, logger=logger).guide_objects(obstime=taken_at)
         elif design_id is not None:
             guide_objects = opdb.query_pfs_design_agc(design_id)
         else:
@@ -77,7 +77,7 @@ def set_design_agc(*, frame_id=None, obswl=0.62, logger=None, **kwargs):
             if 'ddec' in kwargs: dec += kwargs.get('ddec') / 3600
             if 'dinr' in kwargs: inr += kwargs.get('dinr') / 3600
             logger and logger.info('ra={},dec={},inr={}'.format(ra, dec, inr))
-            guide_objects, *_ = gaia.get_objects(ra=ra, dec=dec, obstime=taken_at, inst_pa=inst_pa, adc=adc, m2pos3=m2_pos3, obswl=obswl, magnitude=magnitude)
+            guide_objects, *_ = gaia.get_objects(ra=ra, dec=dec, obstime=taken_at, inst_pa=inst_pa, adc=adc, m2pos3=m2_pos3, obswl=obswl)
     #logger and logger.info('guide_objects={}'.format(guide_objects))
     Field.guide_objects = guide_objects
 
