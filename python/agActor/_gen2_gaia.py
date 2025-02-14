@@ -277,7 +277,7 @@ def z2adc(z, filter_id):
     return numpy.clip(y_adc, 0, 22)
 
 
-def search(ra, dec, radius=0.027 + 0.003, magnitude=20.0):
+def search(ra, dec, radius=0.027 + 0.003):
     """
     Search guide stellar objects from Gaia DR3 sources.
 
@@ -288,9 +288,7 @@ def search(ra, dec, radius=0.027 + 0.003, magnitude=20.0):
     dec : array_like
         The declinations (ICRS) of the search centers (deg)
     radius : scalar
-        The radius of the cones (deg)
-    magnitude : scalar
-        The magnitude limit of the guide stellar objects
+        The radius of the cones (deg).
 
     Returns
     -------
@@ -298,7 +296,7 @@ def search(ra, dec, radius=0.027 + 0.003, magnitude=20.0):
         The table of the Gaia DR3 sources inside the search areas
     """
 
-    def _search(ra, dec, radius, magnitude):
+    def _search(ra, dec, radius):
         """Perform search of Gaia DR3."""
 
         if numpy.isscalar(ra):
@@ -315,18 +313,21 @@ def search(ra, dec, radius=0.027 + 0.003, magnitude=20.0):
         host = '133.40.167.46'  # 'g2db' for production use
         port = 5438
         user = 'gen2'  # 'obsuser' for production use
-
         dsn = 'host={} port={} user={} dbname=star_catalog'.format(host, port, user)
+
         with psycopg2.connect(dsn) as connection:
             with connection.cursor() as cursor:
-                query = 'SELECT {} FROM gaia3 WHERE ('.format(','.join(columns)) \
-                    + ' OR '.join(['q3c_radial_query(ra,dec,{},{},{})'.format(_ra, _dec, radius) for _ra, _dec in zip(ra, dec)]) \
-                    + ') AND pmra IS NOT NULL AND pmdec IS NOT NULL AND parallax IS NOT NULL ORDER BY phot_g_mean_mag'
+                columns_str = ','.join(columns)
+                # Do a radial query with given radius for each ra/dec pair.
+                where_str = ' OR '.join([f'q3c_radial_query(ra, dec, {_ra}, {_dec}, {radius})' for _ra, _dec in zip(ra, dec)])
+                query = f'SELECT {columns_str} FROM gaia3 WHERE {where_str}'
                 cursor.execute(query)
-                objects = cursor.fetchall()
-                return Table(rows=objects, names=columns, units=_units)
+                rows = cursor.fetchall()
+                return Table(rows=rows, names=columns, units=_units)
 
-    return _search(ra, dec, radius, magnitude)
+    return _search(ra, dec, radius)
+
+
 
 
 def get_objects(
