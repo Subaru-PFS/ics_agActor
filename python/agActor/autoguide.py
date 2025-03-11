@@ -22,15 +22,16 @@ def set_design(*, logger=None, **kwargs):
     ra = kwargs.get('ra')
     dec = kwargs.get('dec')
     inst_pa = kwargs.get('inst_pa')
+    # If we don't have all the center info, try to get from the design file by path or id.
     if any(x is None for x in (ra, dec, inst_pa)):
         if any(x is not None for x in (design_id, design_path)):
             if design_path is not None:
                 _ra, _dec, _inst_pa = pfs_design(design_id, design_path, logger=logger).center
             else:
                 _, _ra, _dec, _inst_pa, *_ = opdb.query_pfs_design(design_id)
-            if ra is None: ra = _ra
-            if dec is None: dec = _dec
-            if inst_pa is None: inst_pa = _inst_pa
+            ra = ra or _ra
+            dec = dec or _dec
+            inst_pa = inst_pa or _inst_pa
     logger and logger.info('ra={},dec={},inst_pa={}'.format(ra, dec, inst_pa))
     Field.design = design_id, design_path
     Field.center = ra, dec, inst_pa
@@ -52,6 +53,8 @@ def set_design_agc(*, frame_id=None, obswl=0.62, logger=None, **kwargs):
         if 'ddec' in kwargs: dec += kwargs.get('ddec') / 3600
         if 'dinr' in kwargs: inr += kwargs.get('dinr') / 3600
         logger and logger.info('ra={},dec={},inr={}'.format(ra, dec, inr))
+
+        # TODO get the expected XY positions and cam_id in from here.
         guide_objects = astrometry.measure(detected_objects=detected_objects, ra=ra, dec=dec, obstime=taken_at, inst_pa=inst_pa, adc=adc, m2_pos3=m2_pos3, obswl=obswl, logger=logger)
     else:
         # use guide objects from pfs design file or operational database, or generate on-the-fly
@@ -61,7 +64,7 @@ def set_design_agc(*, frame_id=None, obswl=0.62, logger=None, **kwargs):
             taken_at = kwargs.get('taken_at')
             magnitude = kwargs.get('magnitude', 20.0)
             logger and logger.info('taken_at={},magnitude={}'.format(taken_at, magnitude))
-            guide_objects, *_ = pfs_design(design_id, design_path, logger=logger).guide_objects(magnitude=magnitude, obstime=taken_at)
+            guide_objects, *_ = pfs_design(design_id, design_path, logger=logger).guide_objects(obstime=taken_at)
         elif design_id is not None:
             guide_objects = opdb.query_pfs_design_agc(design_id)
         else:
@@ -77,7 +80,7 @@ def set_design_agc(*, frame_id=None, obswl=0.62, logger=None, **kwargs):
             if 'ddec' in kwargs: dec += kwargs.get('ddec') / 3600
             if 'dinr' in kwargs: inr += kwargs.get('dinr') / 3600
             logger and logger.info('ra={},dec={},inr={}'.format(ra, dec, inr))
-            guide_objects, *_ = gaia.get_objects(ra=ra, dec=dec, obstime=taken_at, inst_pa=inst_pa, adc=adc, m2pos3=m2_pos3, obswl=obswl, magnitude=magnitude)
+            guide_objects, *_ = gaia.get_objects(ra=ra, dec=dec, obstime=taken_at, inst_pa=inst_pa, adc=adc, m2pos3=m2_pos3, obswl=obswl)
     #logger and logger.info('guide_objects={}'.format(guide_objects))
     Field.guide_objects = guide_objects
 

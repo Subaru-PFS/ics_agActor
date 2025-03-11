@@ -41,18 +41,19 @@ class pfsDesign:
             inst_pa = header['POSANG']
         return ra, dec, inst_pa
 
-    def guide_objects(self, magnitude=20.0, obstime=None):
+    def guide_objects(self, obstime=None):
 
         _obstime = Time(obstime.astimezone(tz=timezone.utc)) if isinstance(obstime, datetime) else Time(obstime, format='unix') if isinstance(obstime, Number) else Time(obstime) if obstime is not None else Time.now()
-        self.logger and self.logger.info('magnitude={},obstime={},_obstime={}'.format(magnitude, obstime, _obstime))
+        self.logger and self.logger.info('obstime={},_obstime={}'.format(obstime, _obstime))
         with fitsio.FITS(self.design_path) as fits:
             header = fits[0].read_header()
             ra = header['RA']
             dec = header['DEC']
             inst_pa = header['POSANG']
             _guide_objects = fits['guidestars'].read()
-        _guide_objects = _guide_objects[numpy.where(_guide_objects['magnitude'] <= magnitude)]
+
         _guide_objects['parallax'][numpy.where(_guide_objects['parallax'] < 1e-6)] = 1e-6
+
         _icrs = SkyCoord(
             ra=_guide_objects['ra'] * units.deg,
             dec=_guide_objects['dec'] * units.deg,
@@ -65,9 +66,9 @@ class pfsDesign:
         _icrs_d = _icrs.apply_space_motion(new_obstime=_obstime)  # of date
         _guide_objects['ra'] = _icrs_d.ra.deg
         _guide_objects['dec'] = _icrs_d.dec.deg
-        #guide_objects = tuple(map(tuple, _guide_objects[['objId', 'ra', 'dec', 'magnitude', 'agId', 'agX', 'agY']]))
+
         guide_objects = _guide_objects[['objId', 'ra', 'dec', 'magnitude', 'agId', 'agX', 'agY']]
-        #guide_objects.dtype.names = ('source_id', 'ra', 'dec', 'mag', 'camera_id', 'x', 'y')
+
         return guide_objects, ra, dec, inst_pa
 
     @staticmethod
@@ -103,5 +104,5 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(name='pfs_design')
-    guide_objects, ra, dec, inst_pa = pfsDesign(design_id, design_path, logger=logger).guide_objects(magnitude=magnitude, obstime=obstime)
+    guide_objects, ra, dec, inst_pa = pfsDesign(design_id, design_path, logger=logger).guide_objects(obstime=obstime)
     print('guide_objects={},ra={},dec={},inst_pa={}'.format(guide_objects, ra, dec, inst_pa))

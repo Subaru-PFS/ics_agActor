@@ -93,19 +93,21 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
     ra = kwargs.get('ra')
     dec = kwargs.get('dec')
     inst_pa = kwargs.get('inst_pa')
-    magnitude = kwargs.get('magnitude', 20.0)
+
     if all(x is None for x in (design_id, design_path)):
-        guide_objects, *_ = gaia.get_objects(ra=ra, dec=dec, obstime=taken_at, inst_pa=inst_pa, adc=adc, m2pos3=m2_pos3, obswl=obswl, magnitude=magnitude)
+        guide_objects, *_ = gaia.get_objects(ra=ra, dec=dec, obstime=taken_at, inst_pa=inst_pa, adc=adc, m2pos3=m2_pos3, obswl=obswl)
     else:
         if design_path is not None:
-            guide_objects, _ra, _dec, _inst_pa = pfs_design(design_id, design_path, logger=logger).guide_objects(magnitude=magnitude, obstime=taken_at)
+            guide_objects, _ra, _dec, _inst_pa = pfs_design(design_id, design_path, logger=logger).guide_objects(obstime=taken_at)
         else:
             _, _ra, _dec, _inst_pa, *_ = opdb.query_pfs_design(design_id)
             guide_objects = opdb.query_pfs_design_agc(design_id)
-        if ra is None: ra = _ra
-        if dec is None: dec = _dec
-        if inst_pa is None: inst_pa = _inst_pa
+        ra = ra or _ra
+        dec = dec or _dec
+        inst_pa = inst_pa or _inst_pa
+
     logger and logger.info('ra={},dec={},inst_pa={}'.format(ra, dec, inst_pa))
+
     #logger and logger.info('guide_objects={}'.format(guide_objects))
     if 'dra' in kwargs: ra += kwargs.get('dra') / 3600
     if 'ddec' in kwargs: dec += kwargs.get('ddec') / 3600
@@ -144,6 +146,7 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst
     _kwargs = _map_kwargs(kwargs)
     logger and logger.info('_kwargs={}'.format(_kwargs))
     pfs = FieldAcquisitionAndFocusing.PFS()
+    # Source filtering is done inside the FAinstpa object method and filtered stars are returned as part of diags.
     dra, ddec, dinr, dscale, *diags = pfs.FAinstpa(_guide_objects, _detected_objects, ra, dec, taken_at.astimezone(tz=timezone.utc) if isinstance(taken_at, datetime) else datetime.fromtimestamp(taken_at, tz=timezone.utc) if isinstance(taken_at, Number) else taken_at, adc, inst_pa, m2_pos3, obswl, **_kwargs)
     dra *= 3600
     ddec *= 3600
@@ -155,14 +158,18 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst
         logger and logger.info('alt={},az={},dalt={},daz={}'.format(alt, az, dalt, daz))
         values = dalt, daz
     guide_objects = numpy.array(
-        [(x[0], x[1], x[2], x[3]) for x in guide_objects],
+        [(x[0], x[1], x[2], x[3], x[4], x[5], x[6]) for x in guide_objects],
         dtype=[
             ('source_id', numpy.int64),  # u8 (80) not supported by FITSIO
             ('ra', numpy.float64),
             ('dec', numpy.float64),
-            ('mag', numpy.float32)
+            ('mag', numpy.float32),
+            ('camera_id', numpy.int16),
+            ('guide_object_xdet', numpy.float32),
+            ('guide_object_ydet', numpy.float32)
         ]
     )
+
     detected_objects = numpy.array(
         detected_objects,
         dtype=[

@@ -263,11 +263,15 @@ class AgThread(threading.Thread):
                         cmdStr += ' threadDelay={}'.format(exposure_delay)
                     if tec_off:
                         cmdStr += ' tecOFF'
+
+                    # Take the actual exposure.
                     result = self.actor.queueCommand(
                         actor='agcc',
                         cmdStr=cmdStr,
                         timeLim=((exposure_time + 6 * exposure_delay) // 1000 + 5)
                     )
+
+                    # Update status.
                     time.sleep((exposure_time + 7 * exposure_delay) / 1000 / 2)
                     kwargs = {}
                     telescope_state = None
@@ -298,7 +302,8 @@ class AgThread(threading.Thread):
                             status_id = (status_update['visit'], status_update['sequenceNum'])
                             self.logger.info('AgThread.run: status_id={}'.format(status_id))
                             kwargs['status_id'] = status_id
-                    # wait for an exposure to complete
+
+                    # wait for an exposure to complete.
                     result.get()
                     frame_id = self.actor.agcc.frameId
                     self.logger.info('AgThread.run: frameId={}'.format(frame_id))
@@ -318,12 +323,13 @@ class AgThread(threading.Thread):
                         kwargs['offset'] = offset
                     if 'magnitude' in options:
                         kwargs['magnitude'] = options.get('magnitude')
+
                     if mode & ag.Mode.REF_OTF:
                         autoguide.set_design(logger=self.logger, **kwargs)
                         autoguide.set_design_agc(logger=self.logger, **kwargs)
                         mode &= ~ag.Mode.REF_OTF
                         self._set_params(mode=mode)
-                    # retrieve detected objects from opdb
+
                     if mode & ag.Mode.REF_SKY:
                         # store initial conditions
                         autoguide.set_design(design=design, logger=self.logger, **kwargs)  # center takes precedence over design
