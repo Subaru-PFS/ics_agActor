@@ -93,7 +93,7 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
     ra = kwargs.get('ra')
     dec = kwargs.get('dec')
     inst_pa = kwargs.get('inst_pa')
-    magnitude = kwargs.get('magnitude', 20.0)
+
     if all(x is None for x in (design_id, design_path)):
         guide_objects, *_ = gaia.get_objects(ra=ra, dec=dec, obstime=taken_at, inst_pa=inst_pa, adc=adc, m2pos3=m2_pos3, obswl=obswl)
     else:
@@ -102,10 +102,12 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
         else:
             _, _ra, _dec, _inst_pa, *_ = opdb.query_pfs_design(design_id)
             guide_objects = opdb.query_pfs_design_agc(design_id)
-        if ra is None: ra = _ra
-        if dec is None: dec = _dec
-        if inst_pa is None: inst_pa = _inst_pa
+        ra = ra or _ra
+        dec = dec or _dec
+        inst_pa = inst_pa or _inst_pa
+
     logger and logger.info('ra={},dec={},inst_pa={}'.format(ra, dec, inst_pa))
+
     #logger and logger.info('guide_objects={}'.format(guide_objects))
     if 'dra' in kwargs: ra += kwargs.get('dra') / 3600
     if 'ddec' in kwargs: dec += kwargs.get('ddec') / 3600
@@ -144,6 +146,7 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst
     _kwargs = _map_kwargs(kwargs)
     logger and logger.info('_kwargs={}'.format(_kwargs))
     pfs = FieldAcquisitionAndFocusing.PFS()
+    # Source filtering is done inside the FAinstpa object method and filtered stars are returned as part of diags.
     dra, ddec, dinr, dscale, *diags = pfs.FAinstpa(_guide_objects, _detected_objects, ra, dec, taken_at.astimezone(tz=timezone.utc) if isinstance(taken_at, datetime) else datetime.fromtimestamp(taken_at, tz=timezone.utc) if isinstance(taken_at, Number) else taken_at, adc, inst_pa, m2_pos3, obswl, **_kwargs)
     dra *= 3600
     ddec *= 3600
