@@ -50,7 +50,7 @@ inr_axis_on_pfi_y = inr_axis_on_dp_x
 #                             +xpfi = Opt,   -xpfi = Ir,    +ypfi = Rear   -ypfi = Front  at InR=90
 
 ### pfi parity (flip y)
-pfi_parity = -1.0 # -1 or +1, 
+pfi_parity = -1.0 # -1 or +1,
 
 class Subaru():
     def radec2inr(self, tel_ra, tel_de, t):
@@ -105,7 +105,7 @@ class Subaru():
         tmp_coord = ac.SkyCoord(ra=str_ra, dec=str_de, unit=(au.deg, au.deg), frame='icrs')
         tmp_coord2 = tmp_coord.transform_to('fk5')
         str_coord = ac.SkyCoord(ra=tmp_coord2.ra, dec=tmp_coord2.dec, unit=(au.deg, au.deg),
-                                distance=ac.Distance(parallax=str_plx * au.mas, allow_negative=False),             
+                                distance=ac.Distance(parallax=str_plx * au.mas, allow_negative=False),
                                 pm_ra_cosdec = str_pmRA * au.mas/au.yr,
                                 pm_dec = str_pmDE * au.mas/au.yr,
                                 obstime=at.Time(gaia_epoch, format='decimalyear'),
@@ -130,7 +130,7 @@ class POPT2():
         L3=9.793400e+01
         ns = np.sqrt(1+K1*wl**2/(wl**2-L1)+K2*wl**2/(wl**2-L2)+K3*wl**2/(wl**2-L3))
         return (ns-1.458)*100.0
-    
+
     def coeffs_AG_c2f_wisp(self, wl, adc): # celestial to focal plane for AG with glass
         D = POPT2.diff_index_pbl1yold_bsl7y(self, wl)
         cx = np.zeros((11))
@@ -166,7 +166,7 @@ class POPT2():
         D = POPT2.diff_index_pbl1yold_bsl7y(self, wl)
         cx = np.zeros((11))
         cy = np.zeros((11))
-        
+
         cx[0] =  1.43733003e-02 +( 8.72090395e-11 +0.00000000e+00*D)*adc**2
         cx[1] = -1.88237022e-04 +(-7.82457037e-12 +1.21758496e-11*D)*adc**2
         cx[2] = -6.78700730e-06 +( 1.66205167e-12 +1.81935028e-11*D)*adc**2
@@ -178,7 +178,7 @@ class POPT2():
         cx[8] =  0.00000000e+00
         cx[9] =  0.00000000e+00
         cx[10]=  0.00000000e+00
-        
+
         cy[0] =  1.43733003e-02 +( 4.61943503e-10 +0.00000000e+00*D)*adc**2
         cy[1] = -1.88237022e-04 +( 1.26225040e-11 +8.53001285e-12*D)*adc**2
         cy[2] = -6.78700730e-06 +( 8.50721539e-12 +2.59588237e-11*D)*adc**2
@@ -192,12 +192,12 @@ class POPT2():
         cy[10]=                 +(-2.25081043e-09 +2.51123479e-08*D)*adc
 
         return cx, cy
-        
+
     def coeffs_AG_c2f_wosp(self, wl, adc): # celestial to focal plane for AG without glass
         D = POPT2.diff_index_pbl1yold_bsl7y(self, wl)
         cx = np.zeros((11))
         cy = np.zeros((11))
-        
+
         cx[0] =  2.62647800e+02 +(-1.87011330e-06 +2.77589523e-06*D)*adc**2
         cx[1] =  3.35086900e+00 +(-7.57865771e-09 +5.53973051e-08*D)*adc**2
         cx[2] =  2.38964699e-01 +(-1.94709286e-08 -7.73207447e-07*D)*adc**2
@@ -228,7 +228,7 @@ class POPT2():
         D = POPT2.diff_index_pbl1yold_bsl7y(self, wl)
         cx = np.zeros((11))
         cy = np.zeros((11))
-        
+
         cx[0] =  1.43748020e-02 +( 8.66331254e-11 +1.93388878e-11*D)*adc**2
         cx[1] = -1.88232442e-04 +(-7.82853227e-12 +8.59386158e-12*D)*adc**2
         cx[2] = -6.87397752e-06 +( 1.61715989e-12 +2.00354352e-11*D)*adc**2
@@ -240,7 +240,7 @@ class POPT2():
         cx[8] =  0.00000000e+00
         cx[9] =  0.00000000e+00
         cx[10]=  0.00000000e+00
-        
+
         cy[0] =  1.43748020e-02 +( 4.61979705e-10 +3.65991127e-12*D)*adc**2
         cy[1] = -1.88232442e-04 +( 1.16038555e-11 +2.66431645e-11*D)*adc**2
         cy[2] = -6.87397752e-06 +( 8.12842568e-12 +4.41948555e-11*D)*adc**2
@@ -254,7 +254,7 @@ class POPT2():
         cy[10]=                  (-2.32047805e-09 +2.81735279e-08*D)*adc
 
         return cx, cy
-    
+
     def coeffs_COBRA_c2f(self, wl, adc): # celestial to focal plane for COBRA
         D = POPT2.diff_index_pbl1yold_bsl7y(self, wl)
         L = POPT2.band_parameter(self, wl)
@@ -286,7 +286,7 @@ class POPT2():
         cy[10]=                                                                                     + (+3.44748694e-05 +(-1.52943095e-04*D))*adc
 
         return cx, cy
-    
+
     def coeffs_COBRA_f2c(self, wl, adc): # focal plane to celestial for COBRA
         D = POPT2.diff_index_pbl1yold_bsl7y(self, wl)
         L = POPT2.band_parameter(self, wl)
@@ -318,7 +318,7 @@ class POPT2():
         cy[10]=                                                                                     + (-9.77458744e-10 +(-1.95302432e-08*D))*adc
 
         return cx, cy
-    
+
     def ZX(self, x, y, cx):
         return \
             cx[0]*(x) +\
@@ -449,7 +449,7 @@ class POPT2():
 
         s = np.arctan(np.sqrt(tantx**2+tanty**2))
         t = np.arctan2(-tantx, -tanty)
-        
+
         s = np.rad2deg(s)
         t = np.rad2deg(t)
 
@@ -499,7 +499,7 @@ class POPT2():
 
         s = np.arctan(np.sqrt(tantx**2+tanty**2))
         t = np.arctan2(-tantx, -tanty)
-        
+
         s = np.rad2deg(s)
         t = np.rad2deg(t)
 
@@ -551,7 +551,7 @@ class POPT2():
 
         s = np.arctan(np.sqrt(tantx**2+tanty**2))
         t = np.arctan2(-tantx, -tanty)
-        
+
         s = np.rad2deg(s)
         t = np.rad2deg(t)
 
@@ -591,13 +591,13 @@ class PFS():
         xfp  = +x*np.sin(inr)+y*np.cos(inr) + inr_axis_on_fp_x
         yfp  = -x*np.cos(inr)+y*np.sin(inr) + inr_axis_on_fp_y
         return xfp, yfp
-    
+
     def dp2pfi(self, xdp, ydp):
         xpfi = ydp
         ypfi = xdp
         ypfi = ypfi * pfi_parity
         return xpfi, ypfi
-    
+
     def pfi2dp(self, xpfi, ypfi):
         ypfi = ypfi * pfi_parity
         xdp  = ypfi
@@ -633,7 +633,7 @@ class distCorr():
         z8y  =    -2.68632299740984e-03
         z9y  =    +5.20598052522325e-03
         z12y =    -1.90307999915411e-03
-        
+
         # xt,yt in mm
         x = xt / 270.0
         y = yt / 270.0

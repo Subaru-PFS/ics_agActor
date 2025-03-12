@@ -45,7 +45,7 @@ class PFS():
             pfs.makeBasis(tel_ra, tel_de, \
                           carray[:,0], carray[:,1], \
                           dt, adc, inr + PFS_eps, m2pos3, wl)
-        
+
         v_0 = (np.insert(v_0,2, carray[:,2], axis=1))
         v_1 = (np.insert(v_1,2, carray[:,2], axis=1))
 
@@ -69,12 +69,12 @@ class PFS():
         inr = inr0 + instpa
 
         pfs  = Subaru_POPT2_PFS_AG.PFS()
-        
+
         v_0, v_1 = \
             pfs.makeBasis(tel_ra, tel_de, \
                           carray[:,0], carray[:,1], \
                           dt, adc, inr, m2pos3, wl)
-        
+
         v_0 = (np.insert(v_0,2, carray[:,2], axis=1))
         v_1 = (np.insert(v_1,2, carray[:,2], axis=1))
 
@@ -88,7 +88,7 @@ class PFS():
         # limit_number = 20 ### should be same size of catalog list in design ...
         # limit_flux = (np.sort(filtered_darray[:,4])[::-1])[limit_number]
         # filtered_darray = filtered_darray[np.where(filtered_darray[:,4]>=limit_flux)]
-        
+
         ra_offset,de_offset,inr_offset, scale_offset, mr, md = \
             pfs.RADECInRScaleShift(filtered_darray[:,2],\
                                    filtered_darray[:,3],\
@@ -97,14 +97,14 @@ class PFS():
                                    v_0, v_1)
 
         return ra_offset,de_offset,inr_offset, scale_offset, mr, md, v
-        
+
     def Focus(self, agarray, maxellip=0.6, maxsize=20.0, minsize=0.92):
         pfs  = Subaru_POPT2_PFS_AG.PFS()
 
         maxellip = 0.6
         maxsize  =20.0
         minsize  = 0.92
-        
+
         md = pfs.agarray2momentdifference(agarray, maxellip, maxsize, minsize)
 
         df = np.array([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
