@@ -146,10 +146,10 @@ class AgThread(threading.Thread):
         self.__abort = threading.Event()
         self.__stop = threading.Event()
 
-        self.with_opdb_agc_guide_offset = actor.config.getboolean(actor.name, 'agc_guide_offset', fallback=False)
-        self.with_opdb_agc_match = actor.config.getboolean(actor.name, 'agc_match', fallback=False)
-        self.with_agcc_timestamp = actor.config.getboolean(actor.name, 'agcc_timestamp', fallback=False)
-        tel_status = [x.strip() for x in actor.config.get(actor.name, 'tel_status', fallback='agc_exposure').split(',')]
+        self.with_opdb_agc_guide_offset = actor.actorConfig.get('agc_guide_offset', False)
+        self.with_opdb_agc_match = actor.actorConfig.get('agc_match', False)
+        self.with_agcc_timestamp = actor.actorConfig.get('agcc_timestamp', False)
+        tel_status = [x.strip() for x in actor.actorConfig.get('tel_status', ('agc_exposure',)).split(',')]
         self.with_gen2_status = 'gen2' in tel_status
         self.with_mlp1_status = 'mlp1' in tel_status
         self.with_opdb_tel_status = 'tel_status' in tel_status

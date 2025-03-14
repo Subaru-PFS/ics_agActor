@@ -60,14 +60,15 @@ class AgCmd:
             keys.Key('exposure_delay', types.Int(), help=''),
             keys.Key('tec_off', types.Bool('no', 'yes'), help=''),
         )
-        self.with_opdb_agc_guide_offset = actor.config.getboolean(actor.name, 'agc_guide_offset', fallback=False)
-        self.with_opdb_agc_match = actor.config.getboolean(actor.name, 'agc_match', fallback=False)
-        self.with_agcc_timestamp = actor.config.getboolean(actor.name, 'agcc_timestamp', fallback=False)
-        tel_status = [x.strip() for x in actor.config.get(actor.name, 'tel_status', fallback='agc_exposure').split(',')]
+        self.with_opdb_agc_guide_offset = actor.actorConfig.get('agc_guide_offset', False)
+        self.with_opdb_agc_match = actor.actorConfig.get('agc_match', False)
+        self.with_agcc_timestamp = actor.actorConfig.get('agcc_timestamp', False)
+
+        tel_status = [x.strip() for x in actor.actorConfig.get('tel_status', ('agc_exposure',)).split(',')]
         self.with_gen2_status = 'gen2' in tel_status
         self.with_mlp1_status = 'mlp1' in tel_status
         self.with_opdb_tel_status = 'tel_status' in tel_status
-        self.with_design_path = actor.config.get(actor.name, 'design_path', fallback='').strip() or None
+        self.with_design_path = actor.actorConfig.get('design_path', '').strip() or None
 
     def ping(self, cmd):
         """Return a product name."""
