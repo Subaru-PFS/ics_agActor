@@ -8,8 +8,7 @@ from .. import field_acquisition, focus as _focus, data_utils, pfs_design
 from ..telescope_center import telCenter as tel_center
 from ..Controllers.ag import ag
 from ..kawanomoto import Subaru_POPT2_PFS  # *NOT* 'from agActor.kawanomoto import Subaru_POPT2_PFS'
-
-FILENAMES = ('/dev/shm/guide_objects.npy', '/dev/shm/detected_objects.npy', '/dev/shm/identified_objects.npy')
+from ..utils import FILENAMES
 
 
 class AgCmd:
@@ -21,8 +20,8 @@ class AgCmd:
             ('ping', '', self.ping),
             ('status', '', self.status),
             ('show', '', self.show),
-            ('acquire_field', '[<design_id>] [<design_path>] [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<offset>] [<dinr>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]', self.acquire_field),
-            ('acquire_field', '@otf [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<center>] [<offset>] [<dinr>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]', self.acquire_field),
+            ('acquire_field', '[<design_id>] [<design_path>] [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<offset>] [initial] [<dinr>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]', self.acquire_field),
+            ('acquire_field', '@otf [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<center>] [initial] [<offset>] [<dinr>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]', self.acquire_field),
             ('focus', '[<visit_id>|<visit>] [<exposure_time>] [<max_ellipticity>] [<max_size>] [<min_size>] [<exposure_delay>] [<tec_off>]', self.focus),
             ('autoguide', '@start [<design_id>] [<design_path>] [<visit_id>|<visit>] [<from_sky>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]', self.start_autoguide),
             ('autoguide', '@start @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]', self.start_autoguide),
@@ -42,6 +41,7 @@ class AgCmd:
             keys.Key('guide', types.Bool('no', 'yes'), help=''),
             keys.Key('design_id', types.String(), help=''),
             keys.Key('design_path', types.String(), help=''),
+            keys.Key('initial', types.Bool(), help=''),
             keys.Key('visit_id', types.Int(), help=''),
             keys.Key('visit', types.Int(), help=''),
             keys.Key('from_sky', types.Bool('no', 'yes'), help=''),
@@ -103,6 +103,8 @@ class AgCmd:
         controller = self.actor.controllers['ag']
         #self.actor.logger.info('controller={}'.format(controller))
         mode = controller.get_mode()
+
+        # Don't run this command if the controller is already in use.
         if mode != controller.Mode.OFF:
             cmd.fail('text="AgCmd.acquire_field: mode={}"'.format(mode))
             return
@@ -133,10 +135,15 @@ class AgCmd:
         offset = None
         if 'offset' in cmd.cmd.keywords:
             offset = tuple([float(x) for x in cmd.cmd.keywords['offset'].values])
+
         dinr = None
         if 'dinr' in cmd.cmd.keywords:
             dinr = float(cmd.cmd.keywords['dinr'].values[0])
+
         kwargs = {}
+        kwargs['initial'] = ag.INITIAL
+        if 'initial' in cmd.cmd.keywords:
+            kwargs['initial'] = bool(cmd.cmd.keywords['initial'].values[0])
         if 'magnitude' in cmd.cmd.keywords:
             magnitude = float(cmd.cmd.keywords['magnitude'].values[0])
             kwargs['magnitude'] = magnitude
@@ -224,11 +231,13 @@ class AgCmd:
             # wait for an exposure to complete
             result.get()
 
+            # Do things with the exposure.
             frame_id = self.actor.agcc.frameId
-            self.actor.logger.info(f"AgCmd.acquire_field: frameId={frame_id}")
             data_time = self.actor.agcc.dataTime
-            self.actor.logger.info(f"AgCmd.acquire_field: dataTime={data_time}")
             taken_at = data_time + (exposure_time + 7 * exposure_delay) / 1000 / 2
+
+            self.actor.logger.info(f"AgCmd.acquire_field: frameId={frame_id}")
+            self.actor.logger.info(f"AgCmd.acquire_field: dataTime={data_time}")
             self.actor.logger.info(f"AgCmd.acquire_field: taken_at={taken_at}")
 
             if self.with_agcc_timestamp:
@@ -255,10 +264,8 @@ class AgCmd:
             # retrieve metrics of detected objects from opdb
             # compute offsets, scale, transparency, and seeing
 
-            dalt = daz = np.nan
-
             cmd.inform('detectionState=1')
-            offset_info = field_acquisition.get_offset_info(
+            offset_info = field_acquisition.acquire_field(
                 design=design,
                 frame_id=frame_id,
                 altazimuth=guide,
@@ -266,34 +273,7 @@ class AgCmd:
                 **kwargs
             )
 
-            if guide:
-                cmd.inform('text="ra={},dec={},inst_pa={},dra={},ddec={},dinr={},dscale={},dalt={},daz={}"'.format(
-                    offset_info.ra,
-                    offset_info.dec,
-                    offset_info.inst_pa,
-                    offset_info.dra,
-                    offset_info.ddec,
-                    offset_info.dinr,
-                    offset_info.dscale,
-                    offset_info.dalt,
-                    offset_info.daz
-                ))
-            else:
-                cmd.inform('text="dra={},ddec={},dinr={},dscale={}"'.format(
-                    offset_info.dra,
-                    offset_info.ddec,
-                    offset_info.dinr,
-                    offset_info.dscale
-                ))
-
-            # Save the detected, guide, and identified objects.
-            np.save(FILENAMES[0], offset_info.guide_objects)
-            np.save(FILENAMES[1], offset_info.detected_objects)
-            np.save(FILENAMES[2], offset_info.identified_objects)
-
-            cmd.inform('data={},{},{},"{}","{}","{}"'.format(offset_info.ra, offset_info.dec, offset_info.inst_pa, *FILENAMES))
-            cmd.inform('detectionState=0')
-
+            # TODO: remove these and use offset_info directly.
             ra = offset_info.ra
             dec = offset_info.dec
             inst_pa = offset_info.inst_pa
@@ -309,33 +289,50 @@ class AgCmd:
             peak_intensity = offset_info.peak_intensity
             flux = offset_info.flux
 
+            # Save the detected, guide, and identified objects.
+            for save_name, path in FILENAMES.items():
+                np.save(path, getattr(offset_info, save_name))
+
+            if guide:
+                cmd.inform(f'text="{ra=},{dec=},{inst_pa=},{dra=},{ddec=},{dinr=},{dscale=},{dalt=},{daz=}"')
+            else:
+                cmd.inform(f'text="dra={dra},ddec={ddec},dinr={dinr},dscale={dscale}"')
+            cmd.inform('data={},{},{},"{}","{}","{}"'.format(offset_info.ra, offset_info.dec, offset_info.inst_pa, *FILENAMES))
+            cmd.inform('detectionState=0')
+
             if guide:
                 # send corrections to mlp1 and gen2 (or iic)
                 result = self.actor.queueCommand(
                     actor='mlp1',
-                    # daz, dalt: arcsec, positive feedback; dx, dy: mas, HSC -> PFS; size: mas; peak, flux: adu
-                    cmdStr='guide azel={},{} ready={} time={} delay=0 xy={},{} size={} intensity={} flux={}'.format(
-                        - daz,
-                        - dalt,
-                        int(not dry_run),
-                        taken_at,
-                        dx * 1e3,
-                        - dy * 1e3,
-                        spot_size * 13 / 98e-3,
-                        peak_intensity,
-                        flux),
+                    cmdStr=f"guide "
+                           f"azel={-daz},{-dalt} "
+                           f"ready={int(not dry_run)} "
+                           f"time={taken_at} "
+                           f"delay=0 "
+                           f"xy={dx * 1e3},{-dy * 1e3} "
+                           f"size={spot_size * 13 / 98e-3} "
+                           f"intensity={peak_intensity} "
+                           f"flux={flux}",
                     timeLim=5
                 )
                 result.get()
                 #cmd.inform('guideReady=1')
 
             # always compute focus offset and tilt
-            dz, dzs = _focus._focus(detected_objects=offset_info.detected_objects, logger=self.actor.logger)
-            # send corrections to gen2 (or iic)
-            cmd.inform('guideErrors={},{},{},{},{},{},{},{}'.format(frame_id, offset_info.dra, offset_info.ddec, dinr, daz, dalt, dz, offset_info.dscale))
-            cmd.inform('focusErrors={},{},{},{},{},{},{}'.format(frame_id, *dzs))
+            kwargs = {
+                key: kwargs.get(key)
+                for key in ('max_ellipticity', 'max_size', 'min_size')
+                if key in kwargs
+            }
+            dz, dzs = _focus._focus(
+                detected_objects=offset_info.detected_objects, logger=self.actor.logger
+            )
 
-            # store results in opdb
+            # send corrections to gen2 (or iic)
+            cmd.inform(f"guideErrors={frame_id},{dra},{ddec},{dinr},{daz},{dalt},{dz},{dscale}")
+            cmd.inform(f"focusErrors={frame_id},{dzs[0]},{dzs[1]},{dzs[2]},{dzs[3]},{dzs[4]},{dzs[5]}")
+
+            # store results in opdb.
             if self.with_opdb_agc_guide_offset:
                 data_utils.write_agc_guide_offset(
                     frame_id=frame_id,
@@ -352,8 +349,12 @@ class AgCmd:
                     delta_zs=dzs
                 )
             if self.with_opdb_agc_match:
+                design_id = design_id or 0
+                if design_path is not None and design_id == 0:
+                    design_id = pfs_design.pfsDesign.to_design_id(design_path)
+
                 data_utils.write_agc_match(
-                    design_id=design_id if design_id is not None else pfs_design.pfsDesign.to_design_id(design_path) if design_path is not None else 0,
+                    design_id=design_id,
                     frame_id=frame_id,
                     guide_objects=offset_info.guide_objects,
                     detected_objects=offset_info.detected_objects,
@@ -476,7 +477,12 @@ class AgCmd:
         center = None
         if 'center' in cmd.cmd.keywords:
             center = tuple([float(x) for x in cmd.cmd.keywords['center'].values])
+
         kwargs = {}
+        initial = ag.INITIAL
+        if 'initial' in cmd.cmd.keywords:
+            initial = bool(cmd.cmd.keywords['initial'].values[0])
+            kwargs['initial'] = initial
         if 'magnitude' in cmd.cmd.keywords:
             magnitude = float(cmd.cmd.keywords['magnitude'].values[0])
             kwargs['magnitude'] = magnitude
@@ -549,7 +555,12 @@ class AgCmd:
         center = None
         if 'center' in cmd.cmd.keywords:
             center = tuple([float(x) for x in cmd.cmd.keywords['center'].values])
+
         kwargs = {}
+        initial = ag.INITIAL
+        if 'initial' in cmd.cmd.keywords:
+            initial = bool(cmd.cmd.keywords['initial'].values[0])
+            kwargs['initial'] = initial
         if 'magnitude' in cmd.cmd.keywords:
             magnitude = float(cmd.cmd.keywords['magnitude'].values[0])
             kwargs['magnitude'] = magnitude

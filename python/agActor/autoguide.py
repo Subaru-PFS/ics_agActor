@@ -1,13 +1,12 @@
 from logging import Logger
 
-import _gen2_gaia as gaia
 import astrometry
 import field_acquisition
 import python.agActor.utils
 from opdb import opDB as opdb
 from pfs_design import pfsDesign as pfs_design
-from python.agActor.utils import filter_kwargs, parse_kwargs
 from python.agActor.field_acquisition import OffsetInfo
+from python.agActor.utils import filter_kwargs, get_guide_objects, parse_kwargs
 
 
 class Field:
@@ -59,46 +58,10 @@ def set_field(*, frame_id=None, obswl=0.62, logger=None, **kwargs):
         # use guide objects from pfs design file or operational database, or generate on-the-fly.
         guide_objects, ra, dec, inst_pa = get_guide_objects(
             design_id, design_path, taken_at, obswl, logger=logger, **kwargs
-            )
+        )
 
     log_info(f'Setting the guide objects for the field with {len(guide_objects)} objects.')
     Field.guide_objects = guide_objects
-
-
-def get_guide_objects(design_id, design_path, taken_at, obswl, logger=None, **kwargs):
-    def log_info(msg):
-        if logger is not None:
-            logger.info(msg)
-
-    if design_path is not None:
-        log_info('Getting guide_objects from the design file.')
-        guide_objects, ra, dec, inst_pa = pfs_design(
-            design_id,
-            design_path,
-            logger=logger
-        ).get_guide_objects(
-            taken_at=taken_at
-        )
-    elif design_id is not None:
-        log_info('Getting guide_objects from the operational database.')
-        _, ra, dec, inst_pa, *_ = opdb.query_pfs_design(design_id)
-        guide_objects = opdb.query_pfs_design_agc(design_id)
-    else:
-        taken_at = kwargs.get('taken_at')
-        adc = kwargs.get('adc')
-        m2_pos3 = kwargs.get('m2_pos3', 6.0)
-        log_info(f"{taken_at=},{adc=},{m2_pos3=}")
-
-        ra = kwargs.get('ra')
-        dec = kwargs.get('dec')
-        inst_pa = kwargs.get('inst_pa')
-        log_info(f'ra={ra},dec={dec},inst_pa={inst_pa}')
-
-        log_info('Generating guide_objects on-the-fly (from gaia database).')
-        guide_objects, *_ = gaia.get_objects(
-            ra=ra, dec=dec, obstime=taken_at, inst_pa=inst_pa, adc=adc, m2pos3=m2_pos3, obswl=obswl
-        )
-    return guide_objects, ra, dec, inst_pa
 
 
 def get_field_info(kwargs: dict, logger: Logger | None = None) -> tuple[float, int | None, str | None, float, float]:
@@ -125,7 +88,7 @@ def get_field_info(kwargs: dict, logger: Logger | None = None) -> tuple[float, i
     return design_id, design_path, ra, dec, inst_pa
 
 
-def autoguide(*, frame_id, obswl=0.62, logger=None, **kwargs) -> OffsetInfo:
+def acquire_field(*, frame_id, obswl=0.62, logger=None, **kwargs) -> OffsetInfo:
     def log_info(msg):
         if logger is not None:
             logger.info(msg)
@@ -218,7 +181,7 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(name='autoguide')
     set_field(frame_id=args.ref_frame_id, obswl=args.obswl, logger=logger, **kwargs)
-    ra, dec, inst_pa, dra, ddec, dinr, dscale, dalt, daz, *values = autoguide(
+    ra, dec, inst_pa, dra, ddec, dinr, dscale, dalt, daz, *values = acquire_field(
         frame_id=args.frame_id, obswl=args.obswl, logger=logger, **kwargs
     )
     print(

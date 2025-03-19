@@ -6,6 +6,7 @@ import fitsio
 from astropy import units
 from astropy.coordinates import Angle, Distance, SkyCoord
 from astropy.time import Time
+from numpy._typing import ArrayLike
 
 
 class pfsDesign:
@@ -36,7 +37,7 @@ class pfsDesign:
             inst_pa = header['POSANG']
         return ra, dec, inst_pa
 
-    def get_guide_objects(self, taken_at=None):
+    def get_guide_objects(self, taken_at: datetime | Number | str | None = None) -> tuple[ArrayLike | list, float, float, float]:
         if isinstance(taken_at, datetime):
             _obstime = Time(taken_at.astimezone(tz=timezone.utc))
         elif isinstance(taken_at, Number):
@@ -104,5 +105,5 @@ if __name__ == '__main__':
     logger = logging.getLogger(name='pfs_design')
     guide_objects, ra, dec, inst_pa = pfsDesign(design_id, design_path, logger=logger).get_guide_objects(
         taken_at=obstime
-        )
+    )
     print('guide_objects={},ra={},dec={},inst_pa={}'.format(guide_objects, ra, dec, inst_pa))

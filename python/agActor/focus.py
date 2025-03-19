@@ -1,36 +1,19 @@
-import numpy
-import numpy as np
 from logging import Logger
 
+import numpy
 from numpy._typing import ArrayLike
 
 from kawanomoto import FieldAcquisitionAndFocusing
 from opdb import opDB as opdb
 from python.agActor.field_acquisition import semi_axes
-
-# mapping of keys and value types between focus.py and FieldAcquisitionAndFocusing.py
-_KEYMAP = {
-    'max_ellipticity': ('maxellip', float),
-    'max_size': ('maxsize', float),
-    'min_size': ('minsize', float)
-}
-
-
-def _filter_kwargs(kwargs):
-
-    return {k: v for k, v in kwargs.items() if k in _KEYMAP}
-
-
-def _map_kwargs(kwargs):
-
-    return {_KEYMAP[k][0]: _KEYMAP[k][1](v) for k, v in kwargs.items() if k in _KEYMAP}
+from .utils import _KEYMAP, filter_kwargs, map_kwargs
 
 
 def focus(*, frame_id, logger=None, **kwargs):
 
     logger and logger.info('frame_id={}'.format(frame_id))
     detected_objects = opdb.query_agc_data(frame_id)
-    _kwargs = _filter_kwargs(kwargs)
+    _kwargs = filter_kwargs(kwargs)
     logger and logger.info('_kwargs={}'.format(_kwargs))
     return _focus(detected_objects, logger=logger, **_kwargs)
 
@@ -50,7 +33,7 @@ def _focus(detected_objects: ArrayLike, logger: Logger | None = None, **kwargs):
             for x in detected_objects
         ]
     )
-    _kwargs = _map_kwargs(kwargs)
+    _kwargs = map_kwargs(kwargs)
     logger and logger.info(f"_kwargs={_kwargs}")
 
     pfs = FieldAcquisitionAndFocusing.PFS()

@@ -2,17 +2,16 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from logging import Logger
 from numbers import Number
-from typing import Sequence
 
 import numpy as np
+import pandas as pd
 from numpy._typing import ArrayLike
 
 # import _gen2_gaia_annulus as gaia
 import coordinates
-from kawanomoto import FieldAcquisitionAndFocusing
 from opdb import opDB as opdb
-from python.agActor.autoguide import get_guide_objects
-from python.agActor.utils import _KEYMAP, filter_kwargs, map_kwargs, parse_kwargs, to_altaz
+from python.agActor.kawanomoto import Subaru_POPT2_PFS, Subaru_POPT2_PFS_AG
+from python.agActor.utils import _KEYMAP, filter_kwargs, get_guide_objects, map_kwargs, parse_kwargs, to_altaz
 
 
 @dataclass
@@ -60,7 +59,14 @@ def get_tel_status(*, frame_id, logger=None, **kwargs):
     return taken_at, inr, adc, m2_pos3
 
 
-def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwargs) -> OffsetInfo:
+def acquire_field(*,
+                  frame_id: int,
+                  obswl: float = 0.62,
+                  altazimuth: bool = False,
+                  logger=None,
+                  **kwargs
+                  ) -> OffsetInfo:
+
     def log_info(msg):
         if logger is not None:
             logger.info(msg)
@@ -123,7 +129,7 @@ def semi_axes(xy, x2, y2):
 
 
 def get_offset_info(
-    guide_objects: np.ndarray,
+    guide_objects: pd.DataFrame,
     detected_objects: np.ndarray,
     ra: float,
     dec: float,
@@ -136,7 +142,9 @@ def get_offset_info(
     logger: Logger | None = None,
     **kwargs
 ) -> OffsetInfo:
-    _guide_objects = np.array([(x[1], x[2], x[3]) for x in guide_objects])
+    # Camera ID [0], Spot ID [1], Centroid X [3], Centroid Y [4],
+    # Central Moment 11 [5], Central Moment 20 [6], Central Moment 02 [7],
+    # Peak X [8], Peak Y [9], Peak [10], Flags [-1]
     _detected_objects = np.array(
         [
             (
@@ -160,11 +168,8 @@ def get_offset_info(
     else:
         taken_at = taken_at
 
-    # Source filtering is done inside the FAinstpa object method and filtered stars are returned as part of diags.
-    pfs = FieldAcquisitionAndFocusing.PFS()
-
-    ra_offset, dec_offset, inr_offset, scale_offset, mr, md, v = pfs.FAinstpa(
-        _guide_objects,
+    ra_offset, dec_offset, inr_offset, scale_offset, mr, md, v = calculate_offset(
+        guide_objects,
         _detected_objects,
         ra,
         dec,
@@ -173,7 +178,7 @@ def get_offset_info(
         inst_pa,
         m2_pos3,
         obswl,
-        **_kwargs
+        _kwargs
     )
 
     ra_offset *= 3600
@@ -188,15 +193,33 @@ def get_offset_info(
         logger and logger.info(f"{alt=},{az=},{dalt=},{daz=}")
 
     guide_objects = np.array(
-        [(x[0], x[1], x[2], x[3], x[4], x[5], x[6]) for x in guide_objects],
+        [(x[0],
+          x[1],
+          x[2],
+          x[3],
+          x[4],
+          x[5],
+          x[6],
+          x[7],
+          x[9],
+          x[10],
+          x[11],
+          x[12],
+          x[13]) for idx, x in guide_objects.iterrows()],
         dtype=[
             ('source_id', np.int64),  # u8 (80) not supported by FITSIO
+            ('epoch', str),
             ('ra', np.float64),
             ('dec', np.float64),
-            ('mag', np.float32),
+            ('pmRa', np.float32),
+            ('pmDec', np.float32),
+            ('parallax', np.float32),
+            ('magnitude', np.float32),
+            ('color', np.float32),
             ('camera_id', np.int16),
             ('guide_object_xdet', np.float32),
-            ('guide_object_ydet', np.float32)
+            ('guide_object_ydet', np.float32),
+            ('flags', np.uint16)
         ]
     )
 
@@ -289,6 +312,52 @@ def get_offset_info(
         detected_objects=detected_objects,
         identified_objects=identified_objects,
     )
+
+
+def calculate_offset(guide_objects: pd.DataFrame, detected_objects, ra, dec, taken_at, adc, inst_pa, m2_pos3, obswl,
+                     kwargs
+                     ):
+    """Calculate the offset of the field.
+
+    This method replaces the functionality of `FAinstpa` so we can remove the filtering.
+    """
+    subaru = Subaru_POPT2_PFS.Subaru()
+    inr0 = subaru.radec2inr(ra, dec, taken_at)
+    inr = inr0 + inst_pa
+
+    pfs = Subaru_POPT2_PFS_AG.PFS()
+
+    # RA [2], Dec [3], PM RA [4], PM Dec [5], Parallax [6], Magnitude [7], Flags [-1]
+    ra_values = guide_objects.ra.to_numpy()
+    dec_values = guide_objects.dec.to_numpy()
+    magnitude_values = guide_objects.magnitude.to_numpy()
+    flag_values = guide_objects.flag.to_numpy()
+
+    v_0, v_1 = pfs.makeBasis(
+        ra,
+        dec,
+        ra_values,
+        dec_values,
+        taken_at,
+        adc,
+        inr,
+        m2_pos3,
+        obswl
+    )
+    v_0 = (np.insert(v_0, 2, magnitude_values, axis=1))
+    v_1 = (np.insert(v_1, 2, magnitude_values, axis=1))
+
+    # Get the offsets.
+    ra_offset, dec_offset, inr_offset, scale_offset, mr, md = pfs.RADECInRScaleShift(
+        detected_objects[:, 2],
+        detected_objects[:, 3],
+        detected_objects[:, 4],  # This is not used and I'm guessing incorrect index.
+        detected_objects[:, 7],
+        v_0,
+        v_1
+    )
+
+    return ra_offset, dec_offset, inr_offset, scale_offset, mr, md, flag_values
 
 
 if __name__ == '__main__':

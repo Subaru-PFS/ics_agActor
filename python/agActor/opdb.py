@@ -60,10 +60,24 @@ class opDB:
         )
 
     @staticmethod
-    def query_pfs_design_agc(pfs_design_id):
+    def query_pfs_design_agc(pfs_design_id) -> list:
         return opDB.fetchall(
-            'SELECT guide_star_id,guide_star_ra,guide_star_dec,guide_star_magnitude,agc_camera_id,agc_target_x_pix,'
-            'agc_target_y_pix FROM pfs_design_agc WHERE pfs_design_id=%s ORDER BY guide_star_id',
+            '''SELECT 
+                    guide_star_id as objId,
+                    epoch as epoch,
+                    guide_star_ra as ra,
+                    guide_star_dec as dec,
+                    guide_star_pm_ra as pmRa,
+                    guide_star_pm_dec as pmDec,
+                    guide_star_parallax as parallax,
+                    guide_star_magnitude as magnitude,
+                    passband as passband,
+                    guide_star_color as color,
+                    agc_camera_id as agId,
+                    agc_target_x_pix as agX,
+                    agc_target_y_pix as agY,
+                    guide_star_flag as flag
+            FROM pfs_design_agc WHERE pfs_design_id=%s ORDER BY guide_star_id''',
             (pfs_design_id,)
         )
 
