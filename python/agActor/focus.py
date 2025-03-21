@@ -4,8 +4,8 @@ import numpy
 from numpy._typing import ArrayLike
 
 from kawanomoto import FieldAcquisitionAndFocusing
-from opdb import opDB as opdb
-from python.agActor.field_acquisition import semi_axes
+from agActor.opdb import opDB as opdb
+from agActor.field_acquisition import semi_axes
 from agActor.utils import _KEYMAP, filter_kwargs, map_kwargs
 
 

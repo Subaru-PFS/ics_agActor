@@ -11,7 +11,7 @@ from numpy._typing import ArrayLike
 
 # import _gen2_gaia_annulus as gaia
 from agActor import coordinates
-from opdb import opDB as opdb
+from agActor.opdb import opDB as opdb
 
 
 @dataclass
