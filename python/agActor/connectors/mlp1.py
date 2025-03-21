@@ -1,4 +1,4 @@
-from agActor.connectors import BaseConnector
+from agActor.connectors.base import BaseConnector
 
 
 class Mlp1(BaseConnector):
