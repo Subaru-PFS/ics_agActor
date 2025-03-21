@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from astropy import units
 from astropy.coordinates import Angle
 
-from agActor.models.base import BaseModel
+from agActor.base import BaseModel
 
 
 class Gen2(BaseModel):

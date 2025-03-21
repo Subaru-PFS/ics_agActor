@@ -1,4 +1,4 @@
-from agActor.models.base import BaseModel
+from agActor.base import BaseModel
 
 
 class Mlp1(BaseModel):
