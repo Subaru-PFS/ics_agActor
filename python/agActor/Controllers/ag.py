@@ -389,7 +389,6 @@ class AgThread(threading.Thread):
                     if offset is not None:
                         kwargs['offset'] = offset
 
-                    kwargs['catalog'] = options.get('catalog', ag.CATALOG)
                     kwargs['magnitude'] = options.get('magnitude', ag.MAGNITUDE)
 
                     if mode & ag.Mode.REF_OTF:

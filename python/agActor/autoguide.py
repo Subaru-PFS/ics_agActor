@@ -5,6 +5,7 @@ import field_acquisition
 
 from opdb import opDB as opdb
 from pfs_design import pfsDesign as pfs_design
+from agActor.utils import get_offset_info
 from agActor.field_acquisition import OffsetInfo
 from agActor.utils import filter_kwargs, get_guide_objects, parse_kwargs, _KEYMAP
 
@@ -118,7 +119,7 @@ def acquire_field(*, frame_id, obswl=0.62, logger=None, **kwargs) -> OffsetInfo:
     _kwargs = filter_kwargs(kwargs)
     log_info(f"{_kwargs=}")
 
-    offset_info = field_acquisition.get_offset_info(
+    offset_info = get_offset_info(
         guide_objects=guide_objects,
         detected_objects=detected_objects,
         ra=ra,

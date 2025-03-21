@@ -1,17 +1,15 @@
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from logging import Logger
-from numbers import Number
 
 import numpy as np
 import pandas as pd
-from agActor.kawanomoto import Subaru_POPT2_PFS, Subaru_POPT2_PFS_AG
-from agActor.utils import _KEYMAP, filter_kwargs, get_guide_objects, map_kwargs, parse_kwargs, to_altaz
 from numpy._typing import ArrayLike
 
 # import _gen2_gaia_annulus as gaia
+from agActor.kawanomoto import Subaru_POPT2_PFS, Subaru_POPT2_PFS_AG
+from agActor.utils import _KEYMAP, filter_kwargs, get_guide_objects, map_kwargs, parse_kwargs, to_altaz
 from agActor import coordinates
 from agActor.opdb import opDB as opdb
+from agActor.utils import get_offset_info
 
 
 @dataclass
@@ -132,192 +130,6 @@ def semi_axes(xy, x2, y2):
     a = np.sqrt(p + q)
     b = np.sqrt(p - q)
     return a, b
-
-
-def get_offset_info(
-    guide_objects: pd.DataFrame,
-    detected_objects: np.ndarray,
-    ra: float,
-    dec: float,
-    taken_at: datetime,
-    adc: float,
-    inst_pa: float = 0.0,
-    m2_pos3: float = 6.0,
-    obswl: float = 0.62,
-    altazimuth: bool = False,
-    logger: Logger | None = None,
-    **kwargs
-) -> OffsetInfo:
-    # Camera ID [0], Spot ID [1], Centroid X [3], Centroid Y [4],
-    # Central Moment 11 [5], Central Moment 20 [6], Central Moment 02 [7],
-    # Peak X [8], Peak Y [9], Peak [10], Flags [-1]
-    _detected_objects = np.array(
-        [
-            (
-                x[0],
-                x[1],
-                *coordinates.det2dp(int(x[0]), x[3], x[4]),
-                x[10],
-                *semi_axes(x[5], x[6], x[7]),
-                x[-1]
-            )
-            for x in detected_objects
-        ]
-    )
-    _kwargs = map_kwargs(kwargs)
-    logger and logger.info(f"{_kwargs=}")
-
-    if isinstance(taken_at, datetime):
-        taken_at = taken_at.astimezone(tz=timezone.utc)
-    elif isinstance(taken_at, Number):
-        taken_at = datetime.fromtimestamp(taken_at, tz=timezone.utc)
-    else:
-        taken_at = taken_at
-
-    ra_offset, dec_offset, inr_offset, scale_offset, mr, md, v = calculate_offset(
-        guide_objects,
-        _detected_objects,
-        ra,
-        dec,
-        taken_at,
-        adc,
-        inst_pa,
-        m2_pos3,
-        obswl,
-        _kwargs
-    )
-
-    ra_offset *= 3600
-    dec_offset *= 3600
-    inr_offset *= 3600
-    logger and logger.info(f"{ra_offset=},{dec_offset=},{inr_offset=},{scale_offset=}")
-    dalt = None
-    daz = None
-
-    if altazimuth:
-        alt, az, dalt, daz = to_altaz(ra, dec, taken_at, dra=ra_offset, ddec=dec_offset)
-        logger and logger.info(f"{alt=},{az=},{dalt=},{daz=}")
-
-    guide_objects = np.array(
-        [(x.iloc[0],
-          x.iloc[1],
-          x.iloc[2],
-          x.iloc[3],
-          x.iloc[4],
-          x.iloc[5],
-          x.iloc[6],
-          x.iloc[7],
-          x.iloc[9],
-          x.iloc[10],
-          x.iloc[11],
-          x.iloc[12],
-          x.iloc[13]) for idx, x in guide_objects.iterrows()],
-        dtype=[
-            ('source_id', np.int64),  # u8 (80) not supported by FITSIO
-            ('epoch', str),
-            ('ra', np.float64),
-            ('dec', np.float64),
-            ('pmRa', np.float32),
-            ('pmDec', np.float32),
-            ('parallax', np.float32),
-            ('magnitude', np.float32),
-            ('color', np.float32),
-            ('camera_id', np.int16),
-            ('guide_object_xdet', np.float32),
-            ('guide_object_ydet', np.float32),
-            ('flags', np.uint16)
-        ]
-    )
-
-    detected_objects = np.array(
-        detected_objects,
-        dtype=[
-            ('camera_id', np.int16),
-            ('spot_id', np.int16),
-            ('moment_00', np.float32),
-            ('centroid_x', np.float32),
-            ('centroid_y', np.float32),
-            ('central_moment_11', np.float32),
-            ('central_moment_20', np.float32),
-            ('central_moment_02', np.float32),
-            ('peak_x', np.uint16),
-            ('peak_y', np.uint16),
-            ('peak', np.uint16),
-            ('background', np.float32),
-            ('flags', np.uint8)
-        ]
-    )
-
-    index_v, = np.where(v)
-    identified_objects = np.array(
-        [
-            (
-                k,  # index of detected object
-                int(x[0]),  # index of identified guide object
-                float(x[1]), float(x[2]),  # detector plane coordinates of detected object
-                float(x[3]), float(x[4]),  # detector plane coordinates of identified guide object
-                *coordinates.dp2det(detected_objects[k][0], float(x[3]), float(x[4]))
-                # detector coordinates of identified guide object
-            )
-            for k, x in
-            ((int(index_v[i]), x) for i, x in enumerate(zip(mr[:, 9], mr[:, 0], mr[:, 1], mr[:, 2], mr[:, 3], mr[:, 8]))
-             if int(x[5]))
-        ],
-        dtype=[
-            ('detected_object_id', np.int16),
-            ('guide_object_id', np.int16),
-            ('detected_object_x', np.float32),
-            ('detected_object_y', np.float32),
-            ('guide_object_x', np.float32),
-            ('guide_object_y', np.float32),
-            ('guide_object_xdet', np.float32),
-            ('guide_object_ydet', np.float32)
-        ]
-    )
-    dx = - ra_offset * np.cos(np.deg2rad(dec))  # arcsec
-    dy = dec_offset  # arcsec (HSC definition)
-
-    # find "representative" spot size, peak intensity, and flux by "median" of pointing errors
-    spot_size = 0  # pix
-    peak_intensity = 0  # pix
-    flux = 0  # pix
-
-    # squares of pointing errors in detector plane coordinates
-    square_pointing_errors = (identified_objects['detected_object_x'] - identified_objects['guide_object_x']) ** 2 + (
-        identified_objects['detected_object_y'] - identified_objects['guide_object_y']) ** 2
-
-    num_errors = len(square_pointing_errors) - np.isnan(square_pointing_errors).sum()
-
-    if num_errors > 0:
-        identified_median_idx = np.argpartition(square_pointing_errors, num_errors // 2)[num_errors // 2]
-        detected_median_idx = identified_objects['detected_object_id'][identified_median_idx]
-
-        a, b = semi_axes(
-            detected_objects['central_moment_11'][detected_median_idx],
-            detected_objects['central_moment_20'][detected_median_idx],
-            detected_objects['central_moment_02'][detected_median_idx]
-        )
-
-        spot_size = (a * b) ** 0.5
-        peak_intensity = detected_objects['peak'][detected_median_idx]
-        flux = detected_objects['moment_00'][detected_median_idx]
-
-    return OffsetInfo(
-        dra=ra_offset,
-        ddec=dec_offset,
-        dinr=inr_offset,
-        dscale=scale_offset,
-        dalt=dalt,
-        daz=daz,
-        dx=dx,
-        dy=dy,
-        spot_size=spot_size,
-        peak_intensity=peak_intensity,
-        flux=flux,
-        guide_objects=guide_objects,
-        detected_objects=detected_objects,
-        identified_objects=identified_objects,
-    )
 
 
 def calculate_offset(guide_objects: pd.DataFrame, detected_objects, ra, dec, taken_at, adc, inst_pa, m2_pos3, obswl,
