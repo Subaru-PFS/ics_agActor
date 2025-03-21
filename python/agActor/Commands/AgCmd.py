@@ -265,13 +265,18 @@ class AgCmd:
             # compute offsets, scale, transparency, and seeing
 
             cmd.inform('detectionState=1')
-            offset_info = field_acquisition.acquire_field(
-                design=design,
-                frame_id=frame_id,
-                altazimuth=guide,
-                logger=self.actor.logger,
-                **kwargs
-            )
+            try:
+                offset_info = field_acquisition.acquire_field(
+                    design=design,
+                    frame_id=frame_id,
+                    altazimuth=guide,
+                    logger=self.actor.logger,
+                    **kwargs
+                )
+            except RuntimeError as e:
+                self.actor.logger.exception(f'AgCmd.acquire_field: {e}')
+                cmd.fail(f'text="AgCmd.acquire_field: {e}"')
+                return
 
             # TODO: remove these and use offset_info directly.
             ra = offset_info.ra

@@ -76,8 +76,7 @@ def acquire_field(*,
     log_info(f'Retrieved {len(detected_objects)} detected objects from the database for {frame_id=}.')
 
     if len(detected_objects) == 0:
-        log_info("No detected objects found, can't compute offset", level='warning')
-        return OffsetInfo()
+        raise RuntimeError("No detected objects found, can't compute offset")
 
     parse_kwargs(kwargs)
 
