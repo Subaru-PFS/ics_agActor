@@ -222,4 +222,18 @@ def get_guide_objects(
         guide_objects = guide_objects[gaia_idx]
         log_info(f'Got {len(guide_objects)} guide objects after filtering.')
 
+        # Filter the guide objects to only include the ones that are flagged as astrometric.
+        log_info('Filtering guide objects to remove stars with low astrometric noise.')
+        astrometric_idx = (guide_objects.flag & np.array(AutoGuiderStarMask.ASTROMETRIC)).values.astype(bool)
+        guide_objects = guide_objects[astrometric_idx]
+
+        # Filter the guide objects to include only stars with significant proper motion and parallax
+        log_info('Filtering guide objects to only include stars with significant proper motion and parallax.')
+        pmra_idx = (guide_objects.flag & np.array(AutoGuiderStarMask.PMRA_SIG)).values.astype(bool)
+        pmdec_idx = (guide_objects.flag & np.array(AutoGuiderStarMask.PMDEC_SIG)).values.astype(bool)
+        para_idx = (guide_objects.flag & np.array(AutoGuiderStarMask.PARA_SIG)).values.astype(bool)
+        photo_idx = (guide_objects.flag & np.array(AutoGuiderStarMask.PHOTO_SIG)).values.astype(bool)
+        guide_objects = guide_objects[pmra_idx & pmdec_idx & para_idx & photo_idx]
+        log_info(f'Got {len(guide_objects)} guide objects after filtering.')
+
     return guide_objects, ra, dec, inst_pa
