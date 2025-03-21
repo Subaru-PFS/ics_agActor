@@ -80,6 +80,9 @@ def acquire_field(*,
     log_info('Getting tel_status information for {frame_id=}')
     taken_at, inr, adc, m2_pos3 = get_tel_status(frame_id=frame_id, logger=logger, **kwargs)
 
+    # Remove the taken_at provided by the kwargs
+    kwargs.pop('taken_at', None)
+
     log_info('Getting guide objects for acquire_field')
     design_id = kwargs.get('design_id')
     design_path = kwargs.get('design_path')
