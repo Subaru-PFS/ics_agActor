@@ -10,7 +10,6 @@ from agActor.opdb import opDB as opdb
 from agActor.pfs_design import pfsDesign as pfs_design
 from astropy import units
 from astropy.coordinates import AltAz, Angle, SkyCoord
-from astropy.table import Table
 from astropy.time import Time
 
 _KEYMAP = {
@@ -196,8 +195,11 @@ def get_guide_objects(
         )
 
     # Use Table to convert, which handles big-endian and little-endian issues.
-    guide_objects = Table(guide_objects).to_pandas()
+    guide_objects = pd.DataFrame(guide_objects)
     log_info(f'Got {len(guide_objects)} guide objects.')
+
+    guide_objects.columns = ['objId', 'epoch', 'ra', 'dec', 'pmRa', 'pmDec', 'parallax', 'magnitude', 'passband',
+                             'color', 'agId', 'agX', 'agY', 'flag']
 
     initial = kwargs.get('initial', False)
 
