@@ -9,9 +9,9 @@ from astropy.coordinates import AltAz, Angle, SkyCoord
 from astropy.table import Table
 from astropy.time import Time
 
-from python.agActor import _gen2_gaia as gaia
-from python.agActor.opdb import opDB as opdb
-from python.agActor.pfs_design import pfsDesign as pfs_design
+from agActor import _gen2_gaia as gaia
+from agActor.opdb import opDB as opdb
+from agActor.pfs_design import pfsDesign as pfs_design
 from pfs.datamodel.guideStars import AutoGuiderStarMask
 
 _KEYMAP = {

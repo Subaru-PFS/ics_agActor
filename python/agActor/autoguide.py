@@ -2,11 +2,11 @@ from logging import Logger
 
 import astrometry
 import field_acquisition
-import python.agActor.utils
+
 from opdb import opDB as opdb
 from pfs_design import pfsDesign as pfs_design
-from python.agActor.field_acquisition import OffsetInfo
-from python.agActor.utils import filter_kwargs, get_guide_objects, parse_kwargs
+from agActor.field_acquisition import OffsetInfo
+from agActor.utils import filter_kwargs, get_guide_objects, parse_kwargs, _KEYMAP
 
 
 class Field:
@@ -173,7 +173,7 @@ if __name__ == '__main__':
         kwargs['dinr'] = args.dinr
     if args.magnitude is not None:
         kwargs['magnitude'] = args.magnitude
-    kwargs |= {key: getattr(args, key) for key in python.agActor.utils._KEYMAP if key in args}
+    kwargs |= {key: getattr(args, key) for key in _KEYMAP if key in args}
     print('kwargs={}'.format(kwargs))
 
     import logging

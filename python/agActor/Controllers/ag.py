@@ -5,9 +5,9 @@ import time
 
 import numpy as np
 
-from .. import autoguide, data_utils, focus, pfs_design
-from ..telescope_center import telCenter as tel_center
-from ..utils import FILENAMES
+from agActor import autoguide, data_utils, focus, pfs_design
+from agActor.telescope_center import telCenter as tel_center
+from agActor.utils import FILENAMES
 
 
 class ag:
