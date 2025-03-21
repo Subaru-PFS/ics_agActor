@@ -41,7 +41,7 @@ class AgCmd:
             keys.Key('guide', types.Bool('no', 'yes'), help=''),
             keys.Key('design_id', types.String(), help=''),
             keys.Key('design_path', types.String(), help=''),
-            keys.Key('initial', types.Bool(), help=''),
+            keys.Key('initial', types.Bool('no', 'yes'), help=''),
             keys.Key('visit_id', types.Int(), help=''),
             keys.Key('visit', types.Int(), help=''),
             keys.Key('from_sky', types.Bool('no', 'yes'), help=''),
