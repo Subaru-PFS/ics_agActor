@@ -5,14 +5,14 @@ from numbers import Number
 
 import numpy as np
 import pandas as pd
-from agActor import _gen2_gaia as gaia
+from agActor import _gen2_gaia as gaia, subaru
 from agActor.opdb import opDB as opdb
-from agActor.pfs_design import pfsDesign as pfs_design
 from astropy import units
 from astropy.coordinates import AltAz, Angle, SkyCoord
 from astropy.table import Table
 from astropy.time import Time
-from agActor import subaru
+
+from agActor.pfs_design import pfsDesign as pfs_design
 
 _KEYMAP = {
     'fit_dinr': ('inrflag', int),
@@ -165,6 +165,8 @@ def get_guide_objects(
     def log_info(msg):
         if logger is not None:
             logger.info(msg)
+        else:
+            print(msg)
 
     if design_path is not None:
         log_info('Getting guide_objects from the design file.')
@@ -226,14 +228,16 @@ def get_guide_objects(
         log_info('Filtering guide objects to remove stars with low astrometric noise.')
         astrometric_idx = (guide_objects.flag & np.array(AutoGuiderStarMask.ASTROMETRIC)).values.astype(bool)
         guide_objects = guide_objects[astrometric_idx]
+        log_info(f'Got {len(guide_objects)} guide objects after filtering.')
 
         # Filter the guide objects to include only stars with significant proper motion and parallax
         log_info('Filtering guide objects to only include stars with significant proper motion and parallax.')
-        pmra_idx = (guide_objects.flag & np.array(AutoGuiderStarMask.PMRA_SIG)).values.astype(bool)
-        pmdec_idx = (guide_objects.flag & np.array(AutoGuiderStarMask.PMDEC_SIG)).values.astype(bool)
-        para_idx = (guide_objects.flag & np.array(AutoGuiderStarMask.PARA_SIG)).values.astype(bool)
-        photo_idx = (guide_objects.flag & np.array(AutoGuiderStarMask.PHOTO_SIG)).values.astype(bool)
-        guide_objects = guide_objects[pmra_idx & pmdec_idx & para_idx & photo_idx]
-        log_info(f'Got {len(guide_objects)} guide objects after filtering.')
+        for f in [
+            AutoGuiderStarMask.PMRA_SIG, AutoGuiderStarMask.PMDEC_SIG,
+            AutoGuiderStarMask.PARA_SIG, AutoGuiderStarMask.PHOTO_SIG
+        ]:
+            f_idx = (guide_objects.flag & np.array(f)).values.astype(bool)
+            guide_objects = guide_objects[f_idx]
+            log_info(f'Got {len(guide_objects)} guide objects after filtering.')
 
     return guide_objects, ra, dec, inst_pa
