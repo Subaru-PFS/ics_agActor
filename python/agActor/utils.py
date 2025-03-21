@@ -238,6 +238,6 @@ def get_guide_objects(
         ]:
             f_idx = (guide_objects.flag & np.array(f)).values.astype(bool)
             guide_objects = guide_objects[f_idx]
-            log_info(f'Got {len(guide_objects)} guide objects after filtering.')
+            log_info(f'Got {len(guide_objects)} guide objects after filtering for {f.name}.')
 
     return guide_objects, ra, dec, inst_pa
