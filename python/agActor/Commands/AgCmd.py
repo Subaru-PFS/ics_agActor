@@ -273,6 +273,11 @@ class AgCmd:
                 **kwargs
             )
 
+            # If there are no detected objects, fail the command.
+            if len(offset_info.detected_objects) == 0:
+                cmd.fail('text="AgCmd.acquire_field: No detected objects found, can\'t compute offset"')
+                return
+
             # TODO: remove these and use offset_info directly.
             ra = offset_info.ra
             dec = offset_info.dec
