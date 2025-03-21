@@ -202,9 +202,20 @@ def get_guide_objects(
     guide_objects.columns = ['objId', 'epoch', 'ra', 'dec', 'pmRa', 'pmDec', 'parallax', 'magnitude', 'passband',
                              'color', 'agId', 'agX', 'agY', 'flag']
 
-    initial = kwargs.get('initial', False)
+    # Filter the guide objects to only include the ones that are not flagged as galaxies.
+    log_info('Filtering guide objects to remove galaxies.')
+    galaxy_idx = (guide_objects.flag & np.array(AutoGuiderStarMask.GALAXY)).values.astype(bool)
+    guide_objects = guide_objects[~galaxy_idx]
+    log_info(f'Got {len(guide_objects)} guide objects after filtering galaxies.')
+
+    # Filter the guide objects to only include the ones that are not flagged as binaries.
+    log_info('Filtering guide objects to remove binaries.')
+    binary_idx = (guide_objects.flag & np.array(AutoGuiderStarMask.NON_BINARY)).values.astype(bool)
+    guide_objects = guide_objects[~binary_idx]
+    log_info(f'Got {len(guide_objects)} guide objects after filtering binaries.')
 
     # The initial coarse guide uses all the stars and the fine guide uses only the GAIA stars.
+    initial = kwargs.get('initial', False)
     if initial is False:
         log_info('Filtering guide objects to only GAIA stars.')
         gaia_idx = (guide_objects.flag & np.array(AutoGuiderStarMask.GAIA)).values.astype(bool)
