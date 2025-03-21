@@ -210,12 +210,6 @@ def get_guide_objects(
     guide_objects = guide_objects[~galaxy_idx]
     log_info(f'Got {len(guide_objects)} guide objects after filtering galaxies.')
 
-    # Filter the guide objects to only include the ones that are not flagged as binaries.
-    log_info('Filtering guide objects to remove binaries.')
-    binary_idx = (guide_objects.flag & np.array(AutoGuiderStarMask.NON_BINARY)).values.astype(bool)
-    guide_objects = guide_objects[~binary_idx]
-    log_info(f'Got {len(guide_objects)} guide objects after filtering binaries.')
-
     # The initial coarse guide uses all the stars and the fine guide uses only the GAIA stars.
     coarse = kwargs.get('coarse', False)
     if coarse is False:
@@ -223,6 +217,12 @@ def get_guide_objects(
         gaia_idx = (guide_objects.flag & np.array(AutoGuiderStarMask.GAIA)).values.astype(bool)
         guide_objects = guide_objects[gaia_idx]
         log_info(f'Got {len(guide_objects)} guide objects after filtering.')
+
+        # Filter the guide objects to only include the ones that are not flagged as binaries.
+        log_info('Filtering guide objects to remove binaries.')
+        binary_idx = (guide_objects.flag & np.array(AutoGuiderStarMask.NON_BINARY)).values.astype(bool)
+        guide_objects = guide_objects[~binary_idx]
+        log_info(f'Got {len(guide_objects)} guide objects after filtering binaries.')
 
         # Filter the guide objects to only include the ones that are flagged as astrometric.
         log_info('Filtering guide objects to remove stars with low astrometric noise.')
