@@ -1,4 +1,4 @@
-from agActor.base import BaseConnector
+from agActor.connectors import BaseConnector
 
 
 class Agcc(BaseConnector):
