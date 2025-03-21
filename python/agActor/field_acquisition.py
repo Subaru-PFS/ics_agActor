@@ -193,19 +193,19 @@ def get_offset_info(
         logger and logger.info(f"{alt=},{az=},{dalt=},{daz=}")
 
     guide_objects = np.array(
-        [(x[0],
-          x[1],
-          x[2],
-          x[3],
-          x[4],
-          x[5],
-          x[6],
-          x[7],
-          x[9],
-          x[10],
-          x[11],
-          x[12],
-          x[13]) for idx, x in guide_objects.iterrows()],
+        [(x.iloc[0],
+          x.iloc[1],
+          x.iloc[2],
+          x.iloc[3],
+          x.iloc[4],
+          x.iloc[5],
+          x.iloc[6],
+          x.iloc[7],
+          x.iloc[9],
+          x.iloc[10],
+          x.iloc[11],
+          x.iloc[12],
+          x.iloc[13]) for idx, x in guide_objects.iterrows()],
         dtype=[
             ('source_id', np.int64),  # u8 (80) not supported by FITSIO
             ('epoch', str),
