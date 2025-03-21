@@ -221,7 +221,7 @@ def get_guide_objects(
         # Filter the guide objects to only include the ones that are not flagged as binaries.
         log_info('Filtering guide objects to remove binaries.')
         binary_idx = (guide_objects.flag & np.array(AutoGuiderStarMask.NON_BINARY)).values.astype(bool)
-        guide_objects = guide_objects[~binary_idx]
+        guide_objects = guide_objects[binary_idx]
         log_info(f'Got {len(guide_objects)} guide objects after filtering binaries.')
 
         # Filter the guide objects to only include the ones that are flagged as astrometric.
