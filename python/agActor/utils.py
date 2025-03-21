@@ -215,8 +215,8 @@ def get_guide_objects(
     log_info(f'Got {len(guide_objects)} guide objects after filtering binaries.')
 
     # The initial coarse guide uses all the stars and the fine guide uses only the GAIA stars.
-    initial = kwargs.get('initial', False)
-    if initial is False:
+    coarse = kwargs.get('coarse', False)
+    if coarse is False:
         log_info('Filtering guide objects to only GAIA stars.')
         gaia_idx = (guide_objects.flag & np.array(AutoGuiderStarMask.GAIA)).values.astype(bool)
         guide_objects = guide_objects[gaia_idx]

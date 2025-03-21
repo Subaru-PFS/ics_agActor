@@ -31,7 +31,7 @@ class ag:
         AUTO_ONCE_OTF = REF_OTF | ONCE  # [-IS] initialize and autoguide once, guide objects from catalog on the fly
         #       (on-the-fly field acquisition with autoguider)
 
-    INITIAL = False
+    COARSE = False
     EXPOSURE_TIME = 2000  # ms
     CADENCE = 0  # ms
     MAGNITUDE = 20.0

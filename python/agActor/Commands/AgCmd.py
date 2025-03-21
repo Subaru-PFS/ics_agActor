@@ -20,8 +20,8 @@ class AgCmd:
             ('ping', '', self.ping),
             ('status', '', self.status),
             ('show', '', self.show),
-            ('acquire_field', '[<design_id>] [<design_path>] [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<offset>] [initial] [<dinr>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]', self.acquire_field),
-            ('acquire_field', '@otf [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<center>] [initial] [<offset>] [<dinr>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]', self.acquire_field),
+            ('acquire_field', '[<design_id>] [<design_path>] [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<offset>] [coarse] [<dinr>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]', self.acquire_field),
+            ('acquire_field', '@otf [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<center>] [coarse] [<offset>] [<dinr>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]', self.acquire_field),
             ('focus', '[<visit_id>|<visit>] [<exposure_time>] [<max_ellipticity>] [<max_size>] [<min_size>] [<exposure_delay>] [<tec_off>]', self.focus),
             ('autoguide', '@start [<design_id>] [<design_path>] [<visit_id>|<visit>] [<from_sky>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]', self.start_autoguide),
             ('autoguide', '@start @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]', self.start_autoguide),
@@ -141,9 +141,9 @@ class AgCmd:
             dinr = float(cmd.cmd.keywords['dinr'].values[0])
 
         kwargs = {}
-        kwargs['initial'] = ag.INITIAL
-        if 'initial' in cmd.cmd.keywords:
-            kwargs['initial'] = bool(cmd.cmd.keywords['initial'].values[0])
+        kwargs['coarse'] = ag.COARSE
+        if 'coarse' in cmd.cmd.keywords:
+            kwargs['coarse'] = bool(cmd.cmd.keywords['coarse'].values[0])
         if 'magnitude' in cmd.cmd.keywords:
             magnitude = float(cmd.cmd.keywords['magnitude'].values[0])
             kwargs['magnitude'] = magnitude
@@ -479,10 +479,10 @@ class AgCmd:
             center = tuple([float(x) for x in cmd.cmd.keywords['center'].values])
 
         kwargs = {}
-        initial = ag.INITIAL
-        if 'initial' in cmd.cmd.keywords:
-            initial = bool(cmd.cmd.keywords['initial'].values[0])
-            kwargs['initial'] = initial
+        coarse = ag.COARSE
+        if 'coarse' in cmd.cmd.keywords:
+            coarse = bool(cmd.cmd.keywords['coarse'].values[0])
+            kwargs['coarse'] = coarse
         if 'magnitude' in cmd.cmd.keywords:
             magnitude = float(cmd.cmd.keywords['magnitude'].values[0])
             kwargs['magnitude'] = magnitude
@@ -557,10 +557,10 @@ class AgCmd:
             center = tuple([float(x) for x in cmd.cmd.keywords['center'].values])
 
         kwargs = {}
-        initial = ag.INITIAL
-        if 'initial' in cmd.cmd.keywords:
-            initial = bool(cmd.cmd.keywords['initial'].values[0])
-            kwargs['initial'] = initial
+        coarse = ag.COARSE
+        if 'coarse' in cmd.cmd.keywords:
+            coarse = bool(cmd.cmd.keywords['coarse'].values[0])
+            kwargs['coarse'] = coarse
         if 'magnitude' in cmd.cmd.keywords:
             magnitude = float(cmd.cmd.keywords['magnitude'].values[0])
             kwargs['magnitude'] = magnitude
