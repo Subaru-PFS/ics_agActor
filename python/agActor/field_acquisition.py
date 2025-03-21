@@ -10,7 +10,7 @@ from agActor.utils import _KEYMAP, filter_kwargs, get_guide_objects, map_kwargs,
 from numpy._typing import ArrayLike
 
 # import _gen2_gaia_annulus as gaia
-import coordinates
+from agActor import coordinates
 from opdb import opDB as opdb
 
 
