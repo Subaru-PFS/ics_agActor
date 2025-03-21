@@ -5,13 +5,13 @@ from numbers import Number
 
 import numpy as np
 import pandas as pd
+from agActor.kawanomoto import Subaru_POPT2_PFS, Subaru_POPT2_PFS_AG
+from agActor.utils import _KEYMAP, filter_kwargs, get_guide_objects, map_kwargs, parse_kwargs, to_altaz
 from numpy._typing import ArrayLike
 
 # import _gen2_gaia_annulus as gaia
 import coordinates
 from opdb import opDB as opdb
-from agActor.kawanomoto import Subaru_POPT2_PFS, Subaru_POPT2_PFS_AG
-from agActor.utils import _KEYMAP, filter_kwargs, get_guide_objects, map_kwargs, parse_kwargs, to_altaz
 
 
 @dataclass
