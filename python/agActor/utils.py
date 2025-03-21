@@ -155,9 +155,9 @@ def to_altaz(
 
 
 def get_guide_objects(
-    design_id: int | None,
-    design_path: str | None,
-    taken_at: datetime | Number | str | None,
+    design_id: int | None = None,
+    design_path: str | None = None,
+    taken_at: datetime | Number | str | None = None,
     obswl: float = 0.62,
     logger=None,
     **kwargs
