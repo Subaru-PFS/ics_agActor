@@ -8,6 +8,7 @@ from astropy.time import Time
 
 from agActor import coordinates
 from agActor.kawanomoto import Subaru_POPT2_PFS
+from agActor import subaru
 
 _popt2 = Subaru_POPT2_PFS.POPT2()
 _pfs = Subaru_POPT2_PFS.PFS()
@@ -394,7 +395,6 @@ def get_objects(
         obstime, Number
         ) else Time(obstime) if obstime is not None else Time.now()
 
-    import subaru
     frame_tc = AltAz(
         obstime=obstime, location=subaru.location, temperature=temperature * units.deg_C,
         relative_humidity=relative_humidity / 100, pressure=pressure * units.hPa, obswl=obswl * units.micron

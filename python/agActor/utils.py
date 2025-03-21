@@ -12,6 +12,7 @@ from astropy import units
 from astropy.coordinates import AltAz, Angle, SkyCoord
 from astropy.table import Table
 from astropy.time import Time
+from agActor import subaru
 
 _KEYMAP = {
     'fit_dinr': ('inrflag', int),
@@ -136,7 +137,6 @@ def to_altaz(
     dra *= units.arcsec
     ddec *= units.arcsec
 
-    import subaru
     frame = AltAz(
         obstime=obstime, location=subaru.location, temperature=temperature, relative_humidity=relative_humidity,
         pressure=pressure, obswl=obswl
