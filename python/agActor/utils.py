@@ -155,10 +155,10 @@ def to_altaz(
 
 
 def get_guide_objects(
-    design_id,
-    design_path,
-    taken_at,
-    obswl,
+    design_id: int | None,
+    design_path: str | None,
+    taken_at: datetime | Number | str | None,
+    obswl: float = 0.62,
     logger=None,
     **kwargs
 ) -> tuple[pd.DataFrame, float, float, float]:
