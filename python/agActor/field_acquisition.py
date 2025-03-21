@@ -1,11 +1,8 @@
 from dataclasses import dataclass
 
-import numpy as np
-import pandas as pd
 from numpy._typing import ArrayLike
 
 # import _gen2_gaia_annulus as gaia
-from agActor.kawanomoto import Subaru_POPT2_PFS, Subaru_POPT2_PFS_AG
 from agActor.utils import _KEYMAP, filter_kwargs, get_guide_objects, map_kwargs, parse_kwargs, to_altaz
 from agActor import coordinates
 from agActor.opdb import opDB as opdb
@@ -87,7 +84,7 @@ def acquire_field(*,
     log_info('Getting guide objects for acquire_field')
     design_id = kwargs.pop('design_id')
     design_path = kwargs.pop('design_path')
-    guide_objects, ra, dec, inst_pa = get_guide_objects(
+    guide_objects, ra, dec, inst_pa, filters_used = get_guide_objects(
         design_id, design_path, taken_at, obswl, logger=logger, **kwargs
     )
 
@@ -122,60 +119,6 @@ def acquire_field(*,
     offset_info.inst_pa = inst_pa
 
     return offset_info
-
-
-def semi_axes(xy, x2, y2):
-    p = (x2 + y2) / 2
-    q = np.sqrt(np.square((x2 - y2) / 2) + np.square(xy))
-    a = np.sqrt(p + q)
-    b = np.sqrt(p - q)
-    return a, b
-
-
-def calculate_offset(guide_objects: pd.DataFrame, detected_objects, ra, dec, taken_at, adc, inst_pa, m2_pos3, obswl,
-                     kwargs
-                     ):
-    """Calculate the offset of the field.
-
-    This method replaces the functionality of `FAinstpa` so we can remove the filtering.
-    """
-    subaru = Subaru_POPT2_PFS.Subaru()
-    inr0 = subaru.radec2inr(ra, dec, taken_at)
-    inr = inr0 + inst_pa
-
-    pfs = Subaru_POPT2_PFS_AG.PFS()
-
-    # RA [2], Dec [3], PM RA [4], PM Dec [5], Parallax [6], Magnitude [7], Flags [-1]
-    ra_values = guide_objects.ra.to_numpy()
-    dec_values = guide_objects.dec.to_numpy()
-    magnitude_values = guide_objects.magnitude.to_numpy()
-    flag_values = guide_objects.flag.to_numpy()
-
-    v_0, v_1 = pfs.makeBasis(
-        ra,
-        dec,
-        ra_values,
-        dec_values,
-        taken_at,
-        adc,
-        inr,
-        m2_pos3,
-        obswl
-    )
-    v_0 = (np.insert(v_0, 2, magnitude_values, axis=1))
-    v_1 = (np.insert(v_1, 2, magnitude_values, axis=1))
-
-    # Get the offsets.
-    ra_offset, dec_offset, inr_offset, scale_offset, mr, md = pfs.RADECInRScaleShift(
-        detected_objects[:, 2],
-        detected_objects[:, 3],
-        detected_objects[:, 4],  # This is not used and I'm guessing incorrect index.
-        detected_objects[:, 7],
-        v_0,
-        v_1
-    )
-
-    return ra_offset, dec_offset, inr_offset, scale_offset, mr, md, flag_values
 
 
 if __name__ == '__main__':

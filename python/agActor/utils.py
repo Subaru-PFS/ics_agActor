@@ -12,9 +12,11 @@ from astropy.table import Table
 from astropy.time import Time
 
 from agActor import _gen2_gaia as gaia, subaru
+
+from agActor.kawanomoto import Subaru_POPT2_PFS, Subaru_POPT2_PFS_AG
 from agActor.opdb import opDB as opdb
 from agActor.pfs_design import pfsDesign as pfs_design
-from agActor.field_acquisition import OffsetInfo, calculate_offset, semi_axes
+from agActor.field_acquisition import OffsetInfo
 from agActor import coordinates
 
 _KEYMAP = {
@@ -164,7 +166,7 @@ def get_guide_objects(
     obswl: float = 0.62,
     logger=None,
     **kwargs
-) -> tuple[pd.DataFrame, float, float, float]:
+) -> tuple[pd.DataFrame, float, float, float, AutoGuiderStarMask]:
     def log_info(msg):
         if logger is not None:
             logger.info(msg)
@@ -211,6 +213,7 @@ def get_guide_objects(
     log_info('Filtering guide objects to remove galaxies.')
     galaxy_idx = (guide_objects.flag & np.array(AutoGuiderStarMask.GALAXY)).values.astype(bool)
     guide_objects = guide_objects[~galaxy_idx]
+    filters_used = AutoGuiderStarMask.GALAXY
     log_info(f'Got {len(guide_objects)} guide objects after filtering galaxies.')
 
     # The initial coarse guide uses all the stars and the fine guide uses only the GAIA stars.
@@ -219,18 +222,21 @@ def get_guide_objects(
         log_info('Filtering guide objects to only GAIA stars.')
         gaia_idx = (guide_objects.flag & np.array(AutoGuiderStarMask.GAIA)).values.astype(bool)
         guide_objects = guide_objects[gaia_idx]
+        filters_used |= AutoGuiderStarMask.GAIA
         log_info(f'Got {len(guide_objects)} guide objects after filtering.')
 
         # Filter the guide objects to only include the ones that are not flagged as binaries.
         log_info('Filtering guide objects to remove binaries.')
         binary_idx = (guide_objects.flag & np.array(AutoGuiderStarMask.NON_BINARY)).values.astype(bool)
         guide_objects = guide_objects[binary_idx]
+        filters_used |= AutoGuiderStarMask.NON_BINARY
         log_info(f'Got {len(guide_objects)} guide objects after filtering binaries.')
 
         # Filter the guide objects to only include the ones that are flagged as astrometric.
         log_info('Filtering guide objects to remove stars with low astrometric noise.')
         astrometric_idx = (guide_objects.flag & np.array(AutoGuiderStarMask.ASTROMETRIC)).values.astype(bool)
         guide_objects = guide_objects[astrometric_idx]
+        filters_used |= AutoGuiderStarMask.ASTROMETRIC
         log_info(f'Got {len(guide_objects)} guide objects after filtering.')
 
         # Filter the guide objects to include only stars with significant proper motion and parallax
@@ -241,9 +247,10 @@ def get_guide_objects(
         ]:
             f_idx = (guide_objects.flag & np.array(f)).values.astype(bool)
             guide_objects = guide_objects[f_idx]
+            filters_used |= f
             log_info(f'Got {len(guide_objects)} guide objects after filtering for {f.name}.')
 
-    return guide_objects, ra, dec, inst_pa
+    return guide_objects, ra, dec, inst_pa, filters_used
 
 
 def get_offset_info(
@@ -430,3 +437,57 @@ def get_offset_info(
         detected_objects=detected_objects,
         identified_objects=identified_objects,
     )
+
+
+def semi_axes(xy, x2, y2):
+    p = (x2 + y2) / 2
+    q = np.sqrt(np.square((x2 - y2) / 2) + np.square(xy))
+    a = np.sqrt(p + q)
+    b = np.sqrt(p - q)
+    return a, b
+
+
+def calculate_offset(guide_objects: pd.DataFrame, detected_objects, ra, dec, taken_at, adc, inst_pa, m2_pos3, obswl,
+                     kwargs
+                     ):
+    """Calculate the offset of the field.
+
+    This method replaces the functionality of `FAinstpa` so we can remove the filtering.
+    """
+    subaru = Subaru_POPT2_PFS.Subaru()
+    inr0 = subaru.radec2inr(ra, dec, taken_at)
+    inr = inr0 + inst_pa
+
+    pfs = Subaru_POPT2_PFS_AG.PFS()
+
+    # RA [2], Dec [3], PM RA [4], PM Dec [5], Parallax [6], Magnitude [7], Flags [-1]
+    ra_values = guide_objects.ra.to_numpy()
+    dec_values = guide_objects.dec.to_numpy()
+    magnitude_values = guide_objects.magnitude.to_numpy()
+    flag_values = guide_objects.flag.to_numpy()
+
+    v_0, v_1 = pfs.makeBasis(
+        ra,
+        dec,
+        ra_values,
+        dec_values,
+        taken_at,
+        adc,
+        inr,
+        m2_pos3,
+        obswl
+    )
+    v_0 = (np.insert(v_0, 2, magnitude_values, axis=1))
+    v_1 = (np.insert(v_1, 2, magnitude_values, axis=1))
+
+    # Get the offsets.
+    ra_offset, dec_offset, inr_offset, scale_offset, mr, md = pfs.RADECInRScaleShift(
+        detected_objects[:, 2],
+        detected_objects[:, 3],
+        detected_objects[:, 4],  # This is not used and I'm guessing incorrect index.
+        detected_objects[:, 7],
+        v_0,
+        v_1
+    )
+
+    return ra_offset, dec_offset, inr_offset, scale_offset, mr, md, flag_values
