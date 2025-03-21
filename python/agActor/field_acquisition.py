@@ -1,33 +1,9 @@
-from dataclasses import dataclass
-
-from numpy._typing import ArrayLike
-
 # import _gen2_gaia_annulus as gaia
 from agActor.utils import _KEYMAP, filter_kwargs, get_guide_objects, map_kwargs, parse_kwargs, to_altaz
 from agActor import coordinates
 from agActor.opdb import opDB as opdb
 from agActor.utils import get_offset_info
-
-
-@dataclass
-class OffsetInfo:
-    ra: float | None = None
-    dec: float | None = None
-    inst_pa: float | None = None
-    dra: float | None = None
-    ddec: float | None = None
-    dinr: float | None = None
-    dscale: float | None = None
-    dalt: float | None = None
-    daz: float | None = None
-    dx: float | None = None
-    dy: float | None = None
-    spot_size: float | None = None
-    peak_intensity: float | None = None
-    flux: float | None = None
-    guide_objects: ArrayLike | None = None
-    detected_objects: ArrayLike | None = None
-    identified_objects: ArrayLike | None = None
+from agActor.utils import OffsetInfo
 
 
 def get_tel_status(*, frame_id, logger=None, **kwargs):

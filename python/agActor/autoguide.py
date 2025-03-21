@@ -6,7 +6,7 @@ import field_acquisition
 from opdb import opDB as opdb
 from pfs_design import pfsDesign as pfs_design
 from agActor.utils import get_offset_info
-from agActor.field_acquisition import OffsetInfo
+from python.agActor.utils import OffsetInfo
 from agActor.utils import filter_kwargs, get_guide_objects, parse_kwargs, _KEYMAP
 
 

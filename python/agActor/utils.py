@@ -1,4 +1,5 @@
 # mapping of keys and value types between field_acquisition.py and FieldAcquisitionAndFocusing.py
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import IntFlag
 from logging import Logger
@@ -6,18 +7,16 @@ from numbers import Number
 
 import numpy as np
 import pandas as pd
+from agActor import _gen2_gaia as gaia, coordinates, subaru
 from astropy import units
 from astropy.coordinates import AltAz, Angle, SkyCoord
 from astropy.table import Table
 from astropy.time import Time
-
-from agActor import _gen2_gaia as gaia, subaru
+from numpy._typing import ArrayLike
 
 from agActor.kawanomoto import Subaru_POPT2_PFS, Subaru_POPT2_PFS_AG
 from agActor.opdb import opDB as opdb
 from agActor.pfs_design import pfsDesign as pfs_design
-from agActor.field_acquisition import OffsetInfo
-from agActor import coordinates
 
 _KEYMAP = {
     'fit_dinr': ('inrflag', int),
@@ -69,6 +68,27 @@ class AutoGuiderStarMask(IntFlag):
     NON_BINARY = 0x00400
     PHOTO_SIG = 0x00800
     GALAXY = 0x01000
+
+
+@dataclass
+class OffsetInfo:
+    ra: float | None = None
+    dec: float | None = None
+    inst_pa: float | None = None
+    dra: float | None = None
+    ddec: float | None = None
+    dinr: float | None = None
+    dscale: float | None = None
+    dalt: float | None = None
+    daz: float | None = None
+    dx: float | None = None
+    dy: float | None = None
+    spot_size: float | None = None
+    peak_intensity: float | None = None
+    flux: float | None = None
+    guide_objects: ArrayLike | None = None
+    detected_objects: ArrayLike | None = None
+    identified_objects: ArrayLike | None = None
 
 
 def parse_kwargs(kwargs: dict) -> None:
