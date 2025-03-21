@@ -67,13 +67,17 @@ def acquire_field(*,
                   **kwargs
                   ) -> OffsetInfo:
 
-    def log_info(msg):
+    def log_info(msg, level='info'):
         if logger is not None:
-            logger.info(msg)
+            getattr(logger, level)(msg)
 
     log_info(f'Getting detected objects for {frame_id=}')
     detected_objects = opdb.query_agc_data(frame_id)
     log_info(f'Retrieved {len(detected_objects)} detected objects from the database for {frame_id=}.')
+
+    if len(detected_objects) == 0:
+        log_info("No detected objects found, can't compute offset", level='warning')
+        return OffsetInfo()
 
     parse_kwargs(kwargs)
 
