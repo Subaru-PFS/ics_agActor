@@ -6,7 +6,7 @@ from astropy import units
 from astropy.coordinates import AltAz, Angle, Distance, SkyCoord
 from astropy.time import Time
 
-import coordinates
+from agActor import coordinates
 from kawanomoto import Subaru_POPT2_PFS
 
 _popt2 = Subaru_POPT2_PFS.POPT2()
