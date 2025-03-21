@@ -186,7 +186,7 @@ def get_guide_objects(
     obswl: float = 0.62,
     logger=None,
     **kwargs
-) -> tuple[pd.DataFrame, float, float, float, AutoGuiderStarMask]:
+) -> tuple[pd.DataFrame, float, float, float]:
     def log_info(msg):
         if logger is not None:
             logger.info(msg)
@@ -229,48 +229,33 @@ def get_guide_objects(
     guide_objects.columns = ['objId', 'epoch', 'ra', 'dec', 'pmRa', 'pmDec', 'parallax', 'magnitude', 'passband',
                              'color', 'agId', 'agX', 'agY', 'flag']
 
+    # Add a column to indicate which flat was used for filtering.
+    guide_objects['filtered_by'] = 0
+
     # Filter the guide objects to only include the ones that are not flagged as galaxies.
     log_info('Filtering guide objects to remove galaxies.')
     galaxy_idx = (guide_objects.flag & np.array(AutoGuiderStarMask.GALAXY)).values.astype(bool)
-    guide_objects = guide_objects[~galaxy_idx]
-    filters_used = AutoGuiderStarMask.GALAXY
-    log_info(f'Got {len(guide_objects)} guide objects after filtering galaxies.')
+    guide_objects[galaxy_idx]['filtered_by'] = AutoGuiderStarMask.GALAXY
+    log_info(f'Filtering by {AutoGuiderStarMask.GALAXY.name}, removes {galaxy_idx.sum()} guide objects.')
 
     # The initial coarse guide uses all the stars and the fine guide uses only the GAIA stars.
     coarse = kwargs.get('coarse', False)
     if coarse is False:
-        log_info('Filtering guide objects to only GAIA stars.')
-        gaia_idx = (guide_objects.flag & np.array(AutoGuiderStarMask.GAIA)).values.astype(bool)
-        guide_objects = guide_objects[gaia_idx]
-        filters_used |= AutoGuiderStarMask.GAIA
-        log_info(f'Got {len(guide_objects)} guide objects after filtering.')
-
-        # Filter the guide objects to only include the ones that are not flagged as binaries.
-        log_info('Filtering guide objects to remove binaries.')
-        binary_idx = (guide_objects.flag & np.array(AutoGuiderStarMask.NON_BINARY)).values.astype(bool)
-        guide_objects = guide_objects[binary_idx]
-        filters_used |= AutoGuiderStarMask.NON_BINARY
-        log_info(f'Got {len(guide_objects)} guide objects after filtering binaries.')
-
-        # Filter the guide objects to only include the ones that are flagged as astrometric.
-        log_info('Filtering guide objects to remove stars with low astrometric noise.')
-        astrometric_idx = (guide_objects.flag & np.array(AutoGuiderStarMask.ASTROMETRIC)).values.astype(bool)
-        guide_objects = guide_objects[astrometric_idx]
-        filters_used |= AutoGuiderStarMask.ASTROMETRIC
-        log_info(f'Got {len(guide_objects)} guide objects after filtering.')
-
-        # Filter the guide objects to include only stars with significant proper motion and parallax
-        log_info('Filtering guide objects to only include stars with significant proper motion and parallax.')
+        # Go through the filters and mark which stars would be flagged as NOT meeting the mask requirement.
         for f in [
-            AutoGuiderStarMask.PMRA_SIG, AutoGuiderStarMask.PMDEC_SIG,
-            AutoGuiderStarMask.PARA_SIG, AutoGuiderStarMask.PHOTO_SIG
+            AutoGuiderStarMask.GAIA,
+            AutoGuiderStarMask.NON_BINARY,
+            AutoGuiderStarMask.ASTROMETRIC,
+            AutoGuiderStarMask.PMRA_SIG,
+            AutoGuiderStarMask.PMDEC_SIG,
+            AutoGuiderStarMask.PARA_SIG,
+            AutoGuiderStarMask.PHOTO_SIG
         ]:
             f_idx = (guide_objects.flag & np.array(f)).values.astype(bool)
-            guide_objects = guide_objects[f_idx]
-            filters_used |= f
-            log_info(f'Got {len(guide_objects)} guide objects after filtering for {f.name}.')
+            guide_objects[~f_idx]['filtered_by'] = f
+            log_info(f'Filtering by {f.name}, removes {f_idx.sum()} guide objects.')
 
-    return guide_objects, ra, dec, inst_pa, filters_used
+    return guide_objects, ra, dec, inst_pa
 
 
 def get_offset_info(
