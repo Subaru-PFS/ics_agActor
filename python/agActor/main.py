@@ -3,9 +3,9 @@
 import argparse
 import queue
 from actorcore.ICC import ICC
-from agActor.models.agcc import Agcc
-from agActor.models.mlp1 import Mlp1
-from agActor.models.gen2 import Gen2
+from agActor.agcc import Agcc
+from agActor.mlp1 import Mlp1
+from agActor.gen2 import Gen2
 
 
 class AgActor(ICC):
