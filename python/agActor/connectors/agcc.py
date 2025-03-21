@@ -1,7 +1,7 @@
-from agActor.base import BaseModel
+from agActor.base import BaseConnector
 
 
-class Agcc(BaseModel):
+class Agcc(BaseConnector):
 
     @property
     def filepath(self):

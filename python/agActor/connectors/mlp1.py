@@ -1,7 +1,7 @@
-from agActor.base import BaseModel
+from agActor.base import BaseConnector
 
 
-class Mlp1(BaseModel):
+class Mlp1(BaseConnector):
 
     @property
     def telescopeState(self):

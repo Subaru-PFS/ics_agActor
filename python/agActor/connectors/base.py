@@ -1,4 +1,4 @@
-class BaseModel:
+class BaseConnector:
 
     def __init__(self, model_name, actor=None, logger=None):
 

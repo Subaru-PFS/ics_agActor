@@ -3,10 +3,10 @@ from datetime import datetime, timezone
 from astropy import units
 from astropy.coordinates import Angle
 
-from agActor.base import BaseModel
+from agActor.base import BaseConnector
 
 
-class Gen2(BaseModel):
+class Gen2(BaseConnector):
 
     def __init__(self, model_name, actor=None, logger=None):
         super().__init__(model_name, actor=actor, logger=logger)
