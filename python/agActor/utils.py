@@ -7,13 +7,13 @@ from numbers import Number
 
 import numpy as np
 import pandas as pd
-from agActor import _gen2_gaia as gaia, coordinates, subaru
 from astropy import units
 from astropy.coordinates import AltAz, Angle, SkyCoord
 from astropy.table import Table
 from astropy.time import Time
 from numpy._typing import ArrayLike
 
+from agActor import _gen2_gaia as gaia, coordinates, subaru
 from agActor.kawanomoto import Subaru_POPT2_PFS, Subaru_POPT2_PFS_AG
 from agActor.opdb import opDB as opdb
 from agActor.pfs_design import pfsDesign as pfs_design
@@ -484,7 +484,7 @@ def calculate_offset(guide_objects: pd.DataFrame, detected_objects, ra, dec, tak
     ra_values = guide_objects.ra.to_numpy()
     dec_values = guide_objects.dec.to_numpy()
     magnitude_values = guide_objects.magnitude.to_numpy()
-    flag_values = guide_objects.flag.to_numpy()
+    flag_values = detected_objects[:, -1] < 2
 
     v_0, v_1 = pfs.makeBasis(
         ra,

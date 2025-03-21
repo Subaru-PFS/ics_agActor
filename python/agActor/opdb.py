@@ -1,3 +1,4 @@
+import pandas as pd
 import psycopg2
 
 
@@ -62,11 +63,10 @@ class opDB:
     @staticmethod
     def query_pfs_design_agc(pfs_design_id) -> list:
         return opDB.fetchall(
-            '''SELECT 
-                    guide_star_id as objId,
-                    epoch as epoch,
-                    guide_star_ra as ra,
-                    guide_star_dec as dec,
+            '''SELECT guide_star_id as objId,
+                      epoch         as epoch,
+                      guide_star_ra as ra,
+                      guide_star_dec as dec,
                     guide_star_pm_ra as pmRa,
                     guide_star_pm_dec as pmDec,
                     guide_star_parallax as parallax,
@@ -77,7 +77,9 @@ class opDB:
                     agc_target_x_pix as agX,
                     agc_target_y_pix as agY,
                     guide_star_flag as flag
-            FROM pfs_design_agc WHERE pfs_design_id=%s ORDER BY guide_star_id''',
+               FROM pfs_design_agc
+               WHERE pfs_design_id=%s
+               ORDER BY guide_star_id''',
             (pfs_design_id,)
         )
 
@@ -102,15 +104,27 @@ class opDB:
         )
 
     @staticmethod
-    def query_agc_data(agc_exposure_id):
+    def query_agc_data(agc_exposure_id, as_dataframe=False):
 
-        return opDB.fetchall(
+        results = opDB.fetchall(
             'SELECT agc_camera_id,spot_id,image_moment_00_pix,centroid_x_pix,centroid_y_pix,'
             'central_image_moment_11_pix,central_image_moment_20_pix,central_image_moment_02_pix,peak_pixel_x_pix,'
             'peak_pixel_y_pix,peak_intensity,background,COALESCE(flags,CAST(centroid_x_pix>=511.5+24 AS INTEGER)) AS '
             'flags FROM agc_data WHERE agc_exposure_id=%s ORDER BY agc_camera_id,spot_id',
             (agc_exposure_id,)
         )
+
+        if as_dataframe:
+            df = pd.DataFrame(
+                results, columns=[
+                    'camera_id', 'spot_id', 'image_moment_00', 'centroid_x', 'centroid_y',
+                    'central_image_moment_11', 'central_image_moment_20', 'central_image_moment_02',
+                    'peak_pixel_x', 'peak_pixel_y', 'peak_intensity', 'background', 'flags'
+                ])
+
+            return df
+        else:
+            return results
 
     @staticmethod
     def query_agc_guide_offset(agc_exposure_id):
@@ -243,7 +257,7 @@ class opDB:
         statement = ('UPDATE pfs_design_agc SET {} WHERE pfs_design_id=%(pfs_design_id)s AND guide_star_id=%('
                      'guide_star_id)s').format(
             column_values
-            )
+        )
         params.update(pfs_design_id=pfs_design_id, guide_star_id=guide_star_id)
         opDB.execute(statement, params)
 
@@ -262,7 +276,7 @@ class opDB:
         statement = ('UPDATE tel_status SET {} WHERE pfs_visit_id=%(pfs_visit_id)s AND status_sequence_id=%('
                      'status_sequence_id)s').format(
             column_values
-            )
+        )
         params.update(pfs_visit_id=pfs_visit_id, status_sequence_id=status_sequence_id)
         opDB.execute(statement, params)
 
@@ -273,7 +287,7 @@ class opDB:
         statement = ('UPDATE agc_data SET {} WHERE agc_exposure_id=%(agc_exposure_id)s AND agc_camera_id=%('
                      'agc_camera_id)s AND spot_id=%(spot_id)s').format(
             column_values
-            )
+        )
         params.update(agc_exposure_id=agc_exposure_id, agc_camera_id=agc_camera_id, spot_id=spot_id)
         opDB.execute(statement, params)
 
@@ -292,6 +306,6 @@ class opDB:
         statement = ('UPDATE agc_match SET {} WHERE agc_exposure_id=%(agc_exposure_id)s AND agc_camera_id=%('
                      'agc_camera_id)s AND spot_id=%(spot_id)s').format(
             column_values
-            )
+        )
         params.update(agc_exposure_id=agc_exposure_id, agc_camera_id=agc_camera_id, spot_id=spot_id)
         opDB.execute(statement, params)

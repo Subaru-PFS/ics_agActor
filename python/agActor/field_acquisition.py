@@ -51,7 +51,7 @@ def acquire_field(*,
 
     parse_kwargs(kwargs)
 
-    log_info('Getting tel_status information for {frame_id=}')
+    log_info(f'Getting tel_status information for {frame_id=}')
     taken_at, inr, adc, m2_pos3 = get_tel_status(frame_id=frame_id, logger=logger, **kwargs)
 
     # Remove the taken_at provided by the kwargs
