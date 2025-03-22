@@ -55,8 +55,15 @@ def acquire_field(*,
     kwargs.pop('taken_at', None)
 
     log_info('Getting guide objects for acquire_field')
-    design_id = kwargs.pop('design_id')
-    design_path = kwargs.pop('design_path')
+    try:
+        design_id = kwargs.pop('design_id')
+    except KeyError:
+        design_id = None
+
+    try:
+        design_path = kwargs.pop('design_path')
+    except KeyError:
+        design_path = None
     guide_objects, ra, dec, inst_pa = get_guide_objects(
         design_id, design_path, taken_at, obswl, logger=logger, **kwargs
     )
