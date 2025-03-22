@@ -1,6 +1,7 @@
 from logging import Logger
 
 import numpy
+import pandas as pd
 from numpy._typing import ArrayLike
 
 from kawanomoto import FieldAcquisitionAndFocusing
@@ -12,25 +13,25 @@ from agActor.utils import _KEYMAP, filter_kwargs, map_kwargs
 def focus(*, frame_id, logger=None, **kwargs):
 
     logger and logger.info('frame_id={}'.format(frame_id))
-    detected_objects = opdb.query_agc_data(frame_id)
+    detected_objects = opdb.query_agc_data(frame_id, as_dataframe=True)
     _kwargs = filter_kwargs(kwargs)
     logger and logger.info('_kwargs={}'.format(_kwargs))
     return _focus(detected_objects, logger=logger, **_kwargs)
 
 
-def _focus(detected_objects: ArrayLike, logger: Logger | None = None, **kwargs):
+def _focus(detected_objects: pd.DataFrame, logger: Logger | None = None, **kwargs):
     _detected_objects = numpy.array(
         [
             (
-                x[0] + 1,  # camera_id (1-6)
-                x[1],  # spot_id
+                x['camera_id'] + 1,  # camera_id (1-6)
+                x['spot_id'],  # spot_id
                 0,  # centroid_x (unused)
                 0,  # centroid_y (unused)
                 0,  # flux (unused)
-                *semi_axes(x[5], x[6], x[7]),  # semi-major and semi-minor axes
-                x[-1]  # flags
+                *semi_axes(x['central_moment_11'], x['central_moment_20'], x['central_moment_02']),  # semi-major and semi-minor axes
+                x['flag']  # flags
             )
-            for x in detected_objects
+            for idx, x in detected_objects.iterrows()
         ]
     )
     _kwargs = map_kwargs(kwargs)

@@ -86,9 +86,9 @@ class OffsetInfo:
     spot_size: float | None = None
     peak_intensity: float | None = None
     flux: float | None = None
-    guide_objects: ArrayLike | None = None
-    detected_objects: ArrayLike | None = None
-    identified_objects: ArrayLike | None = None
+    guide_objects: pd.DataFrame | None = None
+    detected_objects: pd.DataFrame | None = None
+    identified_objects: pd.DataFrame | None = None
 
 
 def parse_kwargs(kwargs: dict) -> None:
