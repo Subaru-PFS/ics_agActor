@@ -495,6 +495,7 @@ def calculate_offset(guide_objects: pd.DataFrame, detected_objects, ra, dec, tak
     dec_values = guide_objects.dec.to_numpy()
     magnitude_values = guide_objects.magnitude.to_numpy()
     flag_values = detected_objects.flag < 2
+    filtered_detected_objects = detected_objects[flag_values]
 
     v_0, v_1 = pfs.makeBasis(
         ra,
@@ -512,10 +513,10 @@ def calculate_offset(guide_objects: pd.DataFrame, detected_objects, ra, dec, tak
 
     # Get the offsets.
     ra_offset, dec_offset, inr_offset, scale_offset, mr, md = pfs.RADECInRScaleShift(
-        detected_objects.focal_plane_x_mm.values,
-        detected_objects.focal_plane_y_mm.values,
-        detected_objects.camera_id.values,  # UNUSED
-        detected_objects.flag.values,
+        filtered_detected_objects.focal_plane_x_mm.values,
+        filtered_detected_objects.focal_plane_y_mm.values,
+        filtered_detected_objects.camera_id.values,  # UNUSED
+        filtered_detected_objects.flag.values,
         v_0,
         v_1
     )
