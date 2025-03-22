@@ -526,7 +526,20 @@ def convert_outputs(offset_info):
     )
 
     detected_objects = np.array(
-        offset_info.detected_objects,
+        [(x.iloc[0],
+          x.iloc[1],
+          x.iloc[2],
+          x.iloc[3],
+          x.iloc[4],
+          x.iloc[5],
+          x.iloc[6],
+          x.iloc[7],
+          x.iloc[8],
+          x.iloc[9],
+          x.iloc[10],
+          x.iloc[11],
+          x.iloc[12]
+          ) for idx, x in offset_info.detected_objects.iterrows()],
         dtype=[
             ('camera_id', np.int16),
             ('spot_id', np.int16),
@@ -545,7 +558,15 @@ def convert_outputs(offset_info):
     )
 
     identified_objects = np.array(
-        offset_info.identified_objects,
+        [(x.iloc[0],
+          x.iloc[1],
+          x.iloc[2],
+          x.iloc[3],
+          x.iloc[4],
+          x.iloc[5],
+          x.iloc[6],
+          x.iloc[7]
+          ) for idx, x in offset_info.identified_objects.iterrows()],
         dtype=[
             ('detected_object_id', np.int16),
             ('guide_object_id', np.int16),
