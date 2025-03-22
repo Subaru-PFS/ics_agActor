@@ -228,7 +228,7 @@ def get_guide_objects(
     log_info(f'Got {len(guide_objects)} guide objects.')
 
     guide_objects.columns = ['objId', 'epoch', 'ra', 'dec', 'pmRa', 'pmDec', 'parallax', 'magnitude', 'passband',
-                             'color', 'agId', 'agX', 'agY', 'flag']
+                             'color', 'agId', 'agX', 'agY', 'flag', 'filtered_by']
 
     # Add a column to indicate which flat was used for filtering.
     guide_objects['filtered_by'] = 0
