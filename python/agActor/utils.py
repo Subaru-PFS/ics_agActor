@@ -461,7 +461,15 @@ def calculate_offset(guide_objects: pd.DataFrame, detected_objects, ra, dec, tak
     return ra_offset, dec_offset, inr_offset, scale_offset, mr, md, flag_values
 
 
+
 def save_shm_files(offset_info):
+    guide_objects, detected_objects, identified_objects = convert_outputs(offset_info)
+
+    np.save(FILENAMES['guide_objects'], guide_objects)
+    np.save(FILENAMES['detected_objects'], detected_objects)
+    np.save(FILENAMES['identified_objects'], identified_objects)
+
+def convert_outputs(offset_info):
     # First convert the dataframes to numpy arrays with appropriate types.
 
     guide_objects = np.array(
@@ -529,6 +537,4 @@ def save_shm_files(offset_info):
         ]
     )
 
-    np.save(FILENAMES['guide_objects'], guide_objects)
-    np.save(FILENAMES['detected_objects'], detected_objects)
-    np.save(FILENAMES['identified_objects'], identified_objects)
+    return guide_objects, detected_objects, identified_objects
