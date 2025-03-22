@@ -184,6 +184,7 @@ def get_guide_objects(
     design_path: str | None = None,
     taken_at: datetime | Number | str | None = None,
     obswl: float = 0.62,
+    apply_filters: bool = True,
     logger=None,
     **kwargs
 ) -> tuple[pd.DataFrame, float, float, float]:
@@ -232,28 +233,29 @@ def get_guide_objects(
     # Add a column to indicate which flat was used for filtering.
     guide_objects['filtered_by'] = 0
 
-    # Filter the guide objects to only include the ones that are not flagged as galaxies.
-    log_info('Filtering guide objects to remove galaxies.')
-    galaxy_idx = (guide_objects.flag & np.array(AutoGuiderStarMask.GALAXY)).values.astype(bool)
-    guide_objects[galaxy_idx]['filtered_by'] = AutoGuiderStarMask.GALAXY
-    log_info(f'Filtering by {AutoGuiderStarMask.GALAXY.name}, removes {galaxy_idx.sum()} guide objects.')
+    if apply_filters:
+        # Filter the guide objects to only include the ones that are not flagged as galaxies.
+        log_info('Filtering guide objects to remove galaxies.')
+        galaxy_idx = (guide_objects.flag & np.array(AutoGuiderStarMask.GALAXY)).values.astype(bool)
+        guide_objects[galaxy_idx]['filtered_by'] = AutoGuiderStarMask.GALAXY
+        log_info(f'Filtering by {AutoGuiderStarMask.GALAXY.name}, removes {galaxy_idx.sum()} guide objects.')
 
-    # The initial coarse guide uses all the stars and the fine guide uses only the GAIA stars.
-    coarse = kwargs.get('coarse', False)
-    if coarse is False:
-        # Go through the filters and mark which stars would be flagged as NOT meeting the mask requirement.
-        for f in [
-            AutoGuiderStarMask.GAIA,
-            AutoGuiderStarMask.NON_BINARY,
-            AutoGuiderStarMask.ASTROMETRIC,
-            AutoGuiderStarMask.PMRA_SIG,
-            AutoGuiderStarMask.PMDEC_SIG,
-            AutoGuiderStarMask.PARA_SIG,
-            AutoGuiderStarMask.PHOTO_SIG
-        ]:
-            f_idx = (guide_objects.flag & np.array(f)).values.astype(bool)
-            guide_objects[~f_idx]['filtered_by'] = f
-            log_info(f'Filtering by {f.name}, removes {f_idx.sum()} guide objects.')
+        # The initial coarse guide uses all the stars and the fine guide uses only the GAIA stars.
+        coarse = kwargs.get('coarse', False)
+        if coarse is False:
+            # Go through the filters and mark which stars would be flagged as NOT meeting the mask requirement.
+            for f in [
+                AutoGuiderStarMask.GAIA,
+                AutoGuiderStarMask.NON_BINARY,
+                AutoGuiderStarMask.ASTROMETRIC,
+                AutoGuiderStarMask.PMRA_SIG,
+                AutoGuiderStarMask.PMDEC_SIG,
+                AutoGuiderStarMask.PARA_SIG,
+                AutoGuiderStarMask.PHOTO_SIG
+            ]:
+                f_idx = (guide_objects.flag & np.array(f)).values.astype(bool)
+                guide_objects[~f_idx]['filtered_by'] = f
+                log_info(f'Filtering by {f.name}, removes {f_idx.sum()} guide objects.')
 
     return guide_objects, ra, dec, inst_pa
 
