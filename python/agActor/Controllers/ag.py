@@ -290,7 +290,7 @@ class AgThread(threading.Thread):
                 # If we are using values from the DB.
                 if mode & ag.Mode.REF_DB:
                     kwargs = {
-                        'catalog': options.get('catalog', ag.CATALOG),
+                        'coarse': options.get('coarse', ag.COARSE),
                         'magnitude': options.get('magnitude', ag.MAGNITUDE),
                     }
 
