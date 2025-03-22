@@ -36,7 +36,7 @@ def write_agc_match(*, design_id, frame_id, guide_objects: pd.DataFrame, detecte
             (
                 detected_objects['camera_id'][x['detected_object_idx']],
                 detected_objects['spot_id'][x['detected_object_idx']],
-                guide_objects['source_id'][x['guide_object_idx']],
+                guide_objects['objId'][x['guide_object_idx']],
                 x['guide_object_x'], - x['guide_object_y'],  # hsc -> pfs focal plane coordinate system
                 x['detected_object_x'], - x['detected_object_y'],  # hsc -> pfs focal plane coordinate system
                 0  # flags
