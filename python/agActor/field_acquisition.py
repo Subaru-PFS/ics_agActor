@@ -60,7 +60,7 @@ def acquire_field(*,
     log_info('Getting guide objects for acquire_field')
     design_id = kwargs.pop('design_id')
     design_path = kwargs.pop('design_path')
-    guide_objects, ra, dec, inst_pa, filters_used = get_guide_objects(
+    guide_objects, ra, dec, inst_pa = get_guide_objects(
         design_id, design_path, taken_at, obswl, logger=logger, **kwargs
     )
 
