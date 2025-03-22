@@ -316,16 +316,15 @@ def get_offset_info(
     )
 
     mr_df = pd.DataFrame(mr)
-    # Filter the mr objects by their flag column
-    # FIXME the column names
-    mr_df = mr_df[mr_df[8] == 1].copy()
-    detected_idx = mr_df[9].astype(int).values
-    mr_df['camera_id'] = detected_objects.loc[detected_idx].camera_id.values
+    mr_df['camera_id'] = detected_objects.iloc[np.where(detected_objects_flags)].camera_id.values
+    # Filter bad values TODO fix column names.
+    mr_df = mr_df[mr_df[8] == 1]
+    guide_idx = mr_df[9].astype(int).values
     fp_coords = mr_df.apply(lambda row: coordinates.dp2det(row.camera_id, row[2], row[3]), axis=1, result_type='expand')
 
     identified_objects = pd.DataFrame({
-        'detected_object_idx': detected_idx,
-        'guide_obj_idx': good_guide_objects.index.values,
+        'detected_object_idx': mr_df.index.values,
+        'guide_obj_idx': guide_idx,
         'detected_object_x': mr_df[0],
         'detected_object_y': mr_df[1],
         'guide_object_x': mr_df[2],
