@@ -1,14 +1,16 @@
 #!/usr/bin/env python
 
 import time
+
 import numpy as np
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from agActor import field_acquisition, focus as _focus, data_utils, pfs_design
-from agActor.telescope_center import telCenter as tel_center
+
+from agActor import data_utils, field_acquisition, focus as _focus, pfs_design
 from agActor.Controllers.ag import ag
 from agActor.kawanomoto import Subaru_POPT2_PFS  # *NOT* 'from agActor.kawanomoto import Subaru_POPT2_PFS'
-from agActor.utils import FILENAMES
+from agActor.telescope_center import telCenter as tel_center
+from agActor.utils import FILENAMES, save_shm_files
 
 
 class AgCmd:
@@ -20,16 +22,46 @@ class AgCmd:
             ('ping', '', self.ping),
             ('status', '', self.status),
             ('show', '', self.show),
-            ('acquire_field', '[<design_id>] [<design_path>] [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<offset>] [coarse] [<dinr>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]', self.acquire_field),
-            ('acquire_field', '@otf [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<center>] [coarse] [<offset>] [<dinr>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]', self.acquire_field),
-            ('focus', '[<visit_id>|<visit>] [<exposure_time>] [<max_ellipticity>] [<max_size>] [<min_size>] [<exposure_delay>] [<tec_off>]', self.focus),
-            ('autoguide', '@start [<design_id>] [<design_path>] [<visit_id>|<visit>] [<from_sky>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]', self.start_autoguide),
-            ('autoguide', '@start @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]', self.start_autoguide),
-            ('autoguide', '@initialize [<design_id>] [<design_path>] [<visit_id>|<visit>] [<from_sky>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]', self.initialize_autoguide),
-            ('autoguide', '@initialize @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]', self.initialize_autoguide),
+            ('acquire_field',
+             '[<design_id>] [<design_path>] [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<offset>] [coarse] ['
+             '<dinr>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] ['
+             '<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]',
+             self.acquire_field),
+            ('acquire_field',
+             '@otf [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<center>] [coarse] [<offset>] [<dinr>] ['
+             '<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] ['
+             '<max_residual>] [<exposure_delay>] [<tec_off>]',
+             self.acquire_field),
+            ('focus',
+             '[<visit_id>|<visit>] [<exposure_time>] [<max_ellipticity>] [<max_size>] [<min_size>] [<exposure_delay>] '
+             '[<tec_off>]',
+             self.focus),
+            ('autoguide',
+             '@start [<design_id>] [<design_path>] [<visit_id>|<visit>] [<from_sky>] [<exposure_time>] [<cadence>] ['
+             '<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] ['
+             '<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]',
+             self.start_autoguide),
+            ('autoguide',
+             '@start @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>] ['
+             '<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] ['
+             '<exposure_delay>] [<tec_off>]',
+             self.start_autoguide),
+            ('autoguide',
+             '@initialize [<design_id>] [<design_path>] [<visit_id>|<visit>] [<from_sky>] [<exposure_time>] ['
+             '<cadence>] [<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] ['
+             '<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]',
+             self.initialize_autoguide),
+            ('autoguide',
+             '@initialize @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] ['
+             '<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] ['
+             '<exposure_delay>] [<tec_off>]',
+             self.initialize_autoguide),
             ('autoguide', '@restart', self.restart_autoguide),
             ('autoguide', '@stop', self.stop_autoguide),
-            ('autoguide', '@reconfigure [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]', self.reconfigure_autoguide),
+            ('autoguide',
+             '@reconfigure [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] '
+             '[<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]',
+             self.reconfigure_autoguide),
             ('offset', '[@(absolute|relative)] [<dx>] [<dy>] [<dinr>] [<dscale>]', self.offset),
             ('offset', '@reset', self.offset),
         ]
@@ -82,7 +114,7 @@ class AgCmd:
         """Return status keywords."""
 
         self.actor.sendVersionKey(cmd)
-        #self.actor.ag.sendStatusKeys(cmd, force=True)
+        # self.actor.ag.sendStatusKeys(cmd, force=True)
         cmd.finish()
 
     def show(self, cmd):
@@ -101,7 +133,7 @@ class AgCmd:
     def acquire_field(self, cmd):
 
         controller = self.actor.controllers['ag']
-        #self.actor.logger.info('controller={}'.format(controller))
+        # self.actor.logger.info('controller={}'.format(controller))
         mode = controller.get_mode()
 
         # Don't run this command if the controller is already in use.
@@ -214,7 +246,8 @@ class AgCmd:
                     kwargs['tel_status'] = tel_status
                     _tel_center = tel_center(actor=self.actor, center=center, design=design, tel_status=tel_status)
                     if all(x is None for x in (center, design)):
-                        center, _offset = _tel_center.dither  # dithered center and guide offset correction (insrot only)
+                        center, _offset = _tel_center.dither  # dithered center and guide offset correction (insrot
+                        # only)
                         self.actor.logger.info(f"AgCmd.acquire_field: center={center}")
                     else:
                         _offset = _tel_center.offset  # dithering and guide offset correction
@@ -295,14 +328,15 @@ class AgCmd:
             flux = offset_info.flux
 
             # Save the detected, guide, and identified objects.
-            for save_name, path in FILENAMES.items():
-                np.save(path, getattr(offset_info, save_name).to_numpy())
+            save_shm_files(offset_info)
 
             if guide:
                 cmd.inform(f'text="{ra=},{dec=},{inst_pa=},{dra=},{ddec=},{dinr=},{dscale=},{dalt=},{daz=}"')
             else:
                 cmd.inform(f'text="dra={dra},ddec={ddec},dinr={dinr},dscale={dscale}"')
-            cmd.inform('data={},{},{},"{}","{}","{}"'.format(offset_info.ra, offset_info.dec, offset_info.inst_pa, *FILENAMES))
+            cmd.inform(
+                'data={},{},{},"{}","{}","{}"'.format(offset_info.ra, offset_info.dec, offset_info.inst_pa, *FILENAMES)
+                )
             cmd.inform('detectionState=0')
 
             if guide:
@@ -321,7 +355,7 @@ class AgCmd:
                     timeLim=5
                 )
                 result.get()
-                #cmd.inform('guideReady=1')
+                # cmd.inform('guideReady=1')
 
             # always compute focus offset and tilt
             kwargs = {
@@ -374,7 +408,7 @@ class AgCmd:
     def focus(self, cmd):
 
         controller = self.actor.controllers['ag']
-        #self.actor.logger.info('controller={}'.format(controller))
+        # self.actor.logger.info('controller={}'.format(controller))
         mode = controller.get_mode()
         if mode != controller.Mode.OFF:
             cmd.fail('text="AgCmd.focus: mode={}"'.format(mode))
@@ -434,7 +468,11 @@ class AgCmd:
                 return
             cmd.inform('text="dz={}"'.format(dz))
             # send corrections to gen2 (or iic)
-            cmd.inform('guideErrors={},{},{},{},{},{},{},{}'.format(frame_id, np.nan, np.nan, np.nan, np.nan, np.nan, dz, np.nan))
+            cmd.inform(
+                'guideErrors={},{},{},{},{},{},{},{}'.format(
+                    frame_id, np.nan, np.nan, np.nan, np.nan, np.nan, dz, np.nan
+                    )
+                )
             cmd.inform('focusErrors={},{},{},{},{},{},{}'.format(frame_id, *dzs))
             # store results in opdb
             if self.with_opdb_agc_guide_offset:
@@ -452,7 +490,7 @@ class AgCmd:
     def start_autoguide(self, cmd):
 
         controller = self.actor.controllers['ag']
-        #self.actor.logger.info('controller={}'.format(controller))
+        # self.actor.logger.info('controller={}'.format(controller))
 
         design_id = None
         if 'design_id' in cmd.cmd.keywords:
@@ -520,7 +558,10 @@ class AgCmd:
             kwargs['tec_off'] = tec_off
 
         try:
-            controller.start_autoguide(cmd=cmd, design=design, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time, cadence=cadence, center=center, **kwargs)
+            controller.start_autoguide(
+                cmd=cmd, design=design, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time,
+                cadence=cadence, center=center, **kwargs
+                )
         except Exception as e:
             self.actor.logger.exception('AgCmd.start_autoguide:')
             cmd.fail('text="AgCmd.start_autoguide: {}"'.format(e))
@@ -530,7 +571,7 @@ class AgCmd:
     def initialize_autoguide(self, cmd):
 
         controller = self.actor.controllers['ag']
-        #self.actor.logger.info('controller={}'.format(controller))
+        # self.actor.logger.info('controller={}'.format(controller))
 
         design_id = None
         if 'design_id' in cmd.cmd.keywords:
@@ -598,7 +639,10 @@ class AgCmd:
             kwargs['tec_off'] = tec_off
 
         try:
-            controller.initialize_autoguide(cmd=cmd, design=design, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time, cadence=cadence, center=center, **kwargs)
+            controller.initialize_autoguide(
+                cmd=cmd, design=design, visit_id=visit_id, from_sky=from_sky, exposure_time=exposure_time,
+                cadence=cadence, center=center, **kwargs
+                )
         except Exception as e:
             self.actor.logger.exception('AgCmd.initialize_autoguide:')
             cmd.fail('text="AgCmd.initialize_autoguide: {}"'.format(e))
@@ -608,7 +652,7 @@ class AgCmd:
     def restart_autoguide(self, cmd):
 
         controller = self.actor.controllers['ag']
-        #self.actor.logger.info('controller={}'.format(controller))
+        # self.actor.logger.info('controller={}'.format(controller))
 
         try:
             controller.restart_autoguide(cmd=cmd)
@@ -621,7 +665,7 @@ class AgCmd:
     def stop_autoguide(self, cmd):
 
         controller = self.actor.controllers['ag']
-        #self.actor.logger.info('controller={}'.format(controller))
+        # self.actor.logger.info('controller={}'.format(controller))
 
         try:
             controller.stop_autoguide()
@@ -634,7 +678,7 @@ class AgCmd:
     def reconfigure_autoguide(self, cmd):
 
         controller = self.actor.controllers['ag']
-        #self.actor.logger.info('controller={}'.format(controller))
+        # self.actor.logger.info('controller={}'.format(controller))
 
         kwargs = {}
         if 'visit_id' in cmd.cmd.keywords:
@@ -722,7 +766,8 @@ class AgCmd:
                     Subaru_POPT2_PFS.Unknown_Scale_Factor_AG += dscale
                 else:
                     Subaru_POPT2_PFS.Unknown_Scale_Factor_AG = AgCmd._SCALE0 + dscale
-            return Subaru_POPT2_PFS.inr_axis_on_dp_x, Subaru_POPT2_PFS.inr_axis_on_dp_y, Subaru_POPT2_PFS.inr_zero_offset, Subaru_POPT2_PFS.Unknown_Scale_Factor_AG - AgCmd._SCALE0
+            return (Subaru_POPT2_PFS.inr_axis_on_dp_x, Subaru_POPT2_PFS.inr_axis_on_dp_y,
+                    Subaru_POPT2_PFS.inr_zero_offset, Subaru_POPT2_PFS.Unknown_Scale_Factor_AG - AgCmd._SCALE0)
 
         dx = None
         if 'dx' in cmd.cmd.keywords:
@@ -738,7 +783,9 @@ class AgCmd:
             dscale = float(cmd.cmd.keywords['dscale'].values[0])
         if 'reset' in cmd.cmd.keywords:
             dx, dy, dinr, dscale = 0.0, 0.0, -90.0, 0.0
-        dx, dy, dinr, dscale = zero_offset(dx=dx, dy=dy, dinr=dinr, dscale=dscale, relative='relative' in cmd.cmd.keywords)
+        dx, dy, dinr, dscale = zero_offset(
+            dx=dx, dy=dy, dinr=dinr, dscale=dscale, relative='relative' in cmd.cmd.keywords
+            )
         self.actor.logger.info('AgCmd.offset: dx={},dy={},dinr={},dscale={}'.format(dx, dy, dinr, dscale))
         cmd.inform('text="dx={},dy={},dinr={},dscale={}"'.format(dx, dy, dinr, dscale))
         cmd.inform('guideOffsets={},{}'.format(dx, dy))

@@ -7,7 +7,7 @@ import numpy as np
 
 from agActor import autoguide, data_utils, focus, pfs_design
 from agActor.telescope_center import telCenter as tel_center
-from agActor.utils import FILENAMES
+from agActor.utils import FILENAMES, save_shm_files
 
 
 class ag:
@@ -444,8 +444,7 @@ class AgThread(threading.Thread):
                         flux = offset_info.flux
 
                         # Save the detected, guide, and identified objects.
-                        for save_name, path in FILENAMES.items():
-                            np.save(path, getattr(offset_info, save_name).to_numpy())
+                        save_shm_files(offset_info)
 
                         cmd.inform(f'text="{ra=},{dec=},{inst_pa=},{dra=},{ddec=},{dinr=},{dscale=},{dalt=},{daz=}"')
                         cmd.inform('data={},{},{},"{}","{}","{}"'.format(ra, dec, inst_pa, *FILENAMES.values()))
