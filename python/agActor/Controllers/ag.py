@@ -445,7 +445,7 @@ class AgThread(threading.Thread):
 
                         # Save the detected, guide, and identified objects.
                         for save_name, path in FILENAMES.items():
-                            np.save(path, getattr(offset_info, save_name))
+                            np.save(path, getattr(offset_info, save_name).to_numpy())
 
                         cmd.inform(f'text="{ra=},{dec=},{inst_pa=},{dra=},{ddec=},{dinr=},{dscale=},{dalt=},{daz=}"')
                         cmd.inform('data={},{},{},"{}","{}","{}"'.format(ra, dec, inst_pa, *FILENAMES.values()))

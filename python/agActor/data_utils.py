@@ -1,4 +1,5 @@
 import numpy
+import pandas as pd
 from numpy._typing import ArrayLike
 
 from opdb import opDB as opdb
@@ -28,19 +29,19 @@ def write_agc_guide_offset(*, frame_id, ra=None, dec=None, pa=None, delta_ra=Non
     opdb.insert_agc_guide_offset(frame_id, **params)
 
 
-def write_agc_match(*, design_id, frame_id, guide_objects: ArrayLike, detected_objects: ArrayLike, identified_objects: ArrayLike):
+def write_agc_match(*, design_id, frame_id, guide_objects: pd.DataFrame, detected_objects: pd.DataFrame, identified_objects: pd.DataFrame):
 
     data = numpy.array(
         [
             (
-                detected_objects['camera_id'][x[0]],
-                detected_objects['spot_id'][x[0]],
-                guide_objects['source_id'][x[1]],
-                x[4], - x[5],  # hsc -> pfs focal plane coordinate system
-                x[2], - x[3],  # hsc -> pfs focal plane coordinate system
+                detected_objects['camera_id'][x['detected_object_idx']],
+                detected_objects['spot_id'][x['detected_object_idx']],
+                guide_objects['source_id'][x['guide_object_idx']],
+                x['guide_object_x'], - x['guide_object_y'],  # hsc -> pfs focal plane coordinate system
+                x['detected_object_x'], - x['detected_object_y'],  # hsc -> pfs focal plane coordinate system
                 0  # flags
             )
-            for x in identified_objects
+            for idx, x in identified_objects.iterrows()
         ],
         dtype=[
             ('agc_camera_id', numpy.int32),

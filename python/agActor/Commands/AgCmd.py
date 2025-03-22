@@ -296,7 +296,7 @@ class AgCmd:
 
             # Save the detected, guide, and identified objects.
             for save_name, path in FILENAMES.items():
-                np.save(path, getattr(offset_info, save_name))
+                np.save(path, getattr(offset_info, save_name).to_numpy())
 
             if guide:
                 cmd.inform(f'text="{ra=},{dec=},{inst_pa=},{dra=},{ddec=},{dinr=},{dscale=},{dalt=},{daz=}"')
