@@ -175,7 +175,7 @@ class AgCmd:
         kwargs = {}
         kwargs['coarse'] = ag.COARSE
         if 'coarse' in cmd.cmd.keywords:
-            kwargs['coarse'] = bool(cmd.cmd.keywords['coarse'].values[0])
+            kwargs['coarse'] = True
         if 'magnitude' in cmd.cmd.keywords:
             magnitude = float(cmd.cmd.keywords['magnitude'].values[0])
             kwargs['magnitude'] = magnitude
@@ -524,7 +524,7 @@ class AgCmd:
         kwargs = {}
         coarse = ag.COARSE
         if 'coarse' in cmd.cmd.keywords:
-            coarse = bool(cmd.cmd.keywords['coarse'].values[0])
+            coarse = True
             kwargs['coarse'] = coarse
         if 'magnitude' in cmd.cmd.keywords:
             magnitude = float(cmd.cmd.keywords['magnitude'].values[0])
@@ -605,7 +605,7 @@ class AgCmd:
         kwargs = {}
         coarse = ag.COARSE
         if 'coarse' in cmd.cmd.keywords:
-            coarse = bool(cmd.cmd.keywords['coarse'].values[0])
+            coarse = True
             kwargs['coarse'] = coarse
         if 'magnitude' in cmd.cmd.keywords:
             magnitude = float(cmd.cmd.keywords['magnitude'].values[0])
