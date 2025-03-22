@@ -291,7 +291,7 @@ def get_offset_info(
         )
 
     sa_moments = detected_objects.apply(
-        lambda row: semi_axes(row.central_image_moment_11, row.central_image_moment_20, row.central_image_moment_02),
+        lambda row: semi_axes(row.central_moment_11, row.central_moment_20, row.central_moment_02),
         axis=1, result_type='expand'
         )
 
