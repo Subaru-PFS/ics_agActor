@@ -119,7 +119,7 @@ class opDB:
                 results, columns=[
                     'camera_id', 'spot_id', 'image_moment_00', 'centroid_x', 'centroid_y',
                     'central_image_moment_11', 'central_image_moment_20', 'central_image_moment_02',
-                    'peak_pixel_x', 'peak_pixel_y', 'peak_intensity', 'background', 'flags'
+                    'peak_pixel_x', 'peak_pixel_y', 'peak_intensity', 'background', 'flag'
                 ])
 
             return df
