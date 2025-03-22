@@ -461,13 +461,13 @@ def calculate_offset(guide_objects: pd.DataFrame, detected_objects, ra, dec, tak
     return ra_offset, dec_offset, inr_offset, scale_offset, mr, md, flag_values
 
 
-
 def save_shm_files(offset_info):
     guide_objects, detected_objects, identified_objects = convert_outputs(offset_info)
 
     np.save(FILENAMES['guide_objects'], guide_objects)
     np.save(FILENAMES['detected_objects'], detected_objects)
     np.save(FILENAMES['identified_objects'], identified_objects)
+
 
 def convert_outputs(offset_info):
     # First convert the dataframes to numpy arrays with appropriate types.
@@ -481,11 +481,14 @@ def convert_outputs(offset_info):
           x.iloc[5],
           x.iloc[6],
           x.iloc[7],
+          x.iloc[8],
           x.iloc[9],
           x.iloc[10],
           x.iloc[11],
           x.iloc[12],
-          x.iloc[13]) for idx, x in offset_info.guide_objects.iterrows()],
+          x.iloc[13],
+          x.iloc[14],
+          ) for idx, x in offset_info.guide_objects.iterrows()],
         dtype=[
             ('source_id', np.int64),  # u8 (80) not supported by FITSIO
             ('epoch', str),
@@ -495,14 +498,15 @@ def convert_outputs(offset_info):
             ('pmDec', np.float32),
             ('parallax', np.float32),
             ('magnitude', np.float32),
+            ('passband', str),
             ('color', np.float32),
             ('camera_id', np.int16),
             ('guide_object_xdet', np.float32),
             ('guide_object_ydet', np.float32),
-            ('flags', np.uint16)
+            ('flags', np.uint16),
+            ('filtered_by', np.uint16)
         ]
     )
-
 
     detected_objects = np.array(
         offset_info.detected_objects,
@@ -526,8 +530,8 @@ def convert_outputs(offset_info):
     identified_objects = np.array(
         offset_info.identified_objects,
         dtype=[
-            ('detected_object_id', np.int16),
-            ('guide_object_id', np.int16),
+            ('detected_object_idx', np.int16),
+            ('guide_object_idx', np.int16),
             ('detected_object_x', np.float32),
             ('detected_object_y', np.float32),
             ('guide_object_x', np.float32),
