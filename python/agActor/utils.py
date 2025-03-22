@@ -245,7 +245,7 @@ def get_guide_objects(
         # Filter the guide objects to only include the ones that are not flagged as galaxies.
         log_info('Filtering guide objects to remove galaxies.')
         galaxy_idx = (guide_objects.flag.values & AutoGuiderStarMask.GALAXY) != 0
-        guide_objects[galaxy_idx]['filtered_by'] = AutoGuiderStarMask.GALAXY.value
+        guide_objects.loc[galaxy_idx, 'filtered_by'] = AutoGuiderStarMask.GALAXY.value
         log_info(f'Filtering by {AutoGuiderStarMask.GALAXY.name}, removes {galaxy_idx.sum()} guide objects.')
 
         # The initial coarse guide uses all the stars and the fine guide uses only the GAIA stars.
