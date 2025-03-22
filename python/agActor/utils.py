@@ -234,9 +234,17 @@ def get_guide_objects(
     guide_objects['filtered_by'] = 0
 
     if apply_filters:
+        filters_for_inclusion = [AutoGuiderStarMask.GAIA,
+                                 AutoGuiderStarMask.NON_BINARY,
+                                 AutoGuiderStarMask.ASTROMETRIC,
+                                 AutoGuiderStarMask.PMRA_SIG,
+                                 AutoGuiderStarMask.PMDEC_SIG,
+                                 AutoGuiderStarMask.PARA_SIG,
+                                 AutoGuiderStarMask.PHOTO_SIG]
+
         # Filter the guide objects to only include the ones that are not flagged as galaxies.
         log_info('Filtering guide objects to remove galaxies.')
-        galaxy_idx = (guide_objects.flag & np.array(AutoGuiderStarMask.GALAXY)).values.astype(bool)
+        galaxy_idx = (guide_objects.flag.values & AutoGuiderStarMask.GALAXY) != 0
         guide_objects[galaxy_idx]['filtered_by'] = AutoGuiderStarMask.GALAXY
         log_info(f'Filtering by {AutoGuiderStarMask.GALAXY.name}, removes {galaxy_idx.sum()} guide objects.')
 
@@ -244,18 +252,12 @@ def get_guide_objects(
         coarse = kwargs.get('coarse', False)
         if coarse is False:
             # Go through the filters and mark which stars would be flagged as NOT meeting the mask requirement.
-            for f in [
-                AutoGuiderStarMask.GAIA,
-                AutoGuiderStarMask.NON_BINARY,
-                AutoGuiderStarMask.ASTROMETRIC,
-                AutoGuiderStarMask.PMRA_SIG,
-                AutoGuiderStarMask.PMDEC_SIG,
-                AutoGuiderStarMask.PARA_SIG,
-                AutoGuiderStarMask.PHOTO_SIG
-            ]:
-                f_idx = (guide_objects.flag & np.array(f)).values.astype(bool)
-                guide_objects[~f_idx]['filtered_by'] = f
-                log_info(f'Filtering by {f.name}, removes {f_idx.sum()} guide objects.')
+            for f in filters_for_inclusion:
+                not_filtered = guide_objects.filtered_by == 0
+                include_filter = (guide_objects.flag.values & f) == 0
+                to_be_filtered = (include_filter & not_filtered) != 0
+                guide_objects.loc[to_be_filtered, 'filtered_by'] = f.value
+                print(f'Filtering by {f.name}, removes {to_be_filtered.sum()} guide objects.')
 
     return guide_objects, ra, dec, inst_pa
 
