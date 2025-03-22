@@ -23,12 +23,12 @@ class AgCmd:
             ('status', '', self.status),
             ('show', '', self.show),
             ('acquire_field',
-             '[<design_id>] [<design_path>] [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<offset>] [coarse] ['
+             '[<design_id>] [<design_path>] [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<offset>] [@coarse] ['
              '<dinr>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] ['
              '<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]',
              self.acquire_field),
             ('acquire_field',
-             '@otf [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<center>] [coarse] [<offset>] [<dinr>] ['
+             '@otf [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<center>] [@coarse] [<offset>] [<dinr>] ['
              '<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] ['
              '<max_residual>] [<exposure_delay>] [<tec_off>]',
              self.acquire_field),
