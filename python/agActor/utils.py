@@ -228,11 +228,14 @@ def get_guide_objects(
     log_info(f'Got {len(guide_objects)} guide objects.')
 
     column_names = ['objId', 'epoch', 'ra', 'dec', 'pmRa', 'pmDec', 'parallax', 'magnitude', 'passband',
-                             'color', 'agId', 'agX', 'agY']
+                             'color', 'agId', 'agX', 'agY', 'flag']
 
     # Check if the `flag` column exists, either 13 or 14 columns.
-    if len(guide_objects.columns) == 14:
-        column_names.append('flag')
+    if 'flag' not in guide_objects.columns:
+        log_info('No flag column found, adding a dummy and turning off filters.')
+        # If the flag column is not present, we need to add it.
+        guide_objects['flag'] = 0
+        apply_filters = False
 
     guide_objects.columns = column_names
 
