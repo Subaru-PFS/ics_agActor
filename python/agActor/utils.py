@@ -328,7 +328,7 @@ def get_offset_info(
     detected_objects.loc[~valid_size_max_idx, 'flag'] |= AutoGuiderStarMask.MAX_SIZE
     detected_objects.loc[~valid_size_min_idx, 'flag'] |= AutoGuiderStarMask.MIN_SIZE
 
-    ra_offset, dec_offset, inr_offset, scale_offset, mr, md, detected_objects_flags, detected_camera_ids, guide_idx = calculate_offset(
+    ra_offset, dec_offset, inr_offset, scale_offset, mr, md, detected_objects_flags, detected_camera_ids, detected_idx = calculate_offset(
         good_guide_objects,
         detected_objects,
         ra,
@@ -349,8 +349,8 @@ def get_offset_info(
 
     identified_objects = pd.DataFrame(
         {
-            'detected_object_idx': mr_df.index.values,
-            'guide_object_idx': guide_idx,
+            'detected_object_idx': detected_idx,
+            'guide_object_idx': mr_df.index.values,
             'detected_object_x': mr_df[0],
             'detected_object_y': mr_df[1],
             'guide_object_x': mr_df[2],
