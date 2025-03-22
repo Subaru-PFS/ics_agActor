@@ -1,9 +1,6 @@
 # import _gen2_gaia_annulus as gaia
-from agActor.utils import _KEYMAP, filter_kwargs, get_guide_objects, map_kwargs, parse_kwargs, to_altaz
-from agActor import coordinates
 from agActor.opdb import opDB as opdb
-from agActor.utils import get_offset_info
-from agActor.utils import OffsetInfo
+from agActor.utils import OffsetInfo, _KEYMAP, filter_kwargs, get_guide_objects, get_offset_info, parse_kwargs
 
 
 def get_tel_status(*, frame_id, logger=None, **kwargs):

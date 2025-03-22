@@ -13,7 +13,6 @@ from astropy.table import Table
 from astropy.time import Time
 
 from agActor import _gen2_gaia as gaia, coordinates, subaru
-from agActor.Controllers.ag import ag
 from agActor.kawanomoto import Subaru_POPT2_PFS, Subaru_POPT2_PFS_AG
 from agActor.opdb import opDB as opdb
 from agActor.pfs_design import pfsDesign as pfs_design
@@ -33,6 +32,11 @@ FILENAMES = {
     'detected_objects': '/dev/shm/detected_objects.npy',
     'identified_objects': '/dev/shm/identified_objects.npy'
 }
+
+MAX_ELLIPTICITY = 0.6
+MAX_SIZE = 20.0  # pix
+MIN_SIZE = 0.92  # pix
+MAX_RESIDUAL = 0.2  # mm
 
 
 # TODO Use a shared version from pfs.datamodel.
@@ -316,9 +320,9 @@ def get_offset_info(
     good_guide_objects = guide_objects.query('filtered_by == 0')
 
     # Filter the detected objects based on some of their measured properties.
-    valid_ellip_idx = detected_objects.eval(f'(1 - semi_axis_minor / semi_axis_major) < {ag.MAX_ELLIPTICITY}')
-    valid_size_max_idx = detected_objects.eval(f'sqrt(semi_axis_major * semi_axis_minor) < {ag.MAX_SIZE}')
-    valid_size_min_idx = detected_objects.eval(f'sqrt(semi_axis_major * semi_axis_minor) > {ag.MIN_SIZE}')
+    valid_ellip_idx = detected_objects.eval(f'(1 - semi_axis_minor / semi_axis_major) < {MAX_ELLIPTICITY}')
+    valid_size_max_idx = detected_objects.eval(f'sqrt(semi_axis_major * semi_axis_minor) < {MAX_SIZE}')
+    valid_size_min_idx = detected_objects.eval(f'sqrt(semi_axis_major * semi_axis_minor) > {MIN_SIZE}')
 
     detected_objects.loc[~valid_ellip_idx, 'flag'] |= AutoGuiderStarMask.MAX_ELLIPTICITY
     detected_objects.loc[~valid_size_max_idx, 'flag'] |= AutoGuiderStarMask.MAX_SIZE
