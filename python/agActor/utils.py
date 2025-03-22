@@ -491,14 +491,14 @@ def convert_outputs(offset_info):
           ) for idx, x in offset_info.guide_objects.iterrows()],
         dtype=[
             ('source_id', np.int64),  # u8 (80) not supported by FITSIO
-            ('epoch', str),
+            ('epoch', 'U7'),
             ('ra', np.float64),
             ('dec', np.float64),
             ('pmRa', np.float32),
             ('pmDec', np.float32),
             ('parallax', np.float32),
             ('magnitude', np.float32),
-            ('passband', str),
+            ('passband', 'U10'),
             ('color', np.float32),
             ('camera_id', np.int16),
             ('guide_object_xdet', np.float32),
