@@ -13,6 +13,7 @@ from astropy.table import Table
 from astropy.time import Time
 
 from agActor import _gen2_gaia as gaia, coordinates, subaru
+from agActor.Controllers.ag import ag
 from agActor.kawanomoto import Subaru_POPT2_PFS, Subaru_POPT2_PFS_AG
 from agActor.opdb import opDB as opdb
 from agActor.pfs_design import pfsDesign as pfs_design
@@ -67,6 +68,10 @@ class AutoGuiderStarMask(IntFlag):
     NON_BINARY = 0x00400
     PHOTO_SIG = 0x00800
     GALAXY = 0x01000
+    MAX_ELLIPTICITY = 0x02000
+    MAX_SIZE = 0x04000
+    MIN_SIZE = 0x08000
+    MAX_RESID = 0x10000
 
 
 @dataclass
@@ -242,14 +247,6 @@ def get_guide_objects(
     guide_objects['filtered_by'] = 0
 
     if apply_filters:
-        filters_for_inclusion = [AutoGuiderStarMask.GAIA,
-                                 AutoGuiderStarMask.NON_BINARY,
-                                 AutoGuiderStarMask.ASTROMETRIC,
-                                 AutoGuiderStarMask.PMRA_SIG,
-                                 AutoGuiderStarMask.PMDEC_SIG,
-                                 AutoGuiderStarMask.PARA_SIG,
-                                 AutoGuiderStarMask.PHOTO_SIG]
-
         # Filter the guide objects to only include the ones that are not flagged as galaxies.
         log_info('Filtering guide objects to remove galaxies.')
         galaxy_idx = (guide_objects.flag.values & AutoGuiderStarMask.GALAXY) != 0
@@ -259,6 +256,14 @@ def get_guide_objects(
         # The initial coarse guide uses all the stars and the fine guide uses only the GAIA stars.
         coarse = kwargs.get('coarse', False)
         if coarse is False:
+            filters_for_inclusion = [AutoGuiderStarMask.GAIA,
+                                     AutoGuiderStarMask.NON_BINARY,
+                                     AutoGuiderStarMask.ASTROMETRIC,
+                                     AutoGuiderStarMask.PMRA_SIG,
+                                     AutoGuiderStarMask.PMDEC_SIG,
+                                     AutoGuiderStarMask.PARA_SIG,
+                                     AutoGuiderStarMask.PHOTO_SIG]
+
             # Go through the filters and mark which stars would be flagged as NOT meeting the mask requirement.
             for f in filters_for_inclusion:
                 not_filtered = guide_objects.filtered_by == 0
@@ -309,6 +314,15 @@ def get_offset_info(
     detected_objects['semi_axis_major'] = sa_moments[1]
 
     good_guide_objects = guide_objects.query('filtered_by == 0')
+
+    # Filter the detected objects based on some of their measured properties.
+    valid_ellip_idx = detected_objects.eval(f'(1 - semi_axis_minor / semi_axis_major) < {ag.MAX_ELLIPTICITY}')
+    valid_size_max_idx = detected_objects.eval(f'sqrt(semi_axis_major * semi_axis_minor) < {ag.MAX_SIZE}')
+    valid_size_min_idx = detected_objects.eval(f'sqrt(semi_axis_major * semi_axis_minor) > {ag.MIN_SIZE}')
+
+    detected_objects.loc[~valid_ellip_idx, 'flag'] |= AutoGuiderStarMask.MAX_ELLIPTICITY
+    detected_objects.loc[~valid_size_max_idx, 'flag'] |= AutoGuiderStarMask.MAX_SIZE
+    detected_objects.loc[~valid_size_min_idx, 'flag'] |= AutoGuiderStarMask.MIN_SIZE
 
     ra_offset, dec_offset, inr_offset, scale_offset, mr, md, detected_objects_flags = calculate_offset(
         good_guide_objects,
@@ -435,8 +449,6 @@ def calculate_offset(guide_objects: pd.DataFrame, detected_objects, ra, dec, tak
     # Add filter conditions from the detections.
     flag_values = detected_objects.flag < 2
 
-
-
     filtered_detected_objects = detected_objects[flag_values].copy()
 
     v_0, v_1 = pfs.makeBasis(
@@ -502,7 +514,7 @@ def convert_outputs(offset_info):
             ('pmRa', np.float32),
             ('pmDec', np.float32),
             ('parallax', np.float32),
-            ('magnitude', np.float32),
+            ('mag', np.float32),
             ('passband', 'U10'),
             ('color', np.float32),
             ('camera_id', np.int16),
@@ -535,8 +547,8 @@ def convert_outputs(offset_info):
     identified_objects = np.array(
         offset_info.identified_objects,
         dtype=[
-            ('detected_object_idx', np.int16),
-            ('guide_object_idx', np.int16),
+            ('detected_object_id', np.int16),
+            ('guide_object_id', np.int16),
             ('detected_object_x', np.float32),
             ('detected_object_y', np.float32),
             ('guide_object_x', np.float32),
