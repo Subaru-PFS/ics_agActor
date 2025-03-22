@@ -468,9 +468,9 @@ def get_offset_info(
         spot_size=spot_size,
         peak_intensity=peak_intensity,
         flux=flux,
-        guide_objects=guide_objects,
-        detected_objects=detected_objects,
-        identified_objects=identified_objects,
+        guide_objects=guide_objects.to_numpy(),
+        detected_objects=detected_objects.to_numpy(),
+        identified_objects=identified_objects.to_numpy(),
     )
 
 
