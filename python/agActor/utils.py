@@ -305,8 +305,8 @@ def get_offset_info(
 
     detected_objects['focal_plane_x_mm'] = detector_plane_coords[0]
     detected_objects['focal_plane_y_mm'] = detector_plane_coords[1]
-    detected_objects['semi_axes_a'] = sa_moments[0]
-    detected_objects['semi_axes_b'] = sa_moments[1]
+    detected_objects['semi_axis_minor'] = sa_moments[0]
+    detected_objects['semi_axis_major'] = sa_moments[1]
 
     good_guide_objects = guide_objects.query('filtered_by == 0')
 
@@ -431,7 +431,12 @@ def calculate_offset(guide_objects: pd.DataFrame, detected_objects, ra, dec, tak
     ra_values = guide_objects.ra.to_numpy()
     dec_values = guide_objects.dec.to_numpy()
     magnitude_values = guide_objects.magnitude.to_numpy()
+
+    # Add filter conditions from the detections.
     flag_values = detected_objects.flag < 2
+
+
+
     filtered_detected_objects = detected_objects[flag_values].copy()
 
     v_0, v_1 = pfs.makeBasis(
