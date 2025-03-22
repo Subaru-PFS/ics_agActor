@@ -276,22 +276,6 @@ def get_offset_info(
     logger: Logger | None = None,
     **kwargs
 ) -> OffsetInfo:
-    # Camera ID [0], Spot ID [1], Centroid X [3], Centroid Y [4],
-    # Central Moment 11 [5], Central Moment 20 [6], Central Moment 02 [7],
-    # Peak X [8], Peak Y [9], Peak [10], Flags [-1]
-    _detected_objects = np.array(
-        [
-            (
-                x[0],
-                x[1],
-                *coordinates.det2dp(int(x[0]), x[3], x[4]),
-                x[10],
-                *semi_axes(x[5], x[6], x[7]),
-                x[-1]
-            )
-            for x in detected_objects
-        ]
-    )
     _kwargs = map_kwargs(kwargs)
     logger and logger.info(f"{_kwargs=}")
 
@@ -302,9 +286,23 @@ def get_offset_info(
     else:
         taken_at = taken_at
 
-    ra_offset, dec_offset, inr_offset, scale_offset, mr, md, v = calculate_offset(
+    detector_plane_coords = detected_objects.apply(
+        lambda row: coordinates.det2dp(row.camera_id, row.centroid_x, row.centroid_y), axis=1, result_type='expand'
+        )
+
+    sa_moments = detected_objects.apply(
+        lambda row: semi_axes(row.central_image_moment_11, row.central_image_moment_20, row.central_image_moment_02),
+        axis=1, result_type='expand'
+        )
+
+    detected_objects['focal_plane_x_mm'] = detector_plane_coords[0]
+    detected_objects['focal_plane_y_mm'] = detector_plane_coords[1]
+    detected_objects['semi_axes_a'] = sa_moments[0]
+    detected_objects['semi_axes_b'] = sa_moments[1]
+
+    ra_offset, dec_offset, inr_offset, scale_offset, mr, md, detected_objects_flags = calculate_offset(
         guide_objects,
-        _detected_objects,
+        detected_objects,
         ra,
         dec,
         taken_at,
@@ -314,6 +312,26 @@ def get_offset_info(
         obswl,
         _kwargs
     )
+
+    mr_df = pd.DataFrame(mr)
+    # Filter the mr objects by their flag column
+    # FIXME the column names
+    mr_df = mr_df[mr_df[8] == 1].copy()
+    detected_idx = detected_objects.query('flags < 2').index.values
+    identified_idx = mr_df.index.values
+    mr_df['camera_id'] = detected_objects[detected_objects_flags].camera_id.values
+    fp_coords = mr_df.apply(lambda row: coordinates.dp2det(row.camera_id, row[2], row[3]), axis=1, result_type='expand')
+
+    identified_objects = pd.DataFrame({
+        'detected_object_idx': detected_idx,
+        'identified_idx': identified_idx,
+        'detected_object_x': mr_df[0],
+        'detected_object_y': mr_df[1],
+        'guide_object_x': mr_df[2],
+        'guide_object_y': mr_df[3],
+        'guide_object_xdet': fp_coords[0],
+        'guide_object_ydet': fp_coords[1],
+    })
 
     ra_offset *= 3600
     dec_offset *= 3600
@@ -326,82 +344,83 @@ def get_offset_info(
         alt, az, dalt, daz = to_altaz(ra, dec, taken_at, dra=ra_offset, ddec=dec_offset)
         logger and logger.info(f"{alt=},{az=},{dalt=},{daz=}")
 
-    guide_objects = np.array(
-        [(x.iloc[0],
-          x.iloc[1],
-          x.iloc[2],
-          x.iloc[3],
-          x.iloc[4],
-          x.iloc[5],
-          x.iloc[6],
-          x.iloc[7],
-          x.iloc[9],
-          x.iloc[10],
-          x.iloc[11],
-          x.iloc[12],
-          x.iloc[13]) for idx, x in guide_objects.iterrows()],
-        dtype=[
-            ('source_id', np.int64),  # u8 (80) not supported by FITSIO
-            ('epoch', str),
-            ('ra', np.float64),
-            ('dec', np.float64),
-            ('pmRa', np.float32),
-            ('pmDec', np.float32),
-            ('parallax', np.float32),
-            ('magnitude', np.float32),
-            ('color', np.float32),
-            ('camera_id', np.int16),
-            ('guide_object_xdet', np.float32),
-            ('guide_object_ydet', np.float32),
-            ('flags', np.uint16)
-        ]
-    )
+    # guide_objects = np.array(
+    #     [(x.iloc[0],
+    #       x.iloc[1],
+    #       x.iloc[2],
+    #       x.iloc[3],
+    #       x.iloc[4],
+    #       x.iloc[5],
+    #       x.iloc[6],
+    #       x.iloc[7],
+    #       x.iloc[9],
+    #       x.iloc[10],
+    #       x.iloc[11],
+    #       x.iloc[12],
+    #       x.iloc[13]) for idx, x in guide_objects.iterrows()],
+    #     dtype=[
+    #         ('source_id', np.int64),  # u8 (80) not supported by FITSIO
+    #         ('epoch', str),
+    #         ('ra', np.float64),
+    #         ('dec', np.float64),
+    #         ('pmRa', np.float32),
+    #         ('pmDec', np.float32),
+    #         ('parallax', np.float32),
+    #         ('magnitude', np.float32),
+    #         ('color', np.float32),
+    #         ('camera_id', np.int16),
+    #         ('guide_object_xdet', np.float32),
+    #         ('guide_object_ydet', np.float32),
+    #         ('flags', np.uint16)
+    #     ]
+    # )
 
-    detected_objects = np.array(
-        detected_objects,
-        dtype=[
-            ('camera_id', np.int16),
-            ('spot_id', np.int16),
-            ('moment_00', np.float32),
-            ('centroid_x', np.float32),
-            ('centroid_y', np.float32),
-            ('central_moment_11', np.float32),
-            ('central_moment_20', np.float32),
-            ('central_moment_02', np.float32),
-            ('peak_x', np.uint16),
-            ('peak_y', np.uint16),
-            ('peak', np.uint16),
-            ('background', np.float32),
-            ('flags', np.uint8)
-        ]
-    )
+    # detected_objects = np.array(
+    #     detected_objects,
+    #     dtype=[
+    #         ('camera_id', np.int16),
+    #         ('spot_id', np.int16),
+    #         ('moment_00', np.float32),
+    #         ('centroid_x', np.float32),
+    #         ('centroid_y', np.float32),
+    #         ('central_moment_11', np.float32),
+    #         ('central_moment_20', np.float32),
+    #         ('central_moment_02', np.float32),
+    #         ('peak_x', np.uint16),
+    #         ('peak_y', np.uint16),
+    #         ('peak', np.uint16),
+    #         ('background', np.float32),
+    #         ('flags', np.uint8)
+    #     ]
+    # )
 
-    index_v, = np.where(v)
-    identified_objects = np.array(
-        [
-            (
-                k,  # index of detected object
-                int(x[0]),  # index of identified guide object
-                float(x[1]), float(x[2]),  # detector plane coordinates of detected object
-                float(x[3]), float(x[4]),  # detector plane coordinates of identified guide object
-                *coordinates.dp2det(detected_objects[k][0], float(x[3]), float(x[4]))
-                # detector coordinates of identified guide object
-            )
-            for k, x in
-            ((int(index_v[i]), x) for i, x in enumerate(zip(mr[:, 9], mr[:, 0], mr[:, 1], mr[:, 2], mr[:, 3], mr[:, 8]))
-             if int(x[5]))
-        ],
-        dtype=[
-            ('detected_object_id', np.int16),
-            ('guide_object_id', np.int16),
-            ('detected_object_x', np.float32),
-            ('detected_object_y', np.float32),
-            ('guide_object_x', np.float32),
-            ('guide_object_y', np.float32),
-            ('guide_object_xdet', np.float32),
-            ('guide_object_ydet', np.float32)
-        ]
-    )
+    # index_v = np.where(detected_flags)[0]
+    # identified_objects = np.array(
+    #     [
+    #         (
+    #             k,  # index of detected object
+    #             int(x[0]),  # index of identified guide object
+    #             float(x[1]), float(x[2]),  # detector plane coordinates of detected object
+    #             float(x[3]), float(x[4]),  # detector plane coordinates of identified guide object
+    #             *coordinates.dp2det(detected_objects[k][0], float(x[3]), float(x[4]))
+    #             # detector coordinates of identified guide object
+    #         )
+    #         for k, x in
+    #         ((int(index_v[i]), x) for i, x in enumerate(zip(mr[:, 9], mr[:, 0], mr[:, 1], mr[:, 2], mr[:, 3], mr[:,
+    #         8]))
+    #          if int(x[5]))
+    #     ],
+    #     dtype=[
+    #         ('detected_object_id', np.int16),
+    #         ('guide_object_id', np.int16),
+    #         ('detected_object_x', np.float32),
+    #         ('detected_object_y', np.float32),
+    #         ('guide_object_x', np.float32),
+    #         ('guide_object_y', np.float32),
+    #         ('guide_object_xdet', np.float32),
+    #         ('guide_object_ydet', np.float32)
+    #     ]
+    # )
     dx = - ra_offset * np.cos(np.deg2rad(dec))  # arcsec
     dy = dec_offset  # arcsec (HSC definition)
 
@@ -473,7 +492,7 @@ def calculate_offset(guide_objects: pd.DataFrame, detected_objects, ra, dec, tak
     ra_values = guide_objects.ra.to_numpy()
     dec_values = guide_objects.dec.to_numpy()
     magnitude_values = guide_objects.magnitude.to_numpy()
-    flag_values = detected_objects[:, -1] < 2
+    flag_values = detected_objects['flags'] < 2
 
     v_0, v_1 = pfs.makeBasis(
         ra,
@@ -491,10 +510,10 @@ def calculate_offset(guide_objects: pd.DataFrame, detected_objects, ra, dec, tak
 
     # Get the offsets.
     ra_offset, dec_offset, inr_offset, scale_offset, mr, md = pfs.RADECInRScaleShift(
-        detected_objects[:, 2],
-        detected_objects[:, 3],
-        detected_objects[:, 4],  # This is not used and I'm guessing incorrect index.
-        detected_objects[:, 7],
+        detected_objects.focal_plane_x_mm.values,
+        detected_objects.focal_plane_y_mm.values,
+        detected_objects.camera_id.values,  # UNUSED
+        detected_objects['flags'].values,
         v_0,
         v_1
     )
