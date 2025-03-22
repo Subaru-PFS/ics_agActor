@@ -334,9 +334,7 @@ class AgCmd:
                 cmd.inform(f'text="{ra=},{dec=},{inst_pa=},{dra=},{ddec=},{dinr=},{dscale=},{dalt=},{daz=}"')
             else:
                 cmd.inform(f'text="dra={dra},ddec={ddec},dinr={dinr},dscale={dscale}"')
-            cmd.inform(
-                'data={},{},{},"{}","{}","{}"'.format(offset_info.ra, offset_info.dec, offset_info.inst_pa, *FILENAMES)
-                )
+            cmd.inform('data={},{},{},"{}","{}","{}"'.format(offset_info.ra, offset_info.dec, offset_info.inst_pa, *FILENAMES.values()))
             cmd.inform('detectionState=0')
 
             if guide:
