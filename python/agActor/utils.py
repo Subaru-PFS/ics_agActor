@@ -300,8 +300,10 @@ def get_offset_info(
     detected_objects['semi_axes_a'] = sa_moments[0]
     detected_objects['semi_axes_b'] = sa_moments[1]
 
+    good_guide_objects = guide_objects.query('filtered_by == 0')
+
     ra_offset, dec_offset, inr_offset, scale_offset, mr, md, detected_objects_flags = calculate_offset(
-        guide_objects,
+        good_guide_objects,
         detected_objects,
         ra,
         dec,
@@ -318,13 +320,13 @@ def get_offset_info(
     # FIXME the column names
     mr_df = mr_df[mr_df[8] == 1].copy()
     detected_idx = detected_objects.query('flag < 2').index.values
-    identified_idx = mr_df.index.values
+    guide_idx = mr_df[9].astype(int).values
     mr_df['camera_id'] = detected_objects[detected_objects_flags].camera_id.values
     fp_coords = mr_df.apply(lambda row: coordinates.dp2det(row.camera_id, row[2], row[3]), axis=1, result_type='expand')
 
     identified_objects = pd.DataFrame({
         'detected_object_idx': detected_idx,
-        'guide_obj_idx': identified_idx,
+        'guide_obj_idx': guide_idx,
         'detected_object_x': mr_df[0],
         'detected_object_y': mr_df[1],
         'guide_object_x': mr_df[2],
