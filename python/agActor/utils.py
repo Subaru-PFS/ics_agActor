@@ -227,8 +227,14 @@ def get_guide_objects(
     guide_objects = Table(guide_objects).to_pandas()
     log_info(f'Got {len(guide_objects)} guide objects.')
 
-    guide_objects.columns = ['objId', 'epoch', 'ra', 'dec', 'pmRa', 'pmDec', 'parallax', 'magnitude', 'passband',
-                             'color', 'agId', 'agX', 'agY', 'flag', 'filtered_by']
+    column_names = ['objId', 'epoch', 'ra', 'dec', 'pmRa', 'pmDec', 'parallax', 'magnitude', 'passband',
+                             'color', 'agId', 'agX', 'agY']
+
+    # Check if the `flag` column exists, either 13 or 14 columns.
+    if len(guide_objects.columns) == 14:
+        column_names.append('flag')
+
+    guide_objects.columns = column_names
 
     # Add a column to indicate which flat was used for filtering.
     guide_objects['filtered_by'] = 0
