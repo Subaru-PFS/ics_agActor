@@ -57,6 +57,8 @@ def set_field(*, frame_id=None, obswl=0.62, logger=None, **kwargs):
         )
     else:
         # use guide objects from pfs design file or operational database, or generate on-the-fly.
+        design_id = kwargs.pop('design_id')
+        design_path = kwargs.pop('design_path')
         guide_objects, ra, dec, inst_pa = get_guide_objects(
             design_id, design_path, taken_at, obswl, logger=logger, **kwargs
         )
