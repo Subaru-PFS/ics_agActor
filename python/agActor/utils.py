@@ -518,7 +518,7 @@ def convert_outputs(offset_info):
             ('pmRa', np.float32),
             ('pmDec', np.float32),
             ('parallax', np.float32),
-            ('magnitude', np.float32),
+            ('mag', np.float32),
             ('passband', 'U10'),
             ('color', np.float32),
             ('camera_id', np.int16),
@@ -572,8 +572,8 @@ def convert_outputs(offset_info):
           x.iloc[7]
           ) for idx, x in offset_info.identified_objects.iterrows()],
         dtype=[
-            ('detected_object_idx', np.int16),
-            ('guide_object_idx', np.int16),
+            ('detected_object_id', np.int16),
+            ('guide_object_id', np.int16),
             ('detected_object_x', np.float32),
             ('detected_object_y', np.float32),
             ('guide_object_x', np.float32),
