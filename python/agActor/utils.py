@@ -434,20 +434,27 @@ def get_offset_info(
         identified_objects['detected_object_y'] - identified_objects['guide_object_y']) ** 2
 
     num_errors = len(square_pointing_errors) - np.isnan(square_pointing_errors).sum()
-
+    logger and logger.info(f"Number of errors: {num_errors}")
     if num_errors > 0:
-        identified_median_idx = np.argpartition(square_pointing_errors, num_errors // 2)[num_errors // 2]
-        detected_median_idx = identified_objects['detected_object_idx'][identified_median_idx]
+        try:
+            identified_median_idx = np.argpartition(square_pointing_errors, num_errors // 2)[num_errors // 2]
+            detected_median_idx = identified_objects['detected_object_idx'][identified_median_idx]
 
-        a, b = semi_axes(
-            detected_objects['central_moment_11'][detected_median_idx],
-            detected_objects['central_moment_20'][detected_median_idx],
-            detected_objects['central_moment_02'][detected_median_idx]
-        )
+            a, b = semi_axes(
+                detected_objects['central_moment_11'][detected_median_idx],
+                detected_objects['central_moment_20'][detected_median_idx],
+                detected_objects['central_moment_02'][detected_median_idx]
+            )
 
-        spot_size = (a * b) ** 0.5
-        peak_intensity = detected_objects['peak'][detected_median_idx]
-        flux = detected_objects['moment_00'][detected_median_idx]
+            spot_size = (a * b) ** 0.5
+            peak_intensity = detected_objects['peak'][detected_median_idx]
+            flux = detected_objects['moment_00'][detected_median_idx]
+        except Exception as e:
+            logger and logger.error(f"Error calculating median values: {e}")
+            spot_size = 0
+            peak_intensity = 0
+            flux = 0
+
 
     return OffsetInfo(
         dra=ra_offset,
