@@ -328,7 +328,7 @@ def get_offset_info(
     detected_objects.loc[~valid_size_max_idx, 'flag'] |= AutoGuiderStarMask.MAX_SIZE
     detected_objects.loc[~valid_size_min_idx, 'flag'] |= AutoGuiderStarMask.MIN_SIZE
 
-    ra_offset, dec_offset, inr_offset, scale_offset, mr, md, detected_objects_flags, detected_camera_ids = calculate_offset(
+    ra_offset, dec_offset, inr_offset, scale_offset, mr, md, detected_objects_flags, detected_camera_ids, guide_idx = calculate_offset(
         good_guide_objects,
         detected_objects,
         ra,
@@ -345,7 +345,6 @@ def get_offset_info(
     mr_df['camera_id'] = detected_camera_ids
     # Filter bad values TODO fix column names.
     mr_df = mr_df[mr_df[8] == 1]
-    guide_idx = mr_df[9].astype(int).values
     fp_coords = mr_df.apply(lambda row: coordinates.dp2det(row.camera_id, row[2], row[3]), axis=1, result_type='expand')
 
     identified_objects = pd.DataFrame(
@@ -479,7 +478,7 @@ def calculate_offset(guide_objects: pd.DataFrame, detected_objects, ra, dec, tak
         v_1
     )
 
-    return ra_offset, dec_offset, inr_offset, scale_offset, mr, md, flag_values, filtered_detected_objects.camera_id.values
+    return ra_offset, dec_offset, inr_offset, scale_offset, mr, md, flag_values, filtered_detected_objects.camera_id.values, filtered_detected_objects.index.values
 
 
 def save_shm_files(offset_info):
