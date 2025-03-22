@@ -95,7 +95,7 @@ def acquire_field(*, frame_id, obswl=0.62, logger=None, **kwargs) -> OffsetInfo:
             logger.info(msg)
 
     log_info(f'Getting detected objects for {frame_id=}')
-    detected_objects = opdb.query_agc_data(frame_id)
+    detected_objects = opdb.query_agc_data(frame_id, as_dataframe=True)
     log_info(f'Retrieved {len(detected_objects)} detected objects from the database for {frame_id=}.')
 
     parse_kwargs(kwargs)

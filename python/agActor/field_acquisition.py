@@ -43,7 +43,7 @@ def acquire_field(*,
             getattr(logger, level)(msg)
 
     log_info(f'Getting detected objects for {frame_id=}')
-    detected_objects = opdb.query_agc_data(frame_id)
+    detected_objects = opdb.query_agc_data(frame_id, as_dataframe=True)
     log_info(f'Retrieved {len(detected_objects)} detected objects from the database for {frame_id=}.')
 
     if len(detected_objects) == 0:
