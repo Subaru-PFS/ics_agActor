@@ -324,7 +324,7 @@ def get_offset_info(
 
     identified_objects = pd.DataFrame({
         'detected_object_idx': detected_idx,
-        'identified_idx': identified_idx,
+        'guide_obj_idx': identified_idx,
         'detected_object_x': mr_df[0],
         'detected_object_y': mr_df[1],
         'guide_object_x': mr_df[2],
