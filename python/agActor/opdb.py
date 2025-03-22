@@ -117,10 +117,11 @@ class opDB:
         if as_dataframe:
             df = pd.DataFrame(
                 results, columns=[
-                    'camera_id', 'spot_id', 'image_moment_00', 'centroid_x', 'centroid_y',
-                    'central_image_moment_11', 'central_image_moment_20', 'central_image_moment_02',
-                    'peak_pixel_x', 'peak_pixel_y', 'peak_intensity', 'background', 'flag'
-                ])
+                    'camera_id', 'spot_id', 'moment_00', 'centroid_x', 'centroid_y',
+                    'central_moment_11', 'central_moment_20', 'central_moment_02',
+                    'peak_x', 'peak_y', 'peak', 'background', 'flag'
+                ]
+            )
 
             return df
         else:

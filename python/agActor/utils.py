@@ -264,7 +264,7 @@ def get_guide_objects(
 
 def get_offset_info(
     guide_objects: pd.DataFrame,
-    detected_objects: np.ndarray,
+    detected_objects: pd.DataFrame,
     ra: float,
     dec: float,
     taken_at: datetime,
@@ -317,7 +317,7 @@ def get_offset_info(
     # Filter the mr objects by their flag column
     # FIXME the column names
     mr_df = mr_df[mr_df[8] == 1].copy()
-    detected_idx = detected_objects.query('flags < 2').index.values
+    detected_idx = detected_objects.query('flag < 2').index.values
     identified_idx = mr_df.index.values
     mr_df['camera_id'] = detected_objects[detected_objects_flags].camera_id.values
     fp_coords = mr_df.apply(lambda row: coordinates.dp2det(row.camera_id, row[2], row[3]), axis=1, result_type='expand')
@@ -437,7 +437,7 @@ def get_offset_info(
 
     if num_errors > 0:
         identified_median_idx = np.argpartition(square_pointing_errors, num_errors // 2)[num_errors // 2]
-        detected_median_idx = identified_objects['detected_object_id'][identified_median_idx]
+        detected_median_idx = identified_objects['detected_object_idx'][identified_median_idx]
 
         a, b = semi_axes(
             detected_objects['central_moment_11'][detected_median_idx],
@@ -492,7 +492,7 @@ def calculate_offset(guide_objects: pd.DataFrame, detected_objects, ra, dec, tak
     ra_values = guide_objects.ra.to_numpy()
     dec_values = guide_objects.dec.to_numpy()
     magnitude_values = guide_objects.magnitude.to_numpy()
-    flag_values = detected_objects['flags'] < 2
+    flag_values = detected_objects.flag < 2
 
     v_0, v_1 = pfs.makeBasis(
         ra,
@@ -513,7 +513,7 @@ def calculate_offset(guide_objects: pd.DataFrame, detected_objects, ra, dec, tak
         detected_objects.focal_plane_x_mm.values,
         detected_objects.focal_plane_y_mm.values,
         detected_objects.camera_id.values,  # UNUSED
-        detected_objects['flags'].values,
+        detected_objects.flag.values,
         v_0,
         v_1
     )
