@@ -319,9 +319,8 @@ def get_offset_info(
     # Filter the mr objects by their flag column
     # FIXME the column names
     mr_df = mr_df[mr_df[8] == 1].copy()
-    detected_idx = detected_objects.query('flag < 2').index.values
-    # guide_idx = mr_df[9].astype(int).values
-    # mr_df['camera_id'] = detected_objects[detected_objects_flags].camera_id.values
+    detected_idx = mr_df[9].astype(int).values
+    mr_df['camera_id'] = detected_objects.loc[detected_idx].camera_id.values
     fp_coords = mr_df.apply(lambda row: coordinates.dp2det(row.camera_id, row[2], row[3]), axis=1, result_type='expand')
 
     identified_objects = pd.DataFrame({
@@ -495,7 +494,7 @@ def calculate_offset(guide_objects: pd.DataFrame, detected_objects, ra, dec, tak
     dec_values = guide_objects.dec.to_numpy()
     magnitude_values = guide_objects.magnitude.to_numpy()
     flag_values = detected_objects.flag < 2
-    filtered_detected_objects = detected_objects[flag_values]
+    filtered_detected_objects = detected_objects[flag_values].copy()
 
     v_0, v_1 = pfs.makeBasis(
         ra,
