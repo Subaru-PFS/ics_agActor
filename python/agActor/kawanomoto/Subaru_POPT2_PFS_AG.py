@@ -753,8 +753,8 @@ class PFS():
             array_wosp = array[np.where(array[:,7]==0)]
             array_wisp = array[np.where(array[:,7]==1)]
 
-            moment_wosp = np.median((array_wosp[:,5]**2+array_wosp[:,6]**2)*4)
-            moment_wisp = np.median((array_wisp[:,5]**2+array_wisp[:,6]**2)*4)
+            moment_wosp = np.median((array_wosp[:,5]**2+array_wosp[:,6]**2))
+            moment_wisp = np.median((array_wisp[:,5]**2+array_wisp[:,6]**2))
 
             outarray[ccdid-1]=moment_wosp-moment_wisp
 
