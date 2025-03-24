@@ -59,9 +59,9 @@ def set_design_agc(*, frame_id=None, obswl=0.62, logger=None, **kwargs):
         logger and logger.info('design_id={},design_path={}'.format(design_id, design_path))
         if design_path is not None:
             taken_at = kwargs.get('taken_at')
-            magnitude = kwargs.get('magnitude', 20.0)
-            logger and logger.info('taken_at={},magnitude={}'.format(taken_at, magnitude))
-            guide_objects, *_ = pfs_design(design_id, design_path, logger=logger).guide_objects(magnitude=magnitude, obstime=taken_at)
+
+            logger and logger.info('taken_at={}'.format(taken_at))
+            guide_objects, *_ = pfs_design(design_id, design_path, logger=logger).guide_objects(obstime=taken_at)
         elif design_id is not None:
             guide_objects = opdb.query_pfs_design_agc(design_id)
         else:
@@ -71,13 +71,12 @@ def set_design_agc(*, frame_id=None, obswl=0.62, logger=None, **kwargs):
             inr = kwargs.get('inr')
             adc = kwargs.get('adc')
             m2_pos3 = kwargs.get('m2_pos3', 6.0)
-            magnitude = kwargs.get('magnitude', 20.0)
-            logger and logger.info('taken_at={},inr={},adc={},m2_pos3={},magnitude={}'.format(taken_at, inr, adc, m2_pos3, magnitude))
+            logger and logger.info('taken_at={},inr={},adc={},m2_pos3={}'.format(taken_at, inr, adc, m2_pos3))
             if 'dra' in kwargs: ra += kwargs.get('dra') / 3600
             if 'ddec' in kwargs: dec += kwargs.get('ddec') / 3600
             if 'dinr' in kwargs: inr += kwargs.get('dinr') / 3600
             logger and logger.info('ra={},dec={},inr={}'.format(ra, dec, inr))
-            guide_objects, *_ = gaia.get_objects(ra=ra, dec=dec, obstime=taken_at, inst_pa=inst_pa, adc=adc, m2pos3=m2_pos3, obswl=obswl, magnitude=magnitude)
+            guide_objects, *_ = gaia.get_objects(ra=ra, dec=dec, obstime=taken_at, inst_pa=inst_pa, adc=adc, m2pos3=m2_pos3, obswl=obswl)
     #logger and logger.info('guide_objects={}'.format(guide_objects))
     Field.guide_objects = guide_objects
 
@@ -116,7 +115,6 @@ if __name__ == '__main__':
     parser.add_argument('--center', default=None, help='field center coordinates ra, dec[, pa] (deg)')
     parser.add_argument('--offset', default=None, help='field offset coordinates dra, ddec[, dpa[, dinr]] (arcsec)')
     parser.add_argument('--dinr', type=float, default=None, help='instrument rotator offset, east of north (arcsec)')
-    parser.add_argument('--magnitude', type=float, default=None, help='magnitude limit')
     parser.add_argument('--fit-dinr', action=argparse.BooleanOptionalAction, default=argparse.SUPPRESS, help='')
     parser.add_argument('--fit-dscale', action=argparse.BooleanOptionalAction, default=argparse.SUPPRESS, help='')
     parser.add_argument('--max-ellipticity', type=float, default=argparse.SUPPRESS, help='')
@@ -134,8 +132,6 @@ if __name__ == '__main__':
         kwargs['offset'] = tuple([float(x) for x in args.offset.split(',')])
     if args.dinr is not None:
         kwargs['dinr'] = args.dinr
-    if args.magnitude is not None:
-        kwargs['magnitude'] = args.magnitude
     kwargs |= {key: getattr(args, key) for key in field_acquisition._KEYMAP if key in args}
     print('kwargs={}'.format(kwargs))
 

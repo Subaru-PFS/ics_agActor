@@ -41,17 +41,17 @@ class pfsDesign:
             inst_pa = header['POSANG']
         return ra, dec, inst_pa
 
-    def guide_objects(self, magnitude=20.0, obstime=None):
+    def guide_objects(self, obstime=None):
 
         _obstime = Time(obstime.astimezone(tz=timezone.utc)) if isinstance(obstime, datetime) else Time(obstime, format='unix') if isinstance(obstime, Number) else Time(obstime) if obstime is not None else Time.now()
-        self.logger and self.logger.info('magnitude={},obstime={},_obstime={}'.format(magnitude, obstime, _obstime))
+        self.logger and self.logger.info('obstime={},_obstime={}'.format(obstime, _obstime))
         with fitsio.FITS(self.design_path) as fits:
             header = fits[0].read_header()
             ra = header['RA']
             dec = header['DEC']
             inst_pa = header['POSANG']
             _guide_objects = fits['guidestars'].read()
-        _guide_objects = _guide_objects[numpy.where(_guide_objects['magnitude'] <= magnitude)]
+
         _guide_objects['parallax'][numpy.where(_guide_objects['parallax'] < 1e-6)] = 1e-6
         _icrs = SkyCoord(
             ra=_guide_objects['ra'] * units.deg,
@@ -66,7 +66,7 @@ class pfsDesign:
         _guide_objects['ra'] = _icrs_d.ra.deg
         _guide_objects['dec'] = _icrs_d.dec.deg
         #guide_objects = tuple(map(tuple, _guide_objects[['objId', 'ra', 'dec', 'magnitude', 'agId', 'agX', 'agY']]))
-        guide_objects = _guide_objects[['objId', 'ra', 'dec', 'magnitude', 'agId', 'agX', 'agY']]
+        guide_objects = _guide_objects[['objId', 'ra', 'dec', 'magnitude', 'agId', 'agX', 'agY', 'flag']]
         #guide_objects.dtype.names = ('source_id', 'ra', 'dec', 'mag', 'camera_id', 'x', 'y')
         return guide_objects, ra, dec, inst_pa
 
@@ -89,19 +89,17 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--design-id', type=lambda x: int(x, 0), default=None, help='design identifier')
     parser.add_argument('--design-path', default=None, help='design path')
-    parser.add_argument('--magnitude', type=float, default=20.0, help='magnitude limit')
     parser.add_argument('obstime', nargs='?', default=None, help='time of observation (datetime)')
     args, _ = parser.parse_known_args()
 
     design_id = args.design_id
     design_path = '.' if args.design_id is not None and args.design_path is None else args.design_path
-    magnitude = args.magnitude
     obstime = args.obstime
-    print('design_id={},design_path={},magnitude={},obstime={}'.format(design_id, design_path, magnitude, obstime))
+    print('design_id={},design_path={},obstime={}'.format(design_id, design_path, obstime))
 
     import logging
 
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(name='pfs_design')
-    guide_objects, ra, dec, inst_pa = pfsDesign(design_id, design_path, logger=logger).guide_objects(magnitude=magnitude, obstime=obstime)
+    guide_objects, ra, dec, inst_pa = pfsDesign(design_id, design_path, logger=logger).guide_objects(obstime=obstime)
     print('guide_objects={},ra={},dec={},inst_pa={}'.format(guide_objects, ra, dec, inst_pa))

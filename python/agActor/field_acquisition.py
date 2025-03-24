@@ -1,6 +1,9 @@
 from datetime import datetime, timezone
+from enum import IntFlag
 from numbers import Number
 import numpy
+from astropy.table import Table
+
 import _gen2_gaia as gaia
 #import _gen2_gaia_annulus as gaia
 import coordinates
@@ -8,6 +11,7 @@ from opdb import opDB as opdb
 from pfs_design import pfsDesign as pfs_design
 import to_altaz
 from kawanomoto import FieldAcquisitionAndFocusing
+from numpy.lib import recfunctions as rfn
 
 DELTA_RA_OFFSET = 0.15  # arcsec
 
@@ -20,6 +24,43 @@ _KEYMAP = {
     'min_size': ('minsize', float),
     'max_residual': ('maxresid', float)
 }
+
+
+class AutoGuiderStarMask(IntFlag):
+    """
+    Represents a bitmask for guide star properties.
+    Attributes:
+        GAIA: Gaia DR3 catalog.
+        HSC: HSC PDR3 catalog.
+        PMRA: Proper motion RA is measured.
+        PMRA_SIG: Proper motion RA measurement is significant (SNR>5).
+        PMDEC: Proper motion Dec is measured.
+        PMDEC_SIG: Proper motion Dec measurement is significant (SNR>5).
+        PARA: Parallax is measured.
+        PARA_SIG: Parallax measurement is significant (SNR>5).
+        ASTROMETRIC: Astrometric excess noise is small (astrometric_excess_noise<1.0).
+        ASTROMETRIC_SIG: Astrometric excess noise is significant (astrometric_excess_noise_sig>2.0).
+        NON_BINARY: Not a binary system (RUWE<1.4).
+        PHOTO_SIG: Photometric measurement is significant (SNR>5).
+        GALAXY: Is a galaxy candidate.
+    """
+    GAIA = 0x00001
+    HSC = 0x00002
+    PMRA = 0x00004
+    PMRA_SIG = 0x00008
+    PMDEC = 0x00010
+    PMDEC_SIG = 0x00020
+    PARA = 0x00040
+    PARA_SIG = 0x00080
+    ASTROMETRIC = 0x00100
+    ASTROMETRIC_SIG = 0x00200
+    NON_BINARY = 0x00400
+    PHOTO_SIG = 0x00800
+    GALAXY = 0x01000
+    MAX_ELLIPTICITY = 0x02000
+    MAX_SIZE = 0x04000
+    MIN_SIZE = 0x08000
+    MAX_RESID = 0x10000
 
 
 def _filter_kwargs(kwargs):
@@ -97,12 +138,12 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
     ra = kwargs.get('ra')
     dec = kwargs.get('dec')
     inst_pa = kwargs.get('inst_pa')
-    magnitude = kwargs.get('magnitude', 20.0)
+
     if all(x is None for x in (design_id, design_path)):
-        guide_objects, *_ = gaia.get_objects(ra=ra, dec=dec, obstime=taken_at, inst_pa=inst_pa, adc=adc, m2pos3=m2_pos3, obswl=obswl, magnitude=magnitude)
+        guide_objects, *_ = gaia.get_objects(ra=ra, dec=dec, obstime=taken_at, inst_pa=inst_pa, adc=adc, m2pos3=m2_pos3, obswl=obswl)
     else:
         if design_path is not None:
-            guide_objects, _ra, _dec, _inst_pa = pfs_design(design_id, design_path, logger=logger).guide_objects(magnitude=magnitude, obstime=taken_at)
+            guide_objects, _ra, _dec, _inst_pa = pfs_design(design_id, design_path, logger=logger).guide_objects(obstime=taken_at)
         else:
             _, _ra, _dec, _inst_pa, *_ = opdb.query_pfs_design(design_id)
             guide_objects = opdb.query_pfs_design_agc(design_id)
@@ -121,7 +162,7 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
     return (ra, dec, inst_pa, *_acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst_pa, m2_pos3=m2_pos3, obswl=obswl, altazimuth=altazimuth, logger=logger, **_kwargs))
 
 
-def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst_pa=0.0, m2_pos3=6.0, obswl=0.62, altazimuth=False, logger=None, **kwargs):
+def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst_pa=0.0, m2_pos3=6.0, obswl=0.62, altazimuth=False, logger=None, apply_filters=True, **kwargs):
 
     def semi_axes(xy, x2, y2):
 
@@ -131,7 +172,66 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst
         b = numpy.sqrt(p - q)
         return a, b
 
+    guide_objects_df = None
+    if apply_filters is True:
+        try:
+            # Use Table to convert, which handles big-endian and little-endian issues.
+            guide_objects_df = Table(guide_objects).to_pandas()
+            logger and logger.info(f'Got {len(guide_objects_df)} guide objects.')
+
+            column_names = ['objId', 'ra', 'dec', 'mag', 'agId', 'agX', 'agY', 'flag']
+
+            # Check if the `flag` column exists, either 13 or 14 columns.
+            if 'flag' not in guide_objects_df.columns:
+                logger and logger.info('No flag column found, adding a dummy and turning off filters.')
+                # If the flag column is not present, we need to add it.
+                guide_objects_df['flag'] = 0
+
+            guide_objects_df.columns = column_names
+
+            # Add a column to indicate which flat was used for filtering.
+            guide_objects_df['filtered_by'] = 0
+
+            # Filter the guide objects to only include the ones that are not flagged as galaxies.
+            logger and logger.info('Filtering guide objects to remove galaxies.')
+            galaxy_idx = (guide_objects_df.flag.values & AutoGuiderStarMask.GALAXY) != 0
+            guide_objects_df.loc[galaxy_idx, 'filtered_by'] = AutoGuiderStarMask.GALAXY.value
+            logger and logger.info(f'Filtering by {AutoGuiderStarMask.GALAXY.name}, removes {galaxy_idx.sum()} guide objects.')
+
+            # The initial coarse guide uses all the stars and the fine guide uses only the GAIA stars.
+            coarse = kwargs.get('coarse', False)
+            if coarse is False:
+                filters_for_inclusion = [AutoGuiderStarMask.GAIA,
+                                         AutoGuiderStarMask.NON_BINARY,
+                                         AutoGuiderStarMask.ASTROMETRIC,
+                                         AutoGuiderStarMask.PMRA_SIG,
+                                         AutoGuiderStarMask.PMDEC_SIG,
+                                         AutoGuiderStarMask.PARA_SIG,
+                                         AutoGuiderStarMask.PHOTO_SIG]
+
+                # Go through the filters and mark which stars would be flagged as NOT meeting the mask requirement.
+                for f in filters_for_inclusion:
+                    not_filtered = guide_objects_df.filtered_by == 0
+                    include_filter = (guide_objects_df.flag.values & f) == 0
+                    to_be_filtered = (include_filter & not_filtered) != 0
+                    guide_objects_df.loc[to_be_filtered, 'filtered_by'] = f.value
+                    logger and logger.info(f'Filtering by {f.name}, removes {to_be_filtered.sum()} guide objects.')
+        except Exception as e:
+            logger and logger.warning(f'Error filtering guide objects: {e}')
+            logger and logger.info('No filtering applied, using all guide objects.')
+
+    # Add the column that indicates what was filtered.
+    if guide_objects_df is not None:
+        filterFlag_column = guide_objects_df.filtered_by.to_numpy('<i4')
+        filterFlag_column = numpy.array(filterFlag_column, dtype=[('filterFlag', '<i4')])
+        guide_objects = rfn.merge_arrays((guide_objects, filterFlag_column), asrecarray=True, flatten=True)
+    else:
+        # If we don't have a DataFrame, we need to add the filter flag column to the guide objects.
+        filterFlag_column = numpy.zeros(len(guide_objects), dtype=[('filterFlag', '<i4')])
+        guide_objects = rfn.merge_arrays((guide_objects, filterFlag_column), asrecarray=True, flatten=True)
+
     _guide_objects = numpy.array([(x[1], x[2], x[3]) for x in guide_objects])
+
     _detected_objects = numpy.array(
         [
             (
@@ -163,12 +263,28 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst
         logger and logger.info('alt={},az={},dalt={},daz={}'.format(alt, az, dalt, daz))
         values = dalt, daz
     guide_objects = numpy.array(
-        [(x[0], x[1], x[2], x[3]) for x in guide_objects],
+        [(
+            x[0],
+            x[1],
+            x[2],
+            x[3],
+            x[4],
+            x[5],
+            x[6],
+            *coordinates.det2dp(x[4], float(x[5]), float(x[6])),
+            x[-1],  # filter flag
+        ) for x in guide_objects],
         dtype=[
             ('source_id', numpy.int64),  # u8 (80) not supported by FITSIO
             ('ra', numpy.float64),
             ('dec', numpy.float64),
-            ('mag', numpy.float32)
+            ('mag', numpy.float32),
+            ('camera_id', numpy.int16),
+            ('guide_object_xdet', numpy.float32),
+            ('guide_object_ydet', numpy.float32),
+            ('guide_object_x', numpy.float32),
+            ('guide_object_y', numpy.float32),
+            ('filter_flag', numpy.int32)  # filter flag
         ]
     )
     detected_objects = numpy.array(
@@ -245,7 +361,6 @@ if __name__ == '__main__':
     parser.add_argument('--center', default=None, help='field center coordinates ra, dec[, pa] (deg)')
     parser.add_argument('--offset', default=None, help='field offset coordinates dra, ddec[, dpa[, dinr]] (arcsec)')
     parser.add_argument('--dinr', type=float, default=None, help='instrument rotator offset, east of north (arcsec)')
-    parser.add_argument('--magnitude', type=float, default=None, help='magnitude limit')
     parser.add_argument('--fit-dinr', action=argparse.BooleanOptionalAction, default=argparse.SUPPRESS, help='')
     parser.add_argument('--fit-dscale', action=argparse.BooleanOptionalAction, default=argparse.SUPPRESS, help='')
     parser.add_argument('--max-ellipticity', type=float, default=argparse.SUPPRESS, help='')
@@ -263,8 +378,6 @@ if __name__ == '__main__':
         kwargs['offset'] = tuple([float(x) for x in args.offset.split(',')])
     if args.dinr is not None:
         kwargs['dinr'] = args.dinr
-    if args.magnitude is not None:
-        kwargs['magnitude'] = args.magnitude
     kwargs |= {key: getattr(args, key) for key in _KEYMAP if key in args}
     print('kwargs={}'.format(kwargs))
 

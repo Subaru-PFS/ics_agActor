@@ -64,7 +64,7 @@ class opDB:
         #     (pfs_design_id,)
         # )
         return opDB.fetchall(
-            'SELECT guide_star_id,guide_star_ra,guide_star_dec,guide_star_magnitude,agc_camera_id,agc_target_x_pix,agc_target_y_pix FROM pfs_design_agc WHERE pfs_design_id=%s ORDER BY guide_star_id',
+            'SELECT guide_star_id,guide_star_ra,guide_star_dec,guide_star_magnitude,agc_camera_id,agc_target_x_pix,agc_target_y_pix,guide_star_flag FROM pfs_design_agc WHERE pfs_design_id=%s ORDER BY guide_star_id',
             (pfs_design_id,)
         )
 
