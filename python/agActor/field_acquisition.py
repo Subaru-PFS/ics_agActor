@@ -97,12 +97,12 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
     ra = kwargs.get('ra')
     dec = kwargs.get('dec')
     inst_pa = kwargs.get('inst_pa')
-    magnitude = kwargs.get('magnitude', 20.0)
+
     if all(x is None for x in (design_id, design_path)):
-        guide_objects, *_ = gaia.get_objects(ra=ra, dec=dec, obstime=taken_at, inst_pa=inst_pa, adc=adc, m2pos3=m2_pos3, obswl=obswl, magnitude=magnitude)
+        guide_objects, *_ = gaia.get_objects(ra=ra, dec=dec, obstime=taken_at, inst_pa=inst_pa, adc=adc, m2pos3=m2_pos3, obswl=obswl)
     else:
         if design_path is not None:
-            guide_objects, _ra, _dec, _inst_pa = pfs_design(design_id, design_path, logger=logger).guide_objects(magnitude=magnitude, obstime=taken_at)
+            guide_objects, _ra, _dec, _inst_pa = pfs_design(design_id, design_path, logger=logger).guide_objects(obstime=taken_at)
         else:
             _, _ra, _dec, _inst_pa, *_ = opdb.query_pfs_design(design_id)
             guide_objects = opdb.query_pfs_design_agc(design_id)
@@ -245,7 +245,6 @@ if __name__ == '__main__':
     parser.add_argument('--center', default=None, help='field center coordinates ra, dec[, pa] (deg)')
     parser.add_argument('--offset', default=None, help='field offset coordinates dra, ddec[, dpa[, dinr]] (arcsec)')
     parser.add_argument('--dinr', type=float, default=None, help='instrument rotator offset, east of north (arcsec)')
-    parser.add_argument('--magnitude', type=float, default=None, help='magnitude limit')
     parser.add_argument('--fit-dinr', action=argparse.BooleanOptionalAction, default=argparse.SUPPRESS, help='')
     parser.add_argument('--fit-dscale', action=argparse.BooleanOptionalAction, default=argparse.SUPPRESS, help='')
     parser.add_argument('--max-ellipticity', type=float, default=argparse.SUPPRESS, help='')
@@ -263,8 +262,6 @@ if __name__ == '__main__':
         kwargs['offset'] = tuple([float(x) for x in args.offset.split(',')])
     if args.dinr is not None:
         kwargs['dinr'] = args.dinr
-    if args.magnitude is not None:
-        kwargs['magnitude'] = args.magnitude
     kwargs |= {key: getattr(args, key) for key in _KEYMAP if key in args}
     print('kwargs={}'.format(kwargs))
 
