@@ -459,8 +459,8 @@ def catalog_match(guide_objects: pd.DataFrame, detected_objects, ra, dec, taken_
     )
 
     identified_objects_df = pd.DataFrame({
-        'detected_object_idx': mr[9],  # This is the detected object index as found by the catalog matching.
-        'guide_object_idx': guide_objects.index,
+        'detected_object_idx': filtered_detected_objects.index.values,
+        'guide_object_idx': mr[9], # This is the detected object index as found by the catalog matching.
         'camera_id': filtered_detected_objects.camera_id.values,
         'detected_object_x': mr[0],
         'detected_object_y': mr[1],
