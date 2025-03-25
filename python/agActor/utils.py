@@ -328,7 +328,7 @@ def get_offset_info(
     detected_objects.loc[~valid_size_max_idx, 'flag'] |= AutoGuiderStarMask.MAX_SIZE
     detected_objects.loc[~valid_size_min_idx, 'flag'] |= AutoGuiderStarMask.MIN_SIZE
 
-    ra_offset, dec_offset, inr_offset, scale_offset, mr, md, detected_objects_flags, identified_objects = catalog_match(
+    ra_offset, dec_offset, inr_offset, scale_offset, mr, md, identified_objects = catalog_match(
         good_guide_objects,
         detected_objects,
         ra,
@@ -460,14 +460,17 @@ def catalog_match(guide_objects: pd.DataFrame, detected_objects, ra, dec, taken_
 
     identified_objects_df = pd.DataFrame({
         'detected_object_idx': filtered_detected_objects.index.values,
-        'guide_object_idx': mr[9], # This is the detected object index as found by the catalog matching.
+        'guide_object_idx': mr[:, 9], # This is the detected object index as found by the catalog matching.
         'camera_id': filtered_detected_objects.camera_id.values,
-        'detected_object_x': mr[0],
-        'detected_object_y': mr[1],
-        'guide_object_x': mr[2],
-        'guide_object_y': mr[3],
-        'flag': mr[8],
+        'detected_object_x': mr[:, 0],
+        'detected_object_y': mr[:, 1],
+        'guide_object_x': mr[:, 2],
+        'guide_object_y': mr[:, 3],
+        'valid': mr[:, 8],
     })
+
+    # Remove objects that are not valid.
+    identified_objects_df = identified_objects_df.query('valid == 1')
 
     # Get the detector coordinates for the identified objects.
     det_coords = identified_objects_df.apply(lambda row: coordinates.dp2det(row.camera_id, row[2], row[3]), axis=1, result_type='expand')
