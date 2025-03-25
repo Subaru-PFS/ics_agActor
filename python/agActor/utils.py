@@ -470,7 +470,7 @@ def catalog_match(guide_objects: pd.DataFrame, detected_objects, ra, dec, taken_
     })
 
     # Remove objects that are not valid.
-    identified_objects_df = identified_objects_df.query('valid == 1')
+    identified_objects_df = identified_objects_df.query('valid == 1').copy()
 
     # Get the detector coordinates for the identified objects.
     det_coords = identified_objects_df.apply(lambda row: coordinates.dp2det(row.camera_id, row[2], row[3]), axis=1, result_type='expand')
