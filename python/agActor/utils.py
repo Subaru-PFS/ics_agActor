@@ -328,7 +328,7 @@ def get_offset_info(
     detected_objects.loc[~valid_size_max_idx, 'flag'] |= AutoGuiderStarMask.MAX_SIZE
     detected_objects.loc[~valid_size_min_idx, 'flag'] |= AutoGuiderStarMask.MIN_SIZE
 
-    ra_offset, dec_offset, inr_offset, scale_offset, mr, md, detected_objects_flags, detected_camera_ids, detected_idx = calculate_offset(
+    ra_offset, dec_offset, inr_offset, scale_offset, mr, md, detected_objects_flags, identified_objects = catalog_match(
         good_guide_objects,
         detected_objects,
         ra,
@@ -341,25 +341,7 @@ def get_offset_info(
         _kwargs
     )
 
-    mr_df = pd.DataFrame(mr)
-    mr_df['camera_id'] = detected_camera_ids
-    # Filter bad values TODO fix column names.
-    mr_df = mr_df[mr_df[8] == 1]
-    fp_coords = mr_df.apply(lambda row: coordinates.dp2det(row.camera_id, row[2], row[3]), axis=1, result_type='expand')
-
-    identified_objects = pd.DataFrame(
-        {
-            'detected_object_idx': detected_idx,
-            'guide_object_idx': mr_df.index.values,
-            'detected_object_x': mr_df[0],
-            'detected_object_y': mr_df[1],
-            'guide_object_x': mr_df[2],
-            'guide_object_y': mr_df[3],
-            'guide_object_xdet': fp_coords[0],
-            'guide_object_ydet': fp_coords[1],
-        }
-    )
-
+    # Degrees to arcseconds.
     ra_offset *= 3600
     dec_offset *= 3600
     inr_offset *= 3600
@@ -431,9 +413,9 @@ def semi_axes(xy, x2, y2):
     return a, b
 
 
-def calculate_offset(guide_objects: pd.DataFrame, detected_objects, ra, dec, taken_at, adc, inst_pa, m2_pos3, obswl,
-                     kwargs
-                     ):
+def catalog_match(guide_objects: pd.DataFrame, detected_objects, ra, dec, taken_at, adc, inst_pa, m2_pos3, obswl,
+                  kwargs
+                  ):
     """Calculate the offset of the field.
 
     This method replaces the functionality of `FAinstpa` so we can remove the filtering.
@@ -478,7 +460,25 @@ def calculate_offset(guide_objects: pd.DataFrame, detected_objects, ra, dec, tak
         v_1
     )
 
-    return ra_offset, dec_offset, inr_offset, scale_offset, mr, md, flag_values, filtered_detected_objects.camera_id.values, filtered_detected_objects.index.values
+    identified_objects_df = pd.DataFrame({
+        'detected_object_idx': mr[9],  # This is the detected object index as found by the catalog matching.
+        'guide_object_idx': guide_objects.index,
+        'camera_id': filtered_detected_objects.camera_id.values,
+        'detected_object_x': mr[0],
+        'detected_object_y': mr[1],
+        'guide_object_x': mr[2],
+        'guide_object_y': mr[3],
+        'flag': mr[8],
+    })
+
+    identified_objects_df = identified_objects_df.query('flag == 0')
+
+    # Get the detector coordinates for the identified objects.
+    det_coords = identified_objects_df.apply(lambda row: coordinates.dp2det(row.camera_id, row[2], row[3]), axis=1, result_type='expand')
+    identified_objects_df['guide_object_xdet'] = det_coords[0]
+    identified_objects_df['guide_object_ydet'] = det_coords[1]
+
+    return ra_offset, dec_offset, inr_offset, scale_offset, mr, md, flag_values, identified_objects_df
 
 
 def save_shm_files(offset_info):
