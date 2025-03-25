@@ -427,14 +427,12 @@ def catalog_match(guide_objects: pd.DataFrame, detected_objects, ra, dec, taken_
     pfs = Subaru_POPT2_PFS_AG.PFS()
 
     # RA [2], Dec [3], PM RA [4], PM Dec [5], Parallax [6], Magnitude [7], Flags [-1]
-    ra_values = guide_objects.ra.to_numpy()
-    dec_values = guide_objects.dec.to_numpy()
-    magnitude_values = guide_objects.magnitude.to_numpy()
+    ra_values = guide_objects.ra.values
+    dec_values = guide_objects.dec.values
+    magnitude_values = guide_objects.magnitude.values
 
-    # Add filter conditions from the detections.
-    flag_values = detected_objects.flag < 2
-
-    filtered_detected_objects = detected_objects[flag_values].copy()
+    # Add filter conditions from the detections, which correspond to the glass position.
+    filtered_detected_objects = detected_objects.query('flag < 2').copy()
 
     v_0, v_1 = pfs.makeBasis(
         ra,
@@ -471,14 +469,12 @@ def catalog_match(guide_objects: pd.DataFrame, detected_objects, ra, dec, taken_
         'flag': mr[8],
     })
 
-    identified_objects_df = identified_objects_df.query('flag == 0')
-
     # Get the detector coordinates for the identified objects.
     det_coords = identified_objects_df.apply(lambda row: coordinates.dp2det(row.camera_id, row[2], row[3]), axis=1, result_type='expand')
     identified_objects_df['guide_object_xdet'] = det_coords[0]
     identified_objects_df['guide_object_ydet'] = det_coords[1]
 
-    return ra_offset, dec_offset, inr_offset, scale_offset, mr, md, flag_values, identified_objects_df
+    return ra_offset, dec_offset, inr_offset, scale_offset, mr, md, identified_objects_df
 
 
 def save_shm_files(offset_info):
