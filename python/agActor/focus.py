@@ -1,69 +1,50 @@
+from logging import Logger
+
 import numpy
-from opdb import opDB as opdb
+import pandas as pd
+from numpy._typing import ArrayLike
+
 from kawanomoto import FieldAcquisitionAndFocusing
-
-
-# mapping of keys and value types between focus.py and FieldAcquisitionAndFocusing.py
-_KEYMAP = {
-    'max_ellipticity': ('maxellip', float),
-    'max_size': ('maxsize', float),
-    'min_size': ('minsize', float)
-}
-
-
-def _filter_kwargs(kwargs):
-
-    return {k: v for k, v in kwargs.items() if k in _KEYMAP}
-
-
-def _map_kwargs(kwargs):
-
-    return {_KEYMAP[k][0]: _KEYMAP[k][1](v) for k, v in kwargs.items() if k in _KEYMAP}
+from agActor.opdb import opDB as opdb
+from agActor.utils import semi_axes
+from agActor.utils import _KEYMAP, filter_kwargs, map_kwargs
 
 
 def focus(*, frame_id, logger=None, **kwargs):
 
     logger and logger.info('frame_id={}'.format(frame_id))
-    detected_objects = opdb.query_agc_data(frame_id)
-    _kwargs = _filter_kwargs(kwargs)
+    detected_objects = opdb.query_agc_data(frame_id, as_dataframe=True)
+    _kwargs = filter_kwargs(kwargs)
     logger and logger.info('_kwargs={}'.format(_kwargs))
     return _focus(detected_objects, logger=logger, **_kwargs)
 
 
-def _focus(detected_objects, logger=None, **kwargs):
-
-    #logger and logger.info('detected_objects={}'.format(detected_objects))
-
-    def semi_axes(xy, x2, y2):
-
-        p = (x2 + y2) / 2
-        q = numpy.sqrt(numpy.square((x2 - y2) / 2) + numpy.square(xy))
-        a = numpy.sqrt(p + q)
-        b = numpy.sqrt(p - q)
-        return a, b
-
+def _focus(detected_objects: pd.DataFrame, logger: Logger | None = None, **kwargs):
     _detected_objects = numpy.array(
         [
             (
-                x[0] + 1,  # camera_id (1-6)
-                x[1],  # spot_id
+                x['camera_id'] + 1,  # camera_id (1-6)
+                x['spot_id'],  # spot_id
                 0,  # centroid_x (unused)
                 0,  # centroid_y (unused)
                 0,  # flux (unused)
-                *semi_axes(x[5], x[6], x[7]),  # semi-major and semi-minor axes
-                x[-1]  # flags
+                *semi_axes(x['central_moment_11'], x['central_moment_20'], x['central_moment_02']),  # semi-major and semi-minor axes
+                x['flag']  # flags
             )
-            for x in detected_objects
+            for idx, x in detected_objects.iterrows()
         ]
     )
-    _kwargs = _map_kwargs(kwargs)
-    logger and logger.info('_kwargs={}'.format(_kwargs))
+    _kwargs = map_kwargs(kwargs)
+    logger and logger.info(f"_kwargs={_kwargs}")
+
     pfs = FieldAcquisitionAndFocusing.PFS()
     dzs = pfs.Focus(_detected_objects, **_kwargs)
-    logger and logger.info('dzs={}'.format(dzs))
-    dz = numpy.nanmedian(dzs)
-    logger and logger.info('dz={}'.format(dz))
-    return dz, dzs
+
+    logger and logger.info(f"{dzs=}")
+    median_dz = numpy.nanmedian(dzs)
+    logger and logger.info(f"{median_dz=}")
+
+    return median_dz, dzs
 
 
 if __name__ == '__main__':

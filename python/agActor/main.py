@@ -3,9 +3,9 @@
 import argparse
 import queue
 from actorcore.ICC import ICC
-from agActor.agcc import Agcc
-from agActor.mlp1 import Mlp1
-from agActor.gen2 import Gen2
+from agActor.connectors.agcc import Agcc
+from agActor.connectors.mlp1 import Mlp1
+from agActor.connectors.gen2 import Gen2
 
 
 class AgActor(ICC):
@@ -49,9 +49,9 @@ class AgActor(ICC):
             self.allControllers = ['ag',]
             self.attachAllControllers()
 
-            self.agcc = Agcc(actor=self, logger=self.logger)
-            self.mlp1 = Mlp1(actor=self, logger=self.logger)
-            self.gen2 = Gen2(actor=self, logger=self.logger)
+            self.agcc = Agcc('agcc', actor=self, logger=self.logger)
+            self.mlp1 = Mlp1('mlp1', actor=self, logger=self.logger)
+            self.gen2 = Gen2('gen2', actor=self, logger=self.logger)
 
             _models = ('agcc', 'mlp1', 'gen2',)
             self.addModels(_models)
