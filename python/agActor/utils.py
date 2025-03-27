@@ -458,22 +458,27 @@ def catalog_match(guide_objects: pd.DataFrame, detected_objects, ra, dec, taken_
         v_1
     )
 
-    identified_objects_df = pd.DataFrame({
-        'detected_object_idx': filtered_detected_objects.index.values,
-        'guide_object_idx': mr[:, 9], # This is the detected object index as found by the catalog matching.
-        'camera_id': filtered_detected_objects.camera_id.values,
-        'detected_object_x': mr[:, 0],
-        'detected_object_y': mr[:, 1],
-        'guide_object_x': mr[:, 2],
-        'guide_object_y': mr[:, 3],
-        'valid': mr[:, 8],
-    })
+    identified_objects_df = pd.DataFrame(
+        {
+            'detected_object_idx': filtered_detected_objects.index.values,
+            'guide_object_idx': mr[:, 9],  # This is the detected object index as found by the catalog matching.
+            'camera_id': filtered_detected_objects.camera_id.values,
+            'detected_object_x': mr[:, 0],
+            'detected_object_y': mr[:, 1],
+            'guide_object_x': mr[:, 2],
+            'guide_object_y': mr[:, 3],
+            'residual_ok': mr[:, 8],
+        }
+    )
 
     # Remove objects that are not valid.
-    identified_objects_df = identified_objects_df.query('valid == 1').copy()
+    # identified_objects_df = identified_objects_df.query('residual_ok == 1').copy()
 
     # Get the detector coordinates for the identified objects.
-    det_coords = identified_objects_df.apply(lambda row: coordinates.dp2det(row.camera_id, row[2], row[3]), axis=1, result_type='expand')
+    det_coords = identified_objects_df.apply(
+        lambda row: coordinates.dp2det(row.camera_id, row.guide_object_x, row.guide_object_y), axis=1,
+        result_type='expand'
+        )
     identified_objects_df['guide_object_xdet'] = det_coords[0]
     identified_objects_df['guide_object_ydet'] = det_coords[1]
 
