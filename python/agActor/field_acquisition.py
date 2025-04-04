@@ -86,6 +86,9 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
     _parse_kwargs(kwargs)
     taken_at, inr, adc, m2_pos3 = _get_tel_status(frame_id=frame_id, logger=logger, **kwargs)
     detected_objects = opdb.query_agc_data(frame_id)
+    if len(detected_objects) == 0:
+        raise RuntimeError("No spots detected, can't compute offsets")
+
     #logger and logger.info('detected_objects={}'.format(detected_objects))
     design_id = kwargs.get('design_id')
     design_path = kwargs.get('design_path')
