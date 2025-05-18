@@ -163,12 +163,17 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst
         logger and logger.info('alt={},az={},dalt={},daz={}'.format(alt, az, dalt, daz))
         values = dalt, daz
     guide_objects = numpy.array(
-        [(x[0], x[1], x[2], x[3]) for x in guide_objects],
+        [(x[0], x[1], x[2], x[3], x[4], x[5], x[6], *coordinates.det2dp(x[4], float(x[5]), float(x[6]))) for x in guide_objects],
         dtype=[
             ('source_id', numpy.int64),  # u8 (80) not supported by FITSIO
             ('ra', numpy.float64),
             ('dec', numpy.float64),
-            ('mag', numpy.float32)
+            ('mag', numpy.float32),
+            ('camera_id', numpy.int16),
+            ('guide_object_xdet', numpy.float32),
+            ('guide_object_ydet', numpy.float32),
+            ('guide_object_x', numpy.float32),
+            ('guide_object_y', numpy.float32),
         ]
     )
     detected_objects = numpy.array(
