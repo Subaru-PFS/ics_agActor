@@ -9,8 +9,7 @@ from pfs_design import pfsDesign as pfs_design
 import to_altaz
 from kawanomoto import FieldAcquisitionAndFocusing
 
-DELTA_ALT_OFFSET = 0.15  # arcsec
-DELTA_AZ_OFFSET = 0.00  # arcsec
+DELTA_RA_OFFSET = 0.15  # arcsec
 
 # mapping of keys and value types between field_acquisition.py and FieldAcquisitionAndFocusing.py
 _KEYMAP = {
@@ -153,13 +152,14 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst
     dra *= 3600
     ddec *= 3600
     dinr *= 3600
+
+    logger and logger.info(f'Adding {DELTA_RA_OFFSET} arcsec to dra')
+    dra += DELTA_RA_OFFSET
+
     logger and logger.info('dra={},ddec={},dinr={},dscale={}'.format(dra, ddec, dinr, dscale))
     values = ()
     if altazimuth:
         alt, az, dalt, daz = to_altaz.to_altaz(ra, dec, taken_at, dra=dra, ddec=ddec)
-        logger and logger.info(f"Adding AltAz constant offsets: {DELTA_ALT_OFFSET} {DELTA_AZ_OFFSET}")
-        dalt += DELTA_ALT_OFFSET
-        daz += DELTA_AZ_OFFSET
         logger and logger.info('alt={},az={},dalt={},daz={}'.format(alt, az, dalt, daz))
         values = dalt, daz
     guide_objects = numpy.array(
