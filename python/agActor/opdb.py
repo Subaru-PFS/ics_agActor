@@ -62,8 +62,8 @@ class opDB:
 
     @staticmethod
     def query_pfs_design_agc(pfs_design_id) -> list:
-        return opDB.fetchall(
-            '''SELECT guide_star_id as objId,
+        return pd.read_sql(
+            f'''SELECT guide_star_id as objId,
                       epoch         as epoch,
                       guide_star_ra as ra,
                       guide_star_dec as dec,
@@ -78,10 +78,10 @@ class opDB:
                     agc_target_y_pix as agY,
                     guide_star_flag as flag
                FROM pfs_design_agc
-               WHERE pfs_design_id=%s
+               WHERE pfs_design_id={pfs_design_id}
                ORDER BY guide_star_id''',
-            (pfs_design_id,)
-        )
+            opDB._connect()
+        ).to_dict(orient='records')
 
     @staticmethod
     def query_agc_exposure(agc_exposure_id):
