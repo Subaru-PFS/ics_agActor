@@ -78,6 +78,17 @@ class AutoGuiderStarMask(IntFlag):
     MAX_RESID = 0x10000
 
 
+class DetectionFlags(IntFlag):
+    """ Represents a bitmask for detection flags. """
+    LEFT_HALF = 0
+    RIGHT_HALF = 1
+    NEAR_EDGE = 2
+    SATURATED = 4
+    BAD_FWHM = 8
+    BAD_ELLIP = 16
+    FLAT_TOP = 32
+
+
 @dataclass
 class OffsetInfo:
     ra: float | None = None
@@ -324,9 +335,9 @@ def get_offset_info(
     valid_size_max_idx = detected_objects.eval(f'sqrt(semi_axis_major * semi_axis_minor) < {MAX_SIZE}')
     valid_size_min_idx = detected_objects.eval(f'sqrt(semi_axis_major * semi_axis_minor) > {MIN_SIZE}')
 
-    detected_objects.loc[~valid_ellip_idx, 'flag'] |= AutoGuiderStarMask.MAX_ELLIPTICITY
-    detected_objects.loc[~valid_size_max_idx, 'flag'] |= AutoGuiderStarMask.MAX_SIZE
-    detected_objects.loc[~valid_size_min_idx, 'flag'] |= AutoGuiderStarMask.MIN_SIZE
+    detected_objects.loc[~valid_ellip_idx, 'flag'] |= pd.Series(AutoGuiderStarMask.MAX_ELLIPTICITY).values
+    detected_objects.loc[~valid_size_max_idx, 'flag'] |= pd.Series(AutoGuiderStarMask.MAX_SIZE).values
+    detected_objects.loc[~valid_size_min_idx, 'flag'] |= pd.Series(AutoGuiderStarMask.MIN_SIZE).values
 
     ra_offset, dec_offset, inr_offset, scale_offset, mr, md, identified_objects = catalog_match(
         good_guide_objects,
@@ -434,6 +445,9 @@ def catalog_match(guide_objects: pd.DataFrame, detected_objects, ra, dec, taken_
     # Add filter conditions from the detections, which correspond to the glass position.
     filtered_detected_objects = detected_objects.query('flag < 2').copy()
 
+    if len(filtered_detected_objects) == 0:
+        raise RuntimeError("No detected objects found, can't compute offset")
+
     v_0, v_1 = pfs.makeBasis(
         ra,
         dec,
@@ -478,7 +492,7 @@ def catalog_match(guide_objects: pd.DataFrame, detected_objects, ra, dec, taken_
     det_coords = identified_objects_df.apply(
         lambda row: coordinates.dp2det(row.camera_id, row.guide_object_x, row.guide_object_y), axis=1,
         result_type='expand'
-        )
+    )
     identified_objects_df['guide_object_xdet'] = det_coords[0]
     identified_objects_df['guide_object_ydet'] = det_coords[1]
 
