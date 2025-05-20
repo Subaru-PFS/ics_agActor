@@ -9,6 +9,7 @@ from pfs_design import pfsDesign as pfs_design
 import to_altaz
 from kawanomoto import FieldAcquisitionAndFocusing
 
+DELTA_RA_OFFSET = 0.15  # arcsec
 
 # mapping of keys and value types between field_acquisition.py and FieldAcquisitionAndFocusing.py
 _KEYMAP = {
@@ -151,6 +152,10 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst
     dra *= 3600
     ddec *= 3600
     dinr *= 3600
+
+    logger and logger.info(f'Adding {DELTA_RA_OFFSET} arcsec to dra')
+    dra += DELTA_RA_OFFSET
+
     logger and logger.info('dra={},ddec={},dinr={},dscale={}'.format(dra, ddec, dinr, dscale))
     values = ()
     if altazimuth:
