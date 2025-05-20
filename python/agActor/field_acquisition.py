@@ -90,7 +90,7 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
 
     # Check we have detected objects and all flags are <= 1 (right-side flag).
     if len(detected_objects) == 0 and all([d[-1] <= 1 for d in detected_objects]):
-        raise RuntimeError("No spots detected, can't compute offsets")
+        raise RuntimeError("No valid spots detected, can't compute offsets")
 
     #logger and logger.info('detected_objects={}'.format(detected_objects))
     design_id = kwargs.get('design_id')
