@@ -36,7 +36,7 @@ def write_agc_match(*, design_id, frame_id, guide_objects, detected_objects, ide
                 guide_objects['source_id'][x[1]],
                 x[4], - x[5],  # hsc -> pfs focal plane coordinate system
                 x[2], - x[3],  # hsc -> pfs focal plane coordinate system
-                0  # flags
+                guide_objects['filter_flag'][x[1]]  # flags
             )
             for x in identified_objects
         ],
