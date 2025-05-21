@@ -173,7 +173,7 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst
         return a, b
 
     guide_objects_df = None
-    if apply_filters:
+    if apply_filters is True:
         # Use Table to convert, which handles big-endian and little-endian issues.
         guide_objects_df = Table(guide_objects).to_pandas()
         logger and logger.info(f'Got {len(guide_objects_df)} guide objects.')
@@ -268,7 +268,7 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst
             x[5],
             x[6],
             *coordinates.det2dp(x[4], float(x[5]), float(x[6])),
-            x[7],  # filter flag
+            x[-1],  # filter flag
         ) for x in guide_objects],
         dtype=[
             ('source_id', numpy.int64),  # u8 (80) not supported by FITSIO
