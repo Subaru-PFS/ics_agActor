@@ -66,7 +66,7 @@ class pfsDesign:
         _guide_objects['ra'] = _icrs_d.ra.deg
         _guide_objects['dec'] = _icrs_d.dec.deg
         #guide_objects = tuple(map(tuple, _guide_objects[['objId', 'ra', 'dec', 'magnitude', 'agId', 'agX', 'agY']]))
-        guide_objects = _guide_objects[['objId', 'ra', 'dec', 'magnitude', 'agId', 'agX', 'agY']]
+        guide_objects = _guide_objects[['objId', 'ra', 'dec', 'magnitude', 'agId', 'agX', 'agY', 'flag']]
         #guide_objects.dtype.names = ('source_id', 'ra', 'dec', 'mag', 'camera_id', 'x', 'y')
         return guide_objects, ra, dec, inst_pa
 
