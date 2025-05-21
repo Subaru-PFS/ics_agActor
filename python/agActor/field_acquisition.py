@@ -221,6 +221,10 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst
         filterFlag_column = guide_objects_df.filtered_by.to_numpy('<i4')
         filterFlag_column = numpy.array(filterFlag_column, dtype=[('filterFlag', '<i4')])
         guide_objects = rfn.merge_arrays((guide_objects, filterFlag_column), asrecarray=True)
+    else:
+        # If we don't have a DataFrame, we need to add the filter flag column to the guide objects.
+        filterFlag_column = numpy.zeros(len(guide_objects), dtype=[('filterFlag', '<i4')])
+        guide_objects = rfn.merge_arrays((guide_objects, filterFlag_column), asrecarray=True)
 
     _guide_objects = numpy.array([(x[1], x[2], x[3]) for x in guide_objects])
 
