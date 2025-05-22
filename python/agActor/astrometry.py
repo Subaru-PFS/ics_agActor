@@ -7,7 +7,7 @@ from astropy.coordinates import AltAz, Angle, SkyCoord, solar_system_ephemeris
 from astropy.time import Time
 from astropy.utils import iers
 import coordinates
-from kawanomoto import Subaru_POPT2_PFS
+from pfs.utils.coordinates import Subaru_POPT2_PFS
 
 
 iers.conf.auto_download = True
