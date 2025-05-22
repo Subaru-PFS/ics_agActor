@@ -103,15 +103,16 @@ def _parse_kwargs(kwargs):
 
 
 def _get_tel_status(*, frame_id, logger=None, **kwargs):
-
+    logger and logger.info('Getting telescope status for frame_id={}'.format(frame_id))
     taken_at = kwargs.get('taken_at')
     inr = kwargs.get('inr')
     adc = kwargs.get('adc')
     m2_pos3 = kwargs.get('m2_pos3')
     if any(x is None for x in (taken_at, inr, adc, m2_pos3)):
+        logger and logger.info('Getting agc_exposure from opdb for frame_id={}'.format(frame_id))
         visit_id, _, _taken_at, _, _, _inr, _adc, _, _, _, _m2_pos3 = opdb.query_agc_exposure(frame_id)
         if (sequence_id := kwargs.get('sequence_id')) is not None:
-            logger and logger.info('visit_id={},sequence_id={}'.format(visit_id, sequence_id))
+            logger and logger.info('Getting telescope status from opdb for visit_id={},sequence_id={}'.format(visit_id, sequence_id))
             # use visit_id from agc_exposure table
             _, _, _inr, _adc, _m2_pos3, _, _, _, _, _taken_at = opdb.query_tel_status(visit_id, sequence_id)
         if taken_at is None: taken_at = _taken_at
@@ -123,11 +124,12 @@ def _get_tel_status(*, frame_id, logger=None, **kwargs):
 
 
 def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwargs):
-
-    logger and logger.info('frame_id={}'.format(frame_id))
+    logger and logger.info(f'Calling acquire_field with frame_id={frame_id}, obswl={obswl}, altazimuth={altazimuth}')
     _parse_kwargs(kwargs)
     taken_at, inr, adc, m2_pos3 = _get_tel_status(frame_id=frame_id, logger=logger, **kwargs)
+    logger and logger.info('Getting agc_data from opdb for frame_id={}'.format(frame_id))
     detected_objects = opdb.query_agc_data(frame_id)
+    logger and logger.info(f'Got {len(detected_objects)=} detected objects)')
 
     # Check we have detected objects and all flags are <= 1 (right-side flag).
     if len(detected_objects) == 0 and all([d[-1] <= 1 for d in detected_objects]):
@@ -142,16 +144,21 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
     inst_pa = kwargs.get('inst_pa')
 
     if all(x is None for x in (design_id, design_path)):
+        logger and logger.info(f'Getting guide objects from gaia db.')
         guide_objects, *_ = gaia.get_objects(ra=ra, dec=dec, obstime=taken_at, inst_pa=inst_pa, adc=adc, m2pos3=m2_pos3, obswl=obswl)
     else:
         if design_path is not None:
+            logger and logger.info(f'Getting guide objects from pfs design file via {design_path=} and {design_id=}')
             guide_objects, _ra, _dec, _inst_pa = pfs_design(design_id, design_path, logger=logger).guide_objects(obstime=taken_at)
         else:
+            logger and logger.info(f'Getting guide objects from opdb via {design_id=}')
             _, _ra, _dec, _inst_pa, *_ = opdb.query_pfs_design(design_id)
             guide_objects = opdb.query_pfs_design_agc(design_id)
         if ra is None: ra = _ra
         if dec is None: dec = _dec
         if inst_pa is None: inst_pa = _inst_pa
+
+    logger and logger.info('Got {} guide objects'.format(len(guide_objects)))
     logger and logger.info('ra={},dec={},inst_pa={}'.format(ra, dec, inst_pa))
     #logger and logger.info('guide_objects={}'.format(guide_objects))
     if 'dra' in kwargs: ra += kwargs.get('dra') / 3600
@@ -160,7 +167,7 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
     if 'dinr' in kwargs: inr += kwargs.get('dinr') / 3600
     logger and logger.info('ra={},dec={},inst_pa={},inr={}'.format(ra, dec, inst_pa, inr))
     _kwargs = _filter_kwargs(kwargs)
-    logger and logger.info('_kwargs={}'.format(_kwargs))
+    logger and logger.info('Calling _acquire_field with _kwargs={}'.format(_kwargs))
     return (ra, dec, inst_pa, *_acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst_pa, m2_pos3=m2_pos3, obswl=obswl, altazimuth=altazimuth, logger=logger, **_kwargs))
 
 
@@ -176,6 +183,7 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst
 
     guide_objects_df = None
     if apply_filters is True:
+        logger and logger.info('Applying filters to guide objects')
         try:
             # Use Table to convert, which handles big-endian and little-endian issues.
             guide_objects_df = Table(guide_objects).to_pandas()
@@ -218,16 +226,20 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst
                     to_be_filtered = (include_filter & not_filtered) != 0
                     guide_objects_df.loc[to_be_filtered, 'filtered_by'] = f.value
                     logger and logger.info(f'Filtering by {f.name}, removes {to_be_filtered.sum()} guide objects.')
+
+                logger and logger.info(f'After filtering, {len(guide_objects_df.query("filtered_by == 0"))} guide objects remain.')
         except Exception as e:
             logger and logger.warning(f'Error filtering guide objects: {e}')
             logger and logger.info('No filtering applied, using all guide objects.')
 
     # Add the column that indicates what was filtered.
     if guide_objects_df is not None:
+        logger and logger.info('Adding filter flag column to guide objects.')
         filterFlag_column = guide_objects_df.filtered_by.to_numpy('<i4')
         filterFlag_column = numpy.array(filterFlag_column, dtype=[('filterFlag', '<i4')])
         guide_objects = rfn.merge_arrays((guide_objects, filterFlag_column), asrecarray=True, flatten=True)
     else:
+        logger and logger.info('No filtering applied, using all guide objects.')
         # If we don't have a DataFrame, we need to add the filter flag column to the guide objects.
         filterFlag_column = numpy.zeros(len(guide_objects), dtype=[('filterFlag', '<i4')])
         guide_objects = rfn.merge_arrays((guide_objects, filterFlag_column), asrecarray=True, flatten=True)
@@ -248,12 +260,13 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst
         ]
     )
     _kwargs = _map_kwargs(kwargs)
-    logger and logger.info('_kwargs={}'.format(_kwargs))
+    logger and logger.info('Calling pfs.FAinstpa with _kwargs={}'.format(_kwargs))
     pfs = FieldAcquisitionAndFocusing.PFS()
     dra, ddec, dinr, dscale, *diags = pfs.FAinstpa(_guide_objects, _detected_objects, ra, dec, taken_at.astimezone(tz=timezone.utc) if isinstance(taken_at, datetime) else datetime.fromtimestamp(taken_at, tz=timezone.utc) if isinstance(taken_at, Number) else taken_at, adc, inst_pa, m2_pos3, obswl, **_kwargs)
     dra *= 3600
     ddec *= 3600
     dinr *= 3600
+    logger and logger.info('From FAinstapa dra={},ddec={},dinr={}'.format(dra, ddec, dinr))
 
     logger and logger.info(f'Adding {DELTA_RA_OFFSET} arcsec to dra')
     dra += DELTA_RA_OFFSET
@@ -331,8 +344,12 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst
             ('guide_object_ydet', numpy.float32)
         ]
     )
+
+    # convert to arcsec
+    logger and logger.info('Converting dra, ddec to arcsec: dra={},ddec={}'.format(dra, ddec))
     dx = - dra * numpy.cos(numpy.deg2rad(dec))  # arcsec
     dy = ddec  # arcsec (HSC definition)
+    logger and logger.info('dx={},dy={}'.format(dx, dy))
     # find "representative" spot size, peak intensity, and flux by "median" of pointing errors
     size = 0  # pix
     peak = 0  # pix
