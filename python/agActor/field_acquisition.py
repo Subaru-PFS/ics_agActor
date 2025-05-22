@@ -287,7 +287,8 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst
             x[5],
             x[6],
             *coordinates.det2dp(x[4], float(x[5]), float(x[6])),
-            x[-1],  # filter flag
+            x[7], # guide_star_flag
+            x[8], # filter_flag
         ) for x in guide_objects],
         dtype=[
             ('source_id', numpy.int64),  # u8 (80) not supported by FITSIO
@@ -299,6 +300,7 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst
             ('guide_object_ydet', numpy.float32),
             ('guide_object_x', numpy.float32),
             ('guide_object_y', numpy.float32),
+            ('guide_star_flag', numpy.int32),  # guide star flag
             ('filter_flag', numpy.int32)  # filter flag
         ]
     )
