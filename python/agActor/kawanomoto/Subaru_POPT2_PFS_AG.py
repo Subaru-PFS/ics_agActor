@@ -41,9 +41,13 @@ ag1fcy_pfi = np.array([+0.000,+0.000,+0.000,+0.000,+0.000,+0.000])
 ag4adjx_pfi= np.array([+0.000,+0.000,+0.000,+0.004,+0.000,+0.000])
 ag4adjy_pfi= np.array([+0.000,+0.000,+0.000,-0.013,+0.000,+0.000])
 
+### ccd pos offset in pfi coord. ag1 fine adjustment (2025-05-21)
+ag1adjx_pfi= np.array([-0.015,+0.000,+0.000,+0.000,+0.000,+0.000])
+ag1adjy_pfi= np.array([+0.000,+0.000,+0.000,+0.000,+0.000,+0.000])
+
 ### ccd offset in pfi
-ccdoffx_pfi = ccdoffx1_pfi + ccdoffx2_pfi + glassx_pfi + remshx_pfi + ag1fcx_pfi + ag4adjx_pfi
-ccdoffy_pfi = ccdoffy1_pfi + ccdoffy2_pfi + glassy_pfi + remshy_pfi + ag1fcy_pfi + ag4adjy_pfi
+ccdoffx_pfi = ccdoffx1_pfi + ccdoffx2_pfi + glassx_pfi + remshx_pfi + ag1fcx_pfi + ag4adjx_pfi + ag1adjx_pfi
+ccdoffy_pfi = ccdoffy1_pfi + ccdoffy2_pfi + glassy_pfi + remshy_pfi + ag1fcy_pfi + ag4adjy_pfi + ag1adjy_pfi
 
 ### ccd offset in fp
 ccdoffx_fp  = ccdoffy_pfi
