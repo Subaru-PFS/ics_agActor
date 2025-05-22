@@ -277,7 +277,7 @@ def z2adc(z, filter_id):
     return numpy.clip(y_adc, 0, 22)
 
 
-def search(ra, dec, radius=0.027 + 0.003, magnitude=20.0):
+def search(ra, dec, radius=0.027 + 0.003):
     """
     Search guide stellar objects from Gaia DR3 sources.
 
@@ -289,8 +289,6 @@ def search(ra, dec, radius=0.027 + 0.003, magnitude=20.0):
         The declinations (ICRS) of the search centers (deg)
     radius : scalar
         The radius of the cones (deg)
-    magnitude : scalar
-        The magnitude limit of the guide stellar objects
 
     Returns
     -------
@@ -298,7 +296,7 @@ def search(ra, dec, radius=0.027 + 0.003, magnitude=20.0):
         The table of the Gaia DR3 sources inside the search areas
     """
 
-    def _search(ra, dec, radius, magnitude):
+    def _search(ra, dec, radius):
         """Perform search of Gaia DR3."""
 
         if numpy.isscalar(ra):
@@ -321,12 +319,12 @@ def search(ra, dec, radius=0.027 + 0.003, magnitude=20.0):
             with connection.cursor() as cursor:
                 query = 'SELECT {} FROM gaia3 WHERE ('.format(','.join(columns)) \
                     + ' OR '.join(['q3c_radial_query(ra,dec,{},{},{})'.format(_ra, _dec, radius) for _ra, _dec in zip(ra, dec)]) \
-                    + ') AND phot_g_mean_mag<={} AND pmra IS NOT NULL AND pmdec IS NOT NULL AND parallax IS NOT NULL ORDER BY phot_g_mean_mag'.format(magnitude)
+                    + ') AND pmra IS NOT NULL AND pmdec IS NOT NULL AND parallax IS NOT NULL ORDER BY phot_g_mean_mag'
                 cursor.execute(query)
                 objects = cursor.fetchall()
                 return Table(rows=objects, names=columns, units=_units)
 
-    return _search(ra, dec, radius, magnitude)
+    return _search(ra, dec, radius)
 
 
 def get_objects(
@@ -343,7 +341,6 @@ def get_objects(
         pressure=620,
         obswl=0.62,
         m2pos3=6.0,
-        magnitude=20.0
 ):
     """
     Get list of guide stellar objects.
@@ -376,8 +373,6 @@ def get_objects(
         The wavelength of the observation (um)
     m2pos3 : scalar
         The z position of the hexapod (mm)
-    magnitude : scalar
-        The magnitude limit of the guide stellar objects
 
     Returns
     -------
@@ -420,7 +415,7 @@ def get_objects(
     altaz = altaz_c.directional_offset_by(- position_angle * units.deg, separation * units.deg)
     icrs = altaz.transform_to('icrs')
 
-    _objects = search(icrs.ra.deg, icrs.dec.deg, magnitude=magnitude)
+    _objects = search(icrs.ra.deg, icrs.dec.deg)
     _objects['parallax'][numpy.where(_objects['parallax'] < 1e-6)] = 1e-6
     _icrs = SkyCoord(
         ra=_objects['ra'], dec=_objects['dec'], frame='icrs',
@@ -502,7 +497,7 @@ if __name__ == '__main__':
     parser.add_argument('--pressure', type=float, default=620, help='atmospheric pressure (hPa)')
     parser.add_argument('--obswl', type=float, default=0.62, help='wavelength of observation (um)')
     parser.add_argument('--m2-pos3', type=float, default=6.0, help='z position of the hexapod (mm)')
-    parser.add_argument('--magnitude', type=float, default=20.0, help='magnitude limit')
+
     args, _ = parser.parse_known_args()
 
     objects, az, alt, inr, adc = get_objects(
@@ -519,7 +514,6 @@ if __name__ == '__main__':
         pressure=args.pressure,
         obswl=args.obswl,
         m2pos3=args.m2_pos3,
-        magnitude=args.magnitude
     )
     print(objects)
     print(az, alt, inr, adc)
