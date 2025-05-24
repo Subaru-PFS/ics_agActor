@@ -184,8 +184,10 @@ class AgCmd:
             result = self.actor.queueCommand(
                 actor='agcc',
                 cmdStr=cmdStr,
-                timeLim=((exposure_time + 6 * exposure_delay) // 1000 + 5)
+                timeLim=((exposure_time + 6 * exposure_delay) // 1000 + 15)
             )
+            # This synchronous sleep is to defer the request for telescope info to roughly
+            # the middle of the exposure.
             time.sleep((exposure_time + 7 * exposure_delay) / 1000 / 2)
             telescope_state = None
             if self.with_mlp1_status:
