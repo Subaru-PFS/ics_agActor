@@ -170,7 +170,7 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
     return (ra, dec, inst_pa, *_acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst_pa, m2_pos3=m2_pos3, obswl=obswl, altazimuth=altazimuth, logger=logger, **_kwargs))
 
 
-def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst_pa=0.0, m2_pos3=6.0, obswl=0.62, altazimuth=False, logger=None, apply_filters=True, **kwargs):
+def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst_pa=0.0, m2_pos3=6.0, obswl=0.62, altazimuth=False, logger=None, **kwargs):
 
     def semi_axes(xy, x2, y2):
 
@@ -180,8 +180,10 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst
         b = numpy.sqrt(p - q)
         return a, b
 
+    # Apply filtering if we have a flag column.
+    have_flags = 'flag' in guide_objects.dtype.names
     guide_objects_df = None
-    if apply_filters is True:
+    if have_flags is True:
         logger and logger.info('Applying filters to guide objects')
         try:
             # Use Table to convert, which handles big-endian and little-endian issues.
@@ -189,13 +191,6 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst
             logger and logger.info(f'Got {len(guide_objects_df)} guide objects.')
 
             column_names = ['objId', 'ra', 'dec', 'mag', 'agId', 'agX', 'agY', 'flag']
-
-            # Check if the `flag` column exists, either 13 or 14 columns.
-            if 'flag' not in guide_objects_df.columns:
-                logger and logger.info('No flag column found, adding a dummy and turning off filters.')
-                # If the flag column is not present, we need to add it.
-                guide_objects_df['flag'] = 0
-
             guide_objects_df.columns = column_names
 
             # Add a column to indicate which flat was used for filtering.
@@ -230,6 +225,8 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst
         except Exception as e:
             logger and logger.warning(f'Error filtering guide objects: {e}')
             logger and logger.info('No filtering applied, using all guide objects.')
+    else:
+        logger and logger.info('No filtering applied, using all guide objects.')
 
     # Add the column that indicates what was filtered.
     if guide_objects_df is not None:
@@ -239,7 +236,10 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst
         guide_objects = rfn.merge_arrays((guide_objects, filterFlag_column), asrecarray=True, flatten=True)
     else:
         logger and logger.info('No filtering applied, using all guide objects.')
-        # If we don't have a DataFrame, we need to add the filter flag column to the guide objects.
+        # If not present, we need to add zero entries for the guide_star_flag and filter_flag.
+        guideStarFlag_column = numpy.zeros(len(guide_objects), dtype=[('guideStarFlag', '<i4')])
+        guide_objects = rfn.merge_arrays((guide_objects, guideStarFlag_column), asrecarray=True, flatten=True)
+
         filterFlag_column = numpy.zeros(len(guide_objects), dtype=[('filterFlag', '<i4')])
         guide_objects = rfn.merge_arrays((guide_objects, filterFlag_column), asrecarray=True, flatten=True)
 
