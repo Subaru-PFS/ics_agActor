@@ -196,9 +196,15 @@ class AgCmd:
                 kwargs['inr'] = telescope_state['rotator_real_angle']
             if self.with_gen2_status or self.with_opdb_tel_status:
                 # update gen2 status values
+                if visit_id is not None:
+                    visitStr = 'visit={}'.format(visit_id)
+                else:
+                    visitStr = ''
+
                 self.actor.queueCommand(
                     actor='gen2',
-                    cmdStr='updateTelStatus caller={}'.format(self.actor.name),
+                    cmdStr='updateTelStatus caller={} {}'.format(self.actor.name,
+                                                                 visitStr),
                     timeLim=5
                 ).get()
                 if self.with_gen2_status:
