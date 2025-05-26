@@ -5,6 +5,7 @@ import numpy
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
 from agActor import field_acquisition, focus as _focus, data_utils, pfs_design
+from agActor import actorCalls
 from agActor.telescope_center import telCenter as tel_center
 from agActor.Controllers.ag import ag
 from kawanomoto import Subaru_POPT2_PFS  # *NOT* 'from agActor.kawanomoto import Subaru_POPT2_PFS'
@@ -195,20 +196,11 @@ class AgCmd:
                 self.actor.logger.info('AgCmd.acquire_field: telescopeState={}'.format(telescope_state))
                 kwargs['inr'] = telescope_state['rotator_real_angle']
             if self.with_gen2_status or self.with_opdb_tel_status:
-                # update gen2 status values
-                if visit_id is not None:
-                    visitStr = 'visit={}'.format(visit_id)
-                else:
-                    visitStr = ''
-
-                self.actor.queueCommand(
-                    actor='gen2',
-                    cmdStr='updateTelStatus caller={} {}'.format(self.actor.name,
-                                                                 visitStr),
-                    timeLim=5
-                ).get()
                 if self.with_gen2_status:
-                    tel_status = self.actor.gen2.tel_status
+                    # update gen2 status values
+                    tel_status = actorCalls.updateTelStatus(self.actor,
+                                                            self.logger,
+                                                            visit_id)
                     self.actor.logger.info('AgCmd.acquire_field: tel_status={}'.format(tel_status))
                     kwargs['tel_status'] = tel_status
                     _tel_center = tel_center(actor=self.actor, center=center, design=design, tel_status=tel_status)
@@ -373,7 +365,7 @@ class AgCmd:
             result = self.actor.queueCommand(
                 actor='agcc',
                 cmdStr=cmdStr,
-                timeLim=((exposure_time + 6 * exposure_delay) // 1000 + 5)
+                timeLim=((exposure_time + 6 * exposure_delay) // 1000 + 15)
             )
             # wait for an exposure to complete
             result.get()
