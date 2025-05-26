@@ -4,6 +4,7 @@ import threading
 import time
 import numpy
 from agActor import autoguide, focus as _focus, data_utils, pfs_design
+from agActor import actorCalls
 from agActor.telescope_center import telCenter as tel_center
 
 
@@ -232,12 +233,9 @@ class AgThread(threading.Thread):
                             kwargs['inr'] = telescope_state['rotator_real_angle']
                         # update gen2 status values
                         self.logger.info('AgThread.run: update gen2 status')
-                        self.actor.queueCommand(
-                            actor='gen2',
-                            cmdStr='updateTelStatus caller={}'.format(self.actor.name),
-                            timeLim=5
-                        ).get()
-                        tel_status = self.actor.gen2.tel_status
+                        tel_status = actorCalls.updateTelStatus(self.actor,
+                                                                self.logger,
+                                                                visit_id)
                         self.logger.info(f'AgThread.run: tel_status={tel_status}')
                         kwargs['tel_status'] = tel_status
                         _tel_center = tel_center(actor=self.actor, center=center, design=design, tel_status=tel_status)
@@ -292,7 +290,7 @@ class AgThread(threading.Thread):
                     result = self.actor.queueCommand(
                         actor='agcc',
                         cmdStr=cmdStr,
-                        timeLim=((exposure_time + 6 * exposure_delay) // 1000 + 5)
+                        timeLim=((exposure_time + 6 * exposure_delay) // 1000 + 15)
                     )
                     time.sleep((exposure_time + 7 * exposure_delay) / 1000 / 2)
                     kwargs = {}
@@ -304,13 +302,10 @@ class AgThread(threading.Thread):
                     if self.with_gen2_status or self.with_opdb_tel_status:
                         # update gen2 status values
                         self.logger.info('AgThread.run: getting gen2 status')
-                        self.actor.queueCommand(
-                            actor='gen2',
-                            cmdStr='updateTelStatus caller={}'.format(self.actor.name),
-                            timeLim=5
-                        ).get()
                         if self.with_gen2_status:
-                            tel_status = self.actor.gen2.tel_status
+                            tel_status = actorCalls.updateTelStatus(self.actor,
+                                                                    self.logger,
+                                                                    visit_id)
                             self.logger.info('AgThread.run: tel_status={}'.format(tel_status))
                             kwargs['tel_status'] = tel_status
                             _tel_center = tel_center(actor=self.actor, center=center, design=design, tel_status=tel_status)
