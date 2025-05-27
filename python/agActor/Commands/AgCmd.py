@@ -199,7 +199,7 @@ class AgCmd:
                 if self.with_gen2_status:
                     # update gen2 status values
                     tel_status = actorCalls.updateTelStatus(self.actor,
-                                                            self.logger,
+                                                            self.actor.logger,
                                                             visit_id)
                     self.actor.logger.info('AgCmd.acquire_field: tel_status={}'.format(tel_status))
                     kwargs['tel_status'] = tel_status
