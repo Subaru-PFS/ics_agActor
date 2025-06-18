@@ -76,11 +76,9 @@ def set_design_agc(*, frame_id=None, obswl=0.62, logger=None, **kwargs):
 
             logger and logger.info('taken_at={}'.format(taken_at))
             guide_objects, *_ = pfs_design(design_id, design_path, logger=logger).guide_objects(obstime=taken_at)
-            logger and logger.info('Got {} guide objects'.format(len(guide_objects)))
         elif design_id is not None:
             logger and logger.info('Getting guide_objects from opdb via {}'.format(design_id))
             guide_objects = opdb.query_pfs_design_agc(design_id)
-            logger and logger.info('Got {} guide objects'.format(len(guide_objects)))
         else:
             ra, dec, inst_pa = Field.center
             logger and logger.info('ra={},dec={},inst_pa={}'.format(ra, dec, inst_pa))
@@ -95,8 +93,10 @@ def set_design_agc(*, frame_id=None, obswl=0.62, logger=None, **kwargs):
             logger and logger.info('ra={},dec={},inr={}'.format(ra, dec, inr))
             logger and logger.info('Getting guide objects from gaia database')
             guide_objects, *_ = gaia.get_objects(ra=ra, dec=dec, obstime=taken_at, inst_pa=inst_pa, adc=adc, m2pos3=m2_pos3, obswl=obswl)
-            logger and logger.info('Got {} guide objects'.format(len(guide_objects)))
-    #logger and logger.info('guide_objects={}'.format(guide_objects))
+
+    logger and logger.info(f"Got {len(guide_objects)} guide objects before filtering.")
+    guide_objects = field_acquisition.filter_guide_objects(guide_objects, logger)
+
     logger and logger.info('Setting Field.guide_objects to')
     Field.guide_objects = guide_objects
 
