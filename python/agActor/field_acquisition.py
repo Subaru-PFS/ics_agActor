@@ -215,10 +215,10 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst
 
                 # Go through the filters and mark which stars would be flagged as NOT meeting the mask requirement.
                 for f in filters_for_inclusion:
-                    not_filtered = guide_objects_df.filtered_by == 0
+                    not_filtered = guide_objects_df.filtered_by != AutoGuiderStarMask.GALAXY
                     include_filter = (guide_objects_df.flag.values & f) == 0
                     to_be_filtered = (include_filter & not_filtered) != 0
-                    guide_objects_df.loc[to_be_filtered, 'filtered_by'] = f.value
+                    guide_objects_df.loc[to_be_filtered, 'filtered_by'] |= f.value
                     logger and logger.info(f'Filtering by {f.name}, removes {to_be_filtered.sum()} guide objects.')
 
                 logger and logger.info(f'After filtering, {len(guide_objects_df.query("filtered_by == 0"))} guide objects remain.')
