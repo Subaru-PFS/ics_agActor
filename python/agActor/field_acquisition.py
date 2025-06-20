@@ -56,28 +56,10 @@ class AutoGuiderStarMask(IntFlag):
     NON_BINARY = 0x00400
     PHOTO_SIG = 0x00800
     GALAXY = 0x01000
-
-
-# The stars we want to use for initial acquisition.
-GOOD_ACQUISITION_MASK = (
-    AutoGuiderStarMask.GAIA |
-    AutoGuiderStarMask.PMRA |
-    AutoGuiderStarMask.PMRA_SIG |
-    AutoGuiderStarMask.PMDEC |
-    AutoGuiderStarMask.PMDEC_SIG |
-    AutoGuiderStarMask.PARA |
-    AutoGuiderStarMask.PARA_SIG |
-    AutoGuiderStarMask.ASTROMETRIC |
-    AutoGuiderStarMask.NON_BINARY |
-    AutoGuiderStarMask.PHOTO_SIG
-)
-
-# The stars we want to use for autoguiding. This is not yet being used.
-GOOD_GUIDING_MASK = (
-    AutoGuiderStarMask.GAIA |
-    AutoGuiderStarMask.HSC |
-    AutoGuiderStarMask.NON_BINARY
-)
+    MAX_ELLIPTICITY = 0x02000
+    MAX_SIZE = 0x04000
+    MIN_SIZE = 0x08000
+    MAX_RESID = 0x10000
 
 
 def _filter_kwargs(kwargs):
@@ -200,11 +182,7 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst
         b = numpy.sqrt(p - q)
         return a, b
 
-    # This is not being passed from anywhere yet, so this is a placeholder.
-    GUIDE_MASK = kwargs.get('GUIDE_MASK', GOOD_ACQUISITION_MASK)
-
-    _guide_objects = numpy.array([(x[1], x[2], x[3]) for x in guide_objects if int(x[-2]) == GUIDE_MASK])
-    logger and logger.info(f'Found {len(_guide_objects)} guide objects with AutoGuideStarMask({GUIDE_MASK}) {AutoGuiderStarMask(GUIDE_MASK).name}')
+    _guide_objects = numpy.array([(x[1], x[2], x[3]) for x in guide_objects])
 
     _detected_objects = numpy.array(
         [
