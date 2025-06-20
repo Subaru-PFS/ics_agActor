@@ -8,7 +8,7 @@ from agActor import field_acquisition, focus as _focus, data_utils, pfs_design
 from agActor import actorCalls
 from agActor.telescope_center import telCenter as tel_center
 from agActor.Controllers.ag import ag
-from kawanomoto import Subaru_POPT2_PFS  # *NOT* 'from agActor.kawanomoto import Subaru_POPT2_PFS'
+from pfs.utils.coordinates import Subaru_POPT2_PFS
 
 
 class AgCmd:
