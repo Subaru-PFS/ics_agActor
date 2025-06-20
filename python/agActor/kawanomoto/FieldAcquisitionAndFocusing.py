@@ -49,17 +49,19 @@ class PFS():
         v_0 = (np.insert(v_0,2, carray[:,2], axis=1))
         v_1 = (np.insert(v_1,2, carray[:,2], axis=1))
 
-        maxellip = 0.6
-        maxsize  =20.0
-        minsize  = 0.92
         filtered_darray, v = pfs.sourceFilter(darray, maxellip, maxsize, minsize)
 
-        ra_offset,de_offset,inr_offset, scale_offset, mr, md = \
-            pfs.RADECInRScaleShift(filtered_darray[:,2],\
+        ra_offset,de_offset,inr_offset, scale_offset, mr = \
+            pfs.RADECInRShiftA(filtered_darray[:,2],\
                                    filtered_darray[:,3],\
                                    filtered_darray[:,4],\
                                    filtered_darray[:,7],\
-                                   v_0, v_1)
+                                   v_0, v_1,\
+                                   inrflag, scaleflag, maxresid)
+
+        rs = mr[:,6]**2+mr[:,7]**2
+        rs[mr[:,8]==0.0]=np.nan
+        md = np.nanmedian(np.sqrt(rs))
 
         return ra_offset,de_offset,inr_offset, scale_offset, mr, md, v
 
@@ -79,9 +81,9 @@ class PFS():
         v_1 = (np.insert(v_1,2, carray[:,2], axis=1))
 
         ### source filtering (substantially no filtering here)
-        maxellip =  2.0e+00
-        maxsize  =  1.0e+12
-        minsize  = -1.0e+00
+        # maxellip =  2.0e+00
+        # maxsize  =  1.0e+12
+        # minsize  = -1.0e+00
         filtered_darray, v = pfs.sourceFilter(darray, maxellip, maxsize, minsize)
 
         ### limit number of detection
@@ -89,21 +91,22 @@ class PFS():
         # limit_flux = (np.sort(filtered_darray[:,4])[::-1])[limit_number]
         # filtered_darray = filtered_darray[np.where(filtered_darray[:,4]>=limit_flux)]
 
-        ra_offset,de_offset,inr_offset, scale_offset, mr, md = \
-            pfs.RADECInRScaleShift(filtered_darray[:,2],\
+        ra_offset,de_offset,inr_offset, scale_offset, mr = \
+            pfs.RADECInRShiftA(filtered_darray[:,2],\
                                    filtered_darray[:,3],\
                                    filtered_darray[:,4],\
                                    filtered_darray[:,7],\
-                                   v_0, v_1)
+                                   v_0, v_1,\
+                                   inrflag, scaleflag, maxresid)
+
+        rs = mr[:,6]**2+mr[:,7]**2
+        rs[mr[:,8]==0.0]=np.nan
+        md = np.nanmedian(np.sqrt(rs))
 
         return ra_offset,de_offset,inr_offset, scale_offset, mr, md, v
 
     def Focus(self, agarray, maxellip=0.6, maxsize=20.0, minsize=0.92):
         pfs  = Subaru_POPT2_PFS_AG.PFS()
-
-        maxellip = 0.6
-        maxsize  =20.0
-        minsize  = 0.92
 
         md = pfs.agarray2momentdifference(agarray, maxellip, maxsize, minsize)
 

@@ -206,7 +206,7 @@ class PFS():
         md = np.nanmedian(np.sqrt(rs))
         return ra_offset, de_offset, inr_offset, scale_offset, mr, md
 
-    def RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag, scaleflag):
+    def RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag, scaleflag, maxresid=0.5):
 
         cat_xdp_0 = v0[:,0]
         cat_ydp_0 = v0[:,1]
@@ -362,8 +362,8 @@ class PFS():
         err_xy       = np.stack([errx,erry]).transpose()
         resid_xy = (((err-np.dot(basis,A))[:,0]).reshape([2,-1])).transpose()
 
-        #### outlier rejection (threshold = min (0.5mm, 3 * median of residual))
-        rej_thres_lim = 0.5
+        #### outlier rejection (threshold = min (maxresid=0.5mm, 3 * median of residual))
+        rej_thres_lim = maxresid
         rej_thres = np.min(np.array([np.nanmedian(np.sqrt(np.sum(resid_xy**2,axis=1)))*3, rej_thres_lim]))
         for rej_itr in range(5):
             resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
@@ -387,8 +387,8 @@ class PFS():
 
         ra_offset    = 0.0
         de_offset    = 0.0
-        inr_offset   = 0.0
-        scale_offset = 0.0
+        inr_offset   = np.nan
+        scale_offset = np.nan
 
         if inrflag == 1 and scaleflag == 1:
             ra_offset    = A[0][0] * d_ra
