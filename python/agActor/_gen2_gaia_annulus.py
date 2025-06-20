@@ -1,16 +1,17 @@
 from datetime import datetime, timezone
 from numbers import Number
+
 import numpy
 from astropy import units
 from astropy.coordinates import AltAz, Angle, Distance, SkyCoord, solar_system_ephemeris
 from astropy.time import Time
 from astropy.utils import iers
-import coordinates
 from pfs.utils.coordinates import Subaru_POPT2_PFS
 
+import coordinates
 
 iers.conf.auto_download = True
-solar_system_ephemeris.set('de440')
+solar_system_ephemeris.set("de440")
 
 _popt2 = Subaru_POPT2_PFS.POPT2()
 _pfs = Subaru_POPT2_PFS.PFS()
@@ -309,19 +310,59 @@ def search(ra, dec, inner_radius=0.7325 - 0.03, outer_radius=0.7325 + 0.03):
         import psycopg2
         from astropy.table import Table
 
-        columns = ('source_id', 'ref_epoch', 'ra', 'ra_error', 'dec', 'dec_error', 'parallax', 'parallax_error', 'pmra', 'pmra_error', 'pmdec', 'pmdec_error', 'phot_g_mean_mag')
-        _units = (units.dimensionless_unscaled, units.yr, units.deg, units.mas, units.deg, units.mas, units.mas, units.mas, units.mas / units.yr, units.mas / units.yr, units.mas / units.yr, units.mas / units.yr, units.mag)
+        columns = (
+            "source_id",
+            "ref_epoch",
+            "ra",
+            "ra_error",
+            "dec",
+            "dec_error",
+            "parallax",
+            "parallax_error",
+            "pmra",
+            "pmra_error",
+            "pmdec",
+            "pmdec_error",
+            "phot_g_mean_mag",
+        )
+        _units = (
+            units.dimensionless_unscaled,
+            units.yr,
+            units.deg,
+            units.mas,
+            units.deg,
+            units.mas,
+            units.mas,
+            units.mas,
+            units.mas / units.yr,
+            units.mas / units.yr,
+            units.mas / units.yr,
+            units.mas / units.yr,
+            units.mag,
+        )
 
-        host = '133.40.167.46'  # 'g2db' for production use
+        host = "133.40.167.46"  # 'g2db' for production use
         port = 5438
-        user = 'gen2'  # 'obsuser' for production use
+        user = "gen2"  # 'obsuser' for production use
 
-        dsn = 'host={} port={} user={} dbname=star_catalog'.format(host, port, user)
+        dsn = "host={} port={} user={} dbname=star_catalog".format(host, port, user)
         with psycopg2.connect(dsn) as connection:
             with connection.cursor() as cursor:
-                query = 'SELECT {} FROM gaia3 WHERE ('.format(','.join(columns)) \
-                    + ' OR '.join(['(q3c_radial_query(ra,dec,{},{},{}) AND NOT q3c_radial_query(ra,dec,{},{},{}))'.format(_ra, _dec, outer_radius, _ra, _dec, inner_radius) for _ra, _dec in zip(ra, dec)]) \
-                    + ') AND pmra IS NOT NULL AND pmdec IS NOT NULL AND parallax IS NOT NULL ORDER BY phot_g_mean_mag'
+                query = (
+                    "SELECT {} FROM gaia3 WHERE (".format(",".join(columns))
+                    + " OR ".join(
+                        [
+                            "(q3c_radial_query(ra,dec,{},{},{}) AND NOT q3c_radial_query(ra,dec,{},{},{}))".format(
+                                _ra, _dec, outer_radius, _ra, _dec, inner_radius
+                            )
+                            for _ra, _dec in zip(ra, dec)
+                        ]
+                    )
+                    + (
+                        ") AND pmra IS NOT NULL AND pmdec IS NOT NULL AND parallax IS NOT NULL ORDER BY "
+                        "phot_g_mean_mag"
+                    )
+                )
                 cursor.execute(query)
                 objects = cursor.fetchall()
                 return Table(rows=objects, names=columns, units=_units)
@@ -330,18 +371,18 @@ def search(ra, dec, inner_radius=0.7325 - 0.03, outer_radius=0.7325 + 0.03):
 
 
 def get_objects(
-        ra,
-        dec,
-        obstime=None,
-        inst_pa=0,
-        inr=None,
-        adc=None,
-        filter_id=None,
-        temperature=0,
-        relative_humidity=0,
-        pressure=620,
-        obswl=0.62,
-        m2pos3=6.0,
+    ra,
+    dec,
+    obstime=None,
+    inst_pa=0,
+    inr=None,
+    adc=None,
+    filter_id=None,
+    temperature=0,
+    relative_humidity=0,
+    pressure=620,
+    obswl=0.62,
+    m2pos3=6.0,
 ):
     """
     Get list of guide stellar objects.
@@ -383,18 +424,34 @@ def get_objects(
 
     ra = Angle(ra, unit=units.deg)
     dec = Angle(dec, unit=units.deg)
-    obstime = Time(obstime.astimezone(tz=timezone.utc)) if isinstance(obstime, datetime) else Time(obstime, format='unix') if isinstance(obstime, Number) else Time(obstime) if obstime is not None else Time.now()
+    obstime = (
+        Time(obstime.astimezone(tz=timezone.utc))
+        if isinstance(obstime, datetime)
+        else (
+            Time(obstime, format="unix")
+            if isinstance(obstime, Number)
+            else Time(obstime) if obstime is not None else Time.now()
+        )
+    )
 
     import subaru
-    frame_tc = AltAz(obstime=obstime, location=subaru.location, temperature=temperature * units.deg_C, relative_humidity=relative_humidity / 100, pressure=pressure * units.hPa, obswl=obswl * units.micron)
+
+    frame_tc = AltAz(
+        obstime=obstime,
+        location=subaru.location,
+        temperature=temperature * units.deg_C,
+        relative_humidity=relative_humidity / 100,
+        pressure=pressure * units.hPa,
+        obswl=obswl * units.micron,
+    )
 
     # field center
-    icrs_c = SkyCoord(ra=ra, dec=dec, frame='icrs')
+    icrs_c = SkyCoord(ra=ra, dec=dec, frame="icrs")
     altaz_c = icrs_c.transform_to(frame_tc)
 
     if inr is None:
         # celestial north pole
-        icrs_p = SkyCoord(ra=0 * units.deg, dec=90 * units.deg, frame='icrs')
+        icrs_p = SkyCoord(ra=0 * units.deg, dec=90 * units.deg, frame="icrs")
         altaz_p = icrs_p.transform_to(frame_tc)
         parallactic_angle = altaz_c.position_angle(altaz_p).to(units.deg).value
         inr = (parallactic_angle + inst_pa + 180) % 360 - 180
@@ -405,18 +462,21 @@ def get_objects(
         adc = z2adc(altaz_c.zen.to(units.deg).value, filter_id=filter_id)  # mm
 
     _objects = search(icrs_c.ra.deg, icrs_c.dec.deg)
-    _objects['parallax'][numpy.where(_objects['parallax'] < 1e-6)] = 1e-6
+    _objects["parallax"][numpy.where(_objects["parallax"] < 1e-6)] = 1e-6
     _icrs = SkyCoord(
-        ra=_objects['ra'], dec=_objects['dec'], frame='icrs',
-        distance=Distance(parallax=Angle(_objects['parallax'])),
-        pm_ra_cosdec=_objects['pmra'], pm_dec=_objects['pmdec'],
-        obstime=Time(_objects['ref_epoch'], format='jyear', scale='tcb')
+        ra=_objects["ra"],
+        dec=_objects["dec"],
+        frame="icrs",
+        distance=Distance(parallax=Angle(_objects["parallax"])),
+        pm_ra_cosdec=_objects["pmra"],
+        pm_dec=_objects["pmdec"],
+        obstime=Time(_objects["ref_epoch"], format="jyear", scale="tcb"),
     )
     _icrs_d = _icrs.apply_space_motion(new_obstime=obstime)  # of date
     _altaz = _icrs_d.transform_to(frame_tc)
     separation = altaz_c.separation(_altaz).to(units.deg).value
     position_angle = altaz_c.position_angle(_altaz).to(units.deg).value
-    x_fp, y_fp = sky2fp(separation, - position_angle, adc, inr, altaz_c.alt.to(units.deg).value, m2pos3, obswl)
+    x_fp, y_fp = sky2fp(separation, -position_angle, adc, inr, altaz_c.alt.to(units.deg).value, m2pos3, obswl)
     x_dp, y_dp = fp2dp(x_fp, y_fp, inr)
     icam, x_det, y_det = dp2idet(x_dp, y_dp)
 
@@ -433,58 +493,63 @@ def get_objects(
                 _x_dp,
                 _y_dp,
                 _x_fp,
-                _y_fp
+                _y_fp,
             )
-            for _source_id, _skycoord, _mag, _camera_id, _x_det, _y_det, _x_dp, _y_dp, _x_fp, _y_fp
-            in zip(
-                _objects['source_id'],
+            for _source_id, _skycoord, _mag, _camera_id, _x_det, _y_det, _x_dp, _y_dp, _x_fp, _y_fp in zip(
+                _objects["source_id"],
                 _icrs_d,
-                _objects['phot_g_mean_mag'],
+                _objects["phot_g_mean_mag"],
                 icam,
                 x_det,
                 y_det,
                 x_dp,
                 y_dp,
                 x_fp,
-                y_fp
+                y_fp,
             )
         ],
         dtype=[
-            ('source_id', numpy.int64),  # u8 (80) not supported by FITSIO
-            ('ra', numpy.float64),
-            ('dec', numpy.float64),
-            ('mag', numpy.float32),
-            ('camera_id', numpy.int16),
-            ('x', numpy.float32),
-            ('y', numpy.float32),
-            ('x_dp', numpy.float32),
-            ('y_dp', numpy.float32),
-            ('x_fp', numpy.float32),
-            ('y_fp', numpy.float32)
-        ]
+            ("source_id", numpy.int64),  # u8 (80) not supported by FITSIO
+            ("ra", numpy.float64),
+            ("dec", numpy.float64),
+            ("mag", numpy.float32),
+            ("camera_id", numpy.int16),
+            ("x", numpy.float32),
+            ("y", numpy.float32),
+            ("x_dp", numpy.float32),
+            ("y_dp", numpy.float32),
+            ("x_fp", numpy.float32),
+            ("y_fp", numpy.float32),
+        ],
     )
 
     return objects, altaz_c.az.to(units.deg).value, altaz_c.alt.to(units.deg).value, inr, adc
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument('ra', help='right ascension (ICRS) of the field center (hr)')
-    parser.add_argument('dec', help='declination (ICRS) of the field center (deg)')
-    parser.add_argument('obstime', nargs='?', default=None, help='time of observation (datetime)')
+    parser.add_argument("ra", help="right ascension (ICRS) of the field center (hr)")
+    parser.add_argument("dec", help="declination (ICRS) of the field center (deg)")
+    parser.add_argument("obstime", nargs="?", default=None, help="time of observation (datetime)")
     group = parser.add_mutually_exclusive_group()
-    group.add_argument('--inst-pa', type=float, default=0, help='position angle of the instrument, east of north (deg)')
-    group.add_argument('--inr', type=float, default=None, help='instrument rotator angle, east of north (deg)')
-    parser.add_argument('--adc', type=float, default=None, help='position of the atmospheric dispersion compensator (mm)')
-    parser.add_argument('--filter-id', type=int, default=107, help='filter identifier for ADC (101-108)')
-    parser.add_argument('--temperature', type=float, default=0, help='air temperature (deg C)')
-    parser.add_argument('--relative-humidity', type=float, default=0, help='relative humidity (%%)')
-    parser.add_argument('--pressure', type=float, default=620, help='atmospheric pressure (hPa)')
-    parser.add_argument('--obswl', type=float, default=0.62, help='wavelength of observation (um)')
-    parser.add_argument('--m2-pos3', type=float, default=6.0, help='z position of the hexapod (mm)')
+    group.add_argument(
+        "--inst-pa", type=float, default=0, help="position angle of the instrument, east of north (deg)"
+    )
+    group.add_argument(
+        "--inr", type=float, default=None, help="instrument rotator angle, east of north (deg)"
+    )
+    parser.add_argument(
+        "--adc", type=float, default=None, help="position of the atmospheric dispersion compensator (mm)"
+    )
+    parser.add_argument("--filter-id", type=int, default=107, help="filter identifier for ADC (101-108)")
+    parser.add_argument("--temperature", type=float, default=0, help="air temperature (deg C)")
+    parser.add_argument("--relative-humidity", type=float, default=0, help="relative humidity (%%)")
+    parser.add_argument("--pressure", type=float, default=620, help="atmospheric pressure (hPa)")
+    parser.add_argument("--obswl", type=float, default=0.62, help="wavelength of observation (um)")
+    parser.add_argument("--m2-pos3", type=float, default=6.0, help="z position of the hexapod (mm)")
 
     args, _ = parser.parse_known_args()
 
