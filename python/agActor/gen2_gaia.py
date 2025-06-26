@@ -8,7 +8,7 @@ from astropy.time import Time
 from astropy.utils import iers
 from pfs.utils.coordinates import Subaru_POPT2_PFS
 
-import coordinates
+from agActor import coordinates
 
 iers.conf.auto_download = True
 solar_system_ephemeris.set("de440")
