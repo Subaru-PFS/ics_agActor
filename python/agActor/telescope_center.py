@@ -1,4 +1,4 @@
-import numpy
+import numpy as np
 
 from agActor.pfs_design import pfsDesign as pfs_design
 
@@ -49,7 +49,7 @@ class telCenter:
             ]  # command ra, dec, and inst_pa (including dither offsets and guide offsets)
             ra -= (
                 tel_guide["ra"]
-                + tel_dither["ra"] / float(numpy.cos(numpy.deg2rad(dec - tel_guide["dec"] / 3600)))
+                + tel_dither["ra"] / float(np.cos(np.deg2rad(dec - tel_guide["dec"] / 3600)))
             ) / 3600
             dec -= (tel_guide["dec"] + tel_dither["dec"]) / 3600
             inst_pa -= (tel_guide["insrot"] + tel_dither["pa"]) / 3600
@@ -68,7 +68,7 @@ class telCenter:
             self._logger and self._logger.info("tel_dither={}".format(tel_dither))
             dec = self._center[1] + tel_dither["dec"] / 3600
             dither = (
-                self._center[0] + tel_dither["ra"] / float(numpy.cos(numpy.deg2rad(dec))) / 3600,
+                self._center[0] + tel_dither["ra"] / float(np.cos(np.deg2rad(dec))) / 3600,
                 dec,
                 self._center[2] + tel_dither["pa"] / 3600,
             )
@@ -94,7 +94,7 @@ class telCenter:
             self._logger and self._logger.info("tel_dither={}".format(tel_dither))
             dec = self._center[1] + tel_dither["dec"] / 3600
             offset = (
-                tel_dither["ra"] / float(numpy.cos(numpy.deg2rad(dec))),
+                tel_dither["ra"] / float(np.cos(np.deg2rad(dec))),
                 tel_dither["dec"],
                 tel_dither["pa"],
                 -tel_guide["insrot"],

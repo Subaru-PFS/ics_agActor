@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from numbers import Number
 
-import numpy
+import numpy as np
 from astropy import units
 from astropy.coordinates import AltAz, Angle, Distance, SkyCoord, solar_system_ephemeris
 from astropy.time import Time
@@ -233,7 +233,7 @@ def dp2idet(x_dp, y_dp):
     """
 
     # determine the detector id from the position angle of the detector plane coordinates
-    icam = numpy.mod(numpy.rint(numpy.arctan2(y_dp, x_dp) * 3 / numpy.pi), 6).astype(numpy.intc)
+    icam = np.mod(np.rint(np.arctan2(y_dp, x_dp) * 3 / np.pi), 6).astype(np.intc)
     x_det, y_det = dp2det(icam, x_dp, y_dp)
     return icam, x_det, y_det
 
@@ -273,9 +273,9 @@ def z2adc(z, filter_id):
     }
 
     _, _, _, _, _, e0, e1, e2, e3, e4 = _ADC_PARAMS[filter_id]
-    tanz = numpy.tan(numpy.deg2rad(z))
+    tanz = np.tan(np.deg2rad(z))
     y_adc = e0 + (e1 + (e2 + (e3 + e4 * tanz) * tanz) * tanz) * tanz
-    return numpy.clip(y_adc, 0, 22)
+    return np.clip(y_adc, 0, 22)
 
 
 def search(ra, dec, radius=0.027 + 0.003):
@@ -300,9 +300,9 @@ def search(ra, dec, radius=0.027 + 0.003):
     def _search(ra, dec, radius):
         """Perform search of Gaia DR3."""
 
-        if numpy.isscalar(ra):
+        if np.isscalar(ra):
             ra = (ra,)
-        if numpy.isscalar(dec):
+        if np.isscalar(dec):
             dec = (dec,)
 
         import psycopg2
@@ -456,7 +456,7 @@ def get_objects(
         inr = (parallactic_angle + inst_pa + 180) % 360 - 180
 
     # centers of the detectors in the detector plane coordinates
-    x_dp, y_dp = det2dp(numpy.asarray(cameras), (511.5 + 24), (511.5 + 9))
+    x_dp, y_dp = det2dp(np.asarray(cameras), (511.5 + 24), (511.5 + 9))
 
     # centers of the detectors in the focal plane coordinates
     x_fp, y_fp = dp2fp(x_dp, y_dp, inr)
@@ -471,7 +471,7 @@ def get_objects(
     icrs = altaz.transform_to("icrs")
 
     _objects = search(icrs.ra.deg, icrs.dec.deg)
-    _objects["parallax"][numpy.where(_objects["parallax"] < 1e-6)] = 1e-6
+    _objects["parallax"][np.where(_objects["parallax"] < 1e-6)] = 1e-6
     _icrs = SkyCoord(
         ra=_objects["ra"],
         dec=_objects["dec"],
@@ -489,7 +489,7 @@ def get_objects(
     x_dp, y_dp = fp2dp(x_fp, y_fp, inr)
     icam, x_det, y_det = dp2idet(x_dp, y_dp)
 
-    objects = numpy.array(
+    objects = np.array(
         [
             (
                 _source_id,
@@ -518,17 +518,17 @@ def get_objects(
             )
         ],
         dtype=[
-            ("source_id", numpy.int64),  # u8 (80) not supported by FITSIO
-            ("ra", numpy.float64),
-            ("dec", numpy.float64),
-            ("mag", numpy.float32),
-            ("camera_id", numpy.int16),
-            ("x", numpy.float32),
-            ("y", numpy.float32),
-            ("x_dp", numpy.float32),
-            ("y_dp", numpy.float32),
-            ("x_fp", numpy.float32),
-            ("y_fp", numpy.float32),
+            ("source_id", np.int64),  # u8 (80) not supported by FITSIO
+            ("ra", np.float64),
+            ("dec", np.float64),
+            ("mag", np.float32),
+            ("camera_id", np.int16),
+            ("x", np.float32),
+            ("y", np.float32),
+            ("x_dp", np.float32),
+            ("y_dp", np.float32),
+            ("x_fp", np.float32),
+            ("y_fp", np.float32),
         ],
     )
 

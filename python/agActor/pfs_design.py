@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from numbers import Number
 
 import fitsio
-import numpy
+import numpy as np
 from astropy import units
 from astropy.coordinates import Angle, Distance, SkyCoord, solar_system_ephemeris
 from astropy.time import Time
@@ -64,7 +64,7 @@ class pfsDesign:
             inst_pa = header["POSANG"]
             _guide_objects = fits["guidestars"].read()
 
-        _guide_objects["parallax"][numpy.where(_guide_objects["parallax"] < 1e-6)] = 1e-6
+        _guide_objects["parallax"][np.where(_guide_objects["parallax"] < 1e-6)] = 1e-6
         _icrs = SkyCoord(
             ra=_guide_objects["ra"] * units.deg,
             dec=_guide_objects["dec"] * units.deg,
