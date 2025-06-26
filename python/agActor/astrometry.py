@@ -2,7 +2,7 @@ import itertools
 from datetime import datetime, timezone
 from numbers import Number
 
-import numpy
+import numpy as np
 from astropy import units
 from astropy.coordinates import AltAz, Angle, SkyCoord, solar_system_ephemeris
 from astropy.time import Time
@@ -79,8 +79,8 @@ def measure(
         )
 
     # detected stellar objects in the equatorial coordinates
-    icam, x_det, y_det, flags = numpy.array(detected_objects)[:, (0, 3, 4, -1)].T
-    x_dp, y_dp = coordinates.det2dp(numpy.rint(icam), x_det, y_det)
+    icam, x_det, y_det, flags = np.array(detected_objects)[:, (0, 3, 4, -1)].T
+    x_dp, y_dp = coordinates.det2dp(np.rint(icam), x_det, y_det)
     x_fp, y_fp = pfs.dp2fp(x_dp, y_dp, inr)
     _, alt = _subaru.radec2azel(ra, dec, obswl, obstime)
     separation, position_angle = popt2.focalplane2celestial(x_fp, y_fp, adc, inr, alt, m2_pos3, obswl, flags)
@@ -90,13 +90,13 @@ def measure(
     # source_id, ra, dec, mag
     counter = itertools.count()
     mag = 0
-    objects = numpy.array(
+    objects = np.array(
         [(next(counter), x.ra.to(units.deg).value, x.dec.to(units.deg).value, mag) for x in icrs],
         dtype=[
-            ("source_id", numpy.int64),  # u8 (80) not supported by FITSIO
-            ("ra", numpy.float64),
-            ("dec", numpy.float64),
-            ("mag", numpy.float32),
+            ("source_id", np.int64),  # u8 (80) not supported by FITSIO
+            ("ra", np.float64),
+            ("dec", np.float64),
+            ("mag", np.float32),
         ],
     )
 
