@@ -16,6 +16,7 @@ dependencies = [
     "psycopg2-binary",
     "sdss-opscore",
     "pytest",
+    "pfs-utils",
 ]
 
 [tool.setuptools.packages.find]
