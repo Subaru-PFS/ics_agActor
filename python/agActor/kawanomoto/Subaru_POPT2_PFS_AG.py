@@ -1,69 +1,9 @@
-# -*- coding: utf-8 -*-
 import numpy as np
-import sys
-
-import astropy.units as au
-import astropy.time as at
-import astropy.coordinates as ac
 
 from astropy.utils import iers
 iers.conf.auto_download = False
 
 from pfs.utils.coordinates import Subaru_POPT2_PFS as pfs
-
-### ccd pixel size
-ccdpxsz  = 0.013
-
-### ccd center (nominal)
-ccdcentr = 241.314
-
-### ccd offset 1
-ccdoffx1_pfi =  np.array([-0.668, +0.081, +0.180, +0.357, +0.138, -0.077])
-ccdoffy1_pfi =  np.array([+0.405, +0.055, +0.357, -0.270, -0.444, -0.067])
-
-### ccd offset 2
-ccdoffx2_pfi = -np.array([+0.015, +0.025, +0.014, +0.002, +0.022, +0.004]) ## correction by focus 2.70 data only (with CCD Y offset 8 -> 9 / 2022-09-06)
-ccdoffy2_pfi = -np.array([-0.013, +0.012, +0.030, +0.013, -0.015, -0.024]) ## correction by focus 2.70 data only (with CCD Y offset 8 -> 9 / 2022-09-06)
-
-### ccd pos offset in pfi coord. after installing additional window glass
-glassx_pfi = np.array([-0.004,+0.011,+0.001,+0.000,+0.012,-0.015])
-glassy_pfi = np.array([+0.003,-0.006,-0.008,+0.011,-0.001,-0.005])
-
-### ccd pos offset in pfi coord. after remove shutter
-remshx_pfi = np.array([-0.099,+0.000,-0.019,+0.000,-0.081,+0.000])
-remshy_pfi = np.array([+0.002,+0.000,-0.019,+0.000,+0.094,+0.000])
-
-### ccd pos offset in pfi coord. after ag1 focus correction (TBD)
-ag1fcx_pfi = np.array([-0.234,+0.000,+0.000,+0.000,+0.000,+0.000])
-ag1fcy_pfi = np.array([+0.000,+0.000,+0.000,+0.000,+0.000,+0.000])
-
-### ccd pos offset in pfi coord. ag4 fine adjustment
-ag4adjx_pfi= np.array([+0.000,+0.000,+0.000,+0.004,+0.000,+0.000])
-ag4adjy_pfi= np.array([+0.000,+0.000,+0.000,-0.013,+0.000,+0.000])
-
-### ccd pos offset in pfi coord. ag1 fine adjustment (2025-05-21)
-ag1adjx_pfi= np.array([-0.015,+0.000,+0.000,+0.000,+0.000,+0.000])
-ag1adjy_pfi= np.array([+0.000,+0.000,+0.000,+0.000,+0.000,+0.000])
-
-### ccd offset in pfi
-ccdoffx_pfi = ccdoffx1_pfi + ccdoffx2_pfi + glassx_pfi + remshx_pfi + ag1fcx_pfi + ag4adjx_pfi + ag1adjx_pfi
-ccdoffy_pfi = ccdoffy1_pfi + ccdoffy2_pfi + glassy_pfi + remshy_pfi + ag1fcy_pfi + ag4adjy_pfi + ag1adjy_pfi
-
-### ccd offset in fp
-ccdoffx_fp  = ccdoffy_pfi
-ccdoffy_fp  = ccdoffx_pfi
-
-### ccd rotation angle 1
-ccdrot_pfi1 = np.array([-0.253368, +0.234505, +0.329449, +0.416894, +0.0589071, +0.234977])*np.pi/180.0
-
-### ccd rotation angle 2 (after remove shutter)
-ccdrot_pfi2 = np.array([+0.000000, +0.000000, -0.0539154, +0.000000, -0.137107, +0.000000])*np.pi/180.0
-
-### ccd rotation after ag1 focus correction (TBD)
-ccdrot_pfi3 = np.array([+0.000000, +0.000000, +0.0000000, +0.000000, +0.000000, +0.000000])*np.pi/180.0
-
-### ccd rotation angle
-ccdrot_pfi = ccdrot_pfi1 + ccdrot_pfi2 + ccdrot_pfi3
 
 
 ### perturbation
@@ -71,14 +11,6 @@ d_ra  = 1.0/3600.0
 d_de  = 1.0/3600.0
 d_inr = 0.01
 d_scl = 1.0e-05
-
-### pfi parity (flip y)
-pfi_parity = -1.0 # -1 or +1,
-
-# ### constants proper to PFS camera
-# pfs_inr_zero_offset        =  0.00 # in degree
-# pfs_detector_zero_offset_x =  0.00 # in mm
-# pfs_detector_zero_offset_y =  0.00 # in mm
 
 
 class PFS():
