@@ -6,7 +6,7 @@ import astropy.units as au
 import astropy.time as at
 import astropy.coordinates as ac
 
-from . import Subaru_POPT2_PFS_AG
+from agActor.kawanomoto import Subaru_POPT2_PFS_AG
 from pfs.utils.coordinates import Subaru_POPT2_PFS
 
 ### Subaru location

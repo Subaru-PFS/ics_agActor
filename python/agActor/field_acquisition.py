@@ -5,14 +5,13 @@ import numpy
 from astropy.table import Table
 from numpy.lib import recfunctions as rfn
 
-import _gen2_gaia as gaia
+from agActor import gen2_gaia as gaia
+from agACtor import coordinates
+from agActor import to_altaz
+from agActor.kawanomoto import FieldAcquisitionAndFocusing
+from agActor.opdb import opDB as opdb
+from agActor.pfs_design import pfsDesign as pfs_design
 
-# import _gen2_gaia_annulus as gaia
-import coordinates
-import to_altaz
-from kawanomoto import FieldAcquisitionAndFocusing
-from opdb import opDB as opdb
-from pfs_design import pfsDesign as pfs_design
 from pfs.utils.datamodel.ag import AutoGuiderStarMask
 
 

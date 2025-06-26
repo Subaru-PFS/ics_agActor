@@ -1,10 +1,9 @@
-import _gen2_gaia as gaia
-import astrometry
-import field_acquisition
+from agActor import gen2_gaia as gaia
+from agActor import astrometry
+from agActor import field_acquisition
 
-# import _gen2_gaia_annulus as gaia
-from opdb import opDB as opdb
-from pfs_design import pfsDesign as pfs_design
+from agActor.opdb import opDB as opdb
+from agActor.pfs_design import pfsDesign as pfs_design
 
 
 class Field:
