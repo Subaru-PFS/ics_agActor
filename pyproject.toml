@@ -11,6 +11,7 @@ requires-python = ">=3.12"
 dependencies = [
     "astropy",
     "jplephem",
+    "fitsio",
     "numpy",
     "psycopg2-binary",
     "sdss-opscore",
