@@ -80,67 +80,6 @@ pfi_parity = -1.0 # -1 or +1,
 # pfs_detector_zero_offset_x =  0.00 # in mm
 # pfs_detector_zero_offset_y =  0.00 # in mm
 
-# ### Subaru location
-# sbr_lat =   +19.8225
-# sbr_lon =  +204.523972222
-# sbr_hei = +4163.0
-# Lsbr = ac.EarthLocation(lat=sbr_lat,lon=sbr_lon,height=sbr_hei)
-
-# ### misc.
-# sbr_press  = 620.0
-
-# class Subaru():
-#     def radec2inr(self, tel_ra, tel_de, t):
-#         pr  = 0.0   # Subaru InR ignore atmospheric refraction
-#         wl  = 0.62  # so wavelength is selected freely in visible light
-
-#         tel_coord = ac.SkyCoord(ra=tel_ra, dec=tel_de, unit=(au.deg, au.deg), frame='icrs',equinox='J2000.0')
-#         np_coord  = ac.SkyCoord(ra=0.0,    dec=90.0,   unit=(au.deg, au.deg), frame='icrs',equinox=t)
-#         frame_subaru = ac.AltAz(obstime  = t, location = Lsbr, \
-#                                 pressure = pr*au.hPa, obswl = wl*au.micron)
-#         tel_altaz = tel_coord.transform_to(frame_subaru)
-#         np_altaz  = np_coord.transform_to(frame_subaru)
-#         inr_cal = (tel_altaz.position_angle(np_altaz).degree-180)%360-180
-#         return inr_cal
-
-#     def starSepZPA(self, tel_ra, tel_de, str_ra, str_de, wl, t):
-#         tel_coord = ac.SkyCoord(ra=tel_ra, dec=tel_de, unit=(au.deg, au.deg), frame='icrs')
-#         str_coord = ac.SkyCoord(ra=str_ra, dec=str_de, unit=(au.deg, au.deg), frame='icrs')
-#         frame_subaru = ac.AltAz(obstime  = t, location = Lsbr,\
-#                                 pressure = sbr_press*au.hPa, obswl = wl*au.micron)
-#         tel_altaz = tel_coord.transform_to(frame_subaru)
-#         str_altaz = str_coord.transform_to(frame_subaru)
-
-#         str_sep =  tel_altaz.separation(str_altaz).degree
-#         str_zpa = -tel_altaz.position_angle(str_altaz).degree
-#         return str_sep, str_zpa
-
-#     def starRADEC(self, tel_ra, tel_de, str_sep, str_zpa, wl, t):
-#         str_sep = str_sep*au.degree
-#         str_zpa = str_zpa*au.degree
-
-#         tel_coord = ac.SkyCoord(ra=tel_ra, dec=tel_de, unit=(au.deg, au.deg), frame='icrs')
-#         frame_subaru = ac.AltAz(obstime  = t, location = Lsbr,\
-#                                 pressure = sbr_press*au.hPa, obswl = wl*au.micron)
-#         tel_altaz = tel_coord.transform_to(frame_subaru)
-#         str_altaz = tel_altaz.directional_offset_by(str_zpa, str_sep)
-#         str_coord = str_altaz.transform_to('icrs')
-#         ra = str_coord.ra.degree
-#         de = str_coord.dec.degree
-#         return ra,de
-
-#     def radec2radecplxpm(self, gaia_epoch, str_ra, str_de, str_plx, str_pmRA, str_pmDE, t):
-#         str_plx[np.where(str_plx<0.00001)]=0.00001
-#         str_coord = ac.SkyCoord(ra=str_ra, dec=str_de, unit=(au.deg, au.deg),
-#                                 distance=ac.Distance(parallax=str_plx * au.mas, allow_negative=False),
-#                                 pm_ra_cosdec = str_pmRA * au.mas/au.yr,
-#                                 pm_dec = str_pmDE * au.mas/au.yr,
-#                                 obstime=Time(gaia_epoch, format='decimalyear'),
-#                                 frame='icrs')
-#         str_coord_obstime = str_coord.apply_space_motion(at.Time(t))
-#         ra = str_coord_obstime.ra.degree
-#         de = str_coord_obstime.dec.degree
-#         return ra,de
 
 class PFS():
     def sourceFilter(self, agarray, maxellip, maxsize, minsize):
