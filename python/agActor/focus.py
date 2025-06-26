@@ -1,6 +1,6 @@
 import numpy
 from opdb import opDB as opdb
-from kawanomoto import FieldAcquisitionAndFocusing
+from kawanomoto.FieldAcquisitionAndFocusing import PFS
 
 
 # mapping of keys and value types between focus.py and FieldAcquisitionAndFocusing.py
@@ -58,8 +58,8 @@ def _focus(detected_objects, logger=None, **kwargs):
     )
     _kwargs = _map_kwargs(kwargs)
     logger and logger.info('_kwargs={}'.format(_kwargs))
-    pfs = FieldAcquisitionAndFocusing.PFS()
-    dzs = pfs.Focus(_detected_objects, **_kwargs)
+
+    dzs = PFS.Focus(_detected_objects, **_kwargs)
     logger and logger.info('dzs={}'.format(dzs))
     dz = numpy.nanmedian(dzs)
     logger and logger.info('dz={}'.format(dz))

@@ -6,8 +6,8 @@ from . import Subaru_POPT2_PFS_AG
 
 
 class PFS:
+    @staticmethod
     def FAinstpa(
-        self,
         carray,
         darray,
         tel_ra,
@@ -66,7 +66,8 @@ class PFS:
 
         return ra_offset, de_offset, inr_offset, scale_offset, mr, md, v
 
-    def Focus(self, agarray, maxellip=0.6, maxsize=20.0, minsize=0.92):
+    @staticmethod
+    def Focus(agarray, maxellip=0.6, maxsize=20.0, minsize=0.92):
         pfs = Subaru_POPT2_PFS_AG.PFS()
 
         md = pfs.agarray2momentdifference(agarray, maxellip, maxsize, minsize)

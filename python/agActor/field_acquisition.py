@@ -10,7 +10,7 @@ import coordinates
 from opdb import opDB as opdb
 from pfs_design import pfsDesign as pfs_design
 import to_altaz
-from kawanomoto import FieldAcquisitionAndFocusing
+from kawanomoto.FieldAcquisitionAndFocusing import PFS
 from numpy.lib import recfunctions as rfn
 
 
@@ -199,8 +199,7 @@ def _acquire_field(guide_objects, detected_objects, ra, dec, taken_at, adc, inst
     )
     _kwargs = _map_kwargs(kwargs)
     logger and logger.info('Calling pfs.FAinstpa with _kwargs={}'.format(_kwargs))
-    pfs = FieldAcquisitionAndFocusing.PFS()
-    dra, ddec, dinr, dscale, *diags = pfs.FAinstpa(_guide_objects, _detected_objects, ra, dec, taken_at.astimezone(tz=timezone.utc) if isinstance(taken_at, datetime) else datetime.fromtimestamp(taken_at, tz=timezone.utc) if isinstance(taken_at, Number) else taken_at, adc, inst_pa, m2_pos3, obswl, **_kwargs)
+    dra, ddec, dinr, dscale, *diags = PFS.FAinstpa(_guide_objects, _detected_objects, ra, dec, taken_at.astimezone(tz=timezone.utc) if isinstance(taken_at, datetime) else datetime.fromtimestamp(taken_at, tz=timezone.utc) if isinstance(taken_at, Number) else taken_at, adc, inst_pa, m2_pos3, obswl, **_kwargs)
     dra *= 3600
     ddec *= 3600
     dinr *= 3600
