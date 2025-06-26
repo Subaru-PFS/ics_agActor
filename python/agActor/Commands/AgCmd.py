@@ -23,16 +23,16 @@ class AgCmd:
             ("show", "", self.show),
             (
                 "acquire_field",
-                "[<design_id>] [<design_path>] [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<offset>] [<dinr>] ["
-                "<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] ["
-                "<max_residual>] [<exposure_delay>] [<tec_off>]",
+                "[<design_id>] [<design_path>] [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<offset>] [<dinr>] "
+                "[<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] "
+                "[<max_residual>] [<exposure_delay>] [<tec_off>]",
                 self.acquire_field,
             ),
             (
                 "acquire_field",
-                "@otf [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<center>] [<offset>] [<dinr>] [<magnitude>] ["
-                "<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] ["
-                "<exposure_delay>] [<tec_off>]",
+                "@otf [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<center>] [<offset>] [<dinr>] [<magnitude>] "
+                "[<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] "
+                "[<exposure_delay>] [<tec_off>]",
                 self.acquire_field,
             ),
             (
@@ -43,30 +43,30 @@ class AgCmd:
             ),
             (
                 "autoguide",
-                "@start [<design_id>] [<design_path>] [<visit_id>|<visit>] [<from_sky>] [<exposure_time>] [<cadence>] ["
-                "<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] ["
-                "<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]",
+                "@start [<design_id>] [<design_path>] [<visit_id>|<visit>] [<from_sky>] [<exposure_time>] [<cadence>] "
+                "[<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] "
+                "[<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]",
                 self.start_autoguide,
             ),
             (
                 "autoguide",
-                "@start @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>] ["
-                "<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] ["
-                "<exposure_delay>] [<tec_off>]",
+                "@start @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>] "
+                "[<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] "
+                "[<exposure_delay>] [<tec_off>]",
                 self.start_autoguide,
             ),
             (
                 "autoguide",
-                "@initialize [<design_id>] [<design_path>] [<visit_id>|<visit>] [<from_sky>] [<exposure_time>] ["
-                "<cadence>] [<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] ["
-                "<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]",
+                "@initialize [<design_id>] [<design_path>] [<visit_id>|<visit>] [<from_sky>] [<exposure_time>] "
+                "[<cadence>] [<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] "
+                "[<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]",
                 self.initialize_autoguide,
             ),
             (
                 "autoguide",
-                "@initialize @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] ["
-                "<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] ["
-                "<exposure_delay>] [<tec_off>]",
+                "@initialize @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] "
+                "[<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] "
+                "[<exposure_delay>] [<tec_off>]",
                 self.initialize_autoguide,
             ),
             ("autoguide", "@restart", self.restart_autoguide),
