@@ -21,7 +21,7 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["python/"]
-include = ["agActor"]
+include = ["agActor.*"]
 
 [tool.black]
 line-length = 110
