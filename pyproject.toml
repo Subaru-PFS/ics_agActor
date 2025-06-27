@@ -15,6 +15,7 @@ dependencies = [
     "numpy",
     "psycopg2-binary",
     "sdss-opscore",
+    "sdss-actorcore",
     "pytest",
     "pfs-utils",
 ]
