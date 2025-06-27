@@ -7,9 +7,10 @@ from astropy import units
 from astropy.coordinates import AltAz, Angle, SkyCoord, solar_system_ephemeris
 from astropy.time import Time
 from astropy.utils import iers
+from pfs.utils.coordinates import Subaru_POPT2_PFS
 
 from agActor import coordinates
-from pfs.utils.coordinates import Subaru_POPT2_PFS
+from agActor import subaru
 
 iers.conf.auto_download = True
 solar_system_ephemeris.set("de440")
@@ -53,8 +54,6 @@ def measure(
             else Time(obstime) if obstime is not None else Time.now()
         )
     )
-
-    import subaru
 
     frame_tc = AltAz(
         obstime=obstime,
@@ -101,42 +100,3 @@ def measure(
     )
 
     return objects
-
-
-if __name__ == "__main__":
-
-    from argparse import ArgumentParser
-
-    parser = ArgumentParser()
-    parser.add_argument("--design-id", type=lambda x: int(x, 0), required=True, help="design identifier")
-    parser.add_argument("--frame-id", type=int, required=True, help="frame identifier")
-    parser.add_argument("--obswl", type=float, default=0.62, help="wavelength of observation (um)")
-    args, _ = parser.parse_known_args()
-
-    from opdb import opDB as opdb
-
-    _, ra, dec, inst_pa, *_ = opdb.query_pfs_design(args.design_id)
-    _, _, taken_at, _, _, _, adc, temperature, relative_humidity, pressure, m2_pos3 = opdb.query_agc_exposure(
-        args.frame_id
-    )
-    detected_objects = opdb.query_agc_data(args.frame_id)
-
-    import logging
-
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(name="astrometry")
-    objects = measure(
-        detected_objects=detected_objects,
-        ra=ra,
-        dec=dec,
-        obstime=taken_at,
-        inst_pa=inst_pa,
-        adc=adc,
-        m2_pos3=m2_pos3,
-        temperature=temperature,
-        relative_humidity=relative_humidity,
-        pressure=pressure,
-        obswl=args.obswl,
-        logger=logger,
-    )
-    print(objects)

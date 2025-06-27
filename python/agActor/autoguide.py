@@ -1,7 +1,4 @@
-from agActor import gen2_gaia as gaia
-from agActor import astrometry
-from agActor import field_acquisition
-
+from agActor import astrometry, field_acquisition, gen2_gaia as gaia
 from agActor.opdb import opDB as opdb
 from agActor.pfs_design import pfsDesign as pfs_design
 
@@ -172,64 +169,3 @@ def autoguide(*, frame_id, obswl=0.62, logger=None, **kwargs):
             **_kwargs,
         ),
     )  # (ra, dec, inst_pa, dra, ddec, dinr, dscale, dalt, daz, *values)
-
-
-if __name__ == "__main__":
-
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--design-id", type=lambda x: int(x, 0), default=None, help="design identifier")
-    parser.add_argument("--design-path", default=None, help="design path")
-    parser.add_argument("--frame-id", type=int, required=True, help="frame identifier")
-    parser.add_argument("--ref-frame-id", type=int, default=None, help="reference frame identifier")
-    parser.add_argument("--obswl", type=float, default=0.62, help="wavelength of observation (um)")
-    parser.add_argument("--center", default=None, help="field center coordinates ra, dec[, pa] (deg)")
-    parser.add_argument(
-        "--offset", default=None, help="field offset coordinates dra, ddec[, dpa[, dinr]] (arcsec)"
-    )
-    parser.add_argument(
-        "--dinr", type=float, default=None, help="instrument rotator offset, east of north (arcsec)"
-    )
-    parser.add_argument(
-        "--fit-dinr", action=argparse.BooleanOptionalAction, default=argparse.SUPPRESS, help=""
-    )
-    parser.add_argument(
-        "--fit-dscale", action=argparse.BooleanOptionalAction, default=argparse.SUPPRESS, help=""
-    )
-    parser.add_argument("--max-ellipticity", type=float, default=argparse.SUPPRESS, help="")
-    parser.add_argument("--max-size", type=float, default=argparse.SUPPRESS, help="")
-    parser.add_argument("--min-size", type=float, default=argparse.SUPPRESS, help="")
-    parser.add_argument("--max-residual", type=float, default=argparse.SUPPRESS, help="")
-    args, _ = parser.parse_known_args()
-
-    kwargs = {}
-    if any(x is not None for x in (args.design_id, args.design_path)):
-        kwargs["design"] = args.design_id, args.design_path
-    if args.center is not None:
-        kwargs["center"] = tuple([float(x) for x in args.center.split(",")])
-    if args.offset is not None:
-        kwargs["offset"] = tuple([float(x) for x in args.offset.split(",")])
-    if args.dinr is not None:
-        kwargs["dinr"] = args.dinr
-    kwargs |= {key: getattr(args, key) for key in field_acquisition._KEYMAP if key in args}
-    print("kwargs={}".format(kwargs))
-
-    import logging
-
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(name="autoguide")
-    set_design(logger=logger, **kwargs)
-    set_design_agc(frame_id=args.ref_frame_id, obswl=args.obswl, logger=logger, **kwargs)
-    ra, dec, inst_pa, dra, ddec, dinr, dscale, dalt, daz, *values = autoguide(
-        frame_id=args.frame_id, obswl=args.obswl, logger=logger, **kwargs
-    )
-    print(
-        "ra={},dec={},inst_pa={},dra={},ddec={},dinr={},dscale={},dalt={},daz={}".format(
-            ra, dec, inst_pa, dra, ddec, dinr, dscale, dalt, daz
-        )
-    )
-    guide_objects, detected_objects, identified_objects, *_ = values
-    # print(guide_objects)
-    # print(detected_objects)
-    # print(identified_objects)

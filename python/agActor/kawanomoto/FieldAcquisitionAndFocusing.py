@@ -1,7 +1,7 @@
 import numpy as np
+from pfs.utils.coordinates import Subaru_POPT2_PFS
 
 from agActor.kawanomoto import Subaru_POPT2_PFS_AG
-from pfs.utils.coordinates import Subaru_POPT2_PFS
 
 
 class PFS():
@@ -55,7 +55,3 @@ class PFS():
             df[idx] = pfs.momentdifference2focuserror(md[idx])
 
         return df
-
-###
-if __name__ == "__main__":
-    print('### PFS field acquisition and focusing')
