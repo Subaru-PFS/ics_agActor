@@ -5,8 +5,7 @@ import numpy
 from astropy.table import Table
 
 import _gen2_gaia as gaia
-#import _gen2_gaia_annulus as gaia
-import coordinates
+from pfs.utils.coordinates import coordinates
 from opdb import opDB as opdb
 from pfs_design import pfsDesign as pfs_design
 import to_altaz

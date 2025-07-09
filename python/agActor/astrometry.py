@@ -6,7 +6,7 @@ from astropy import units
 from astropy.coordinates import AltAz, Angle, SkyCoord, solar_system_ephemeris
 from astropy.time import Time
 from astropy.utils import iers
-import coordinates
+from pfs.utils.coordinates import coordinates
 from pfs.utils.coordinates import Subaru_POPT2_PFS
 
 
