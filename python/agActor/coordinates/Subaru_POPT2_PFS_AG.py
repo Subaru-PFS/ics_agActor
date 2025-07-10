@@ -1,8 +1,5 @@
 import numpy as np
 
-from astropy.utils import iers
-iers.conf.auto_download = False
-
 from pfs.utils.coordinates import Subaru_POPT2_PFS as pfs
 
 ### perturbation

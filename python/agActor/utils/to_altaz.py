@@ -2,12 +2,8 @@ from datetime import datetime, timezone
 from numbers import Number
 
 from astropy import units as u
-from astropy.coordinates import AltAz, Angle, SkyCoord, solar_system_ephemeris
+from astropy.coordinates import AltAz, Angle, SkyCoord
 from astropy.time import Time
-from astropy.utils import iers
-
-iers.conf.auto_download = True
-solar_system_ephemeris.set("de440")
 
 
 def to_altaz(

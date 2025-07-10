@@ -5,14 +5,10 @@ from numbers import Number
 import fitsio
 import numpy as np
 from astropy import units as u
-from astropy.coordinates import Angle, Distance, SkyCoord, solar_system_ephemeris
+from astropy.coordinates import Angle, Distance, SkyCoord
 from astropy.time import Time
-from astropy.utils import iers
 
 from agActor.utils.logging import log_message
-
-iers.conf.auto_download = True
-solar_system_ephemeris.set("de440")
 
 
 class pfsDesign:
