@@ -1,44 +1,7 @@
-import psycopg2
+from ics.utils.opdb import opDB as icsDB
 
 
-class opDB:
-
-    @staticmethod
-    def _connect():
-
-        return psycopg2.connect(dbname='opdb', host='db-ics', user='pfs')
-
-    @staticmethod
-    def fetchall(statement, params=None):
-
-        with opDB._connect() as conn:
-            with conn.cursor() as curs:
-                curs.execute(statement, params)
-                return curs.fetchall()
-
-    @staticmethod
-    def fetchone(statement, params=None):
-
-        with opDB._connect() as conn:
-            with conn.cursor() as curs:
-                curs.execute(statement, params)
-                return curs.fetchone()
-
-    @staticmethod
-    def execute(statement, params=None):
-
-        with opDB._connect() as conn:
-            with conn.cursor() as curs:
-                curs.execute(statement, params)
-            conn.commit()
-
-    @staticmethod
-    def insert(table, **params):
-
-        columns = ','.join(params)
-        values = ','.join(['%({})s'.format(x) for x in params])
-        statement = 'INSERT INTO {} ({}) VALUES ({})'.format(table, columns, values)
-        opDB.execute(statement, params)
+class opDB(icsDB):
 
     @staticmethod
     def query_pfs_design(pfs_design_id):
@@ -202,7 +165,7 @@ class opDB:
         column_values = ','.join(['{}=%({})s'.format(x, x) for x in params])
         statement = 'UPDATE pfs_design SET {} WHERE pfs_design_id=%(pfs_design_id)s'.format(column_values)
         params.update(pfs_design_id=pfs_design_id)
-        opDB.execute(statement, params)
+        opDB.commit(statement, params)
 
     @staticmethod
     def update_tile(tile_id, **params):
@@ -210,7 +173,7 @@ class opDB:
         column_values = ','.join(['{}=%({})s'.format(x, x) for x in params])
         statement = 'UPDATE tile SET {} WHERE tile_id=%(tile_id)s'.format(column_values)
         params.update(tile_id=tile_id)
-        opDB.execute(statement, params)
+        opDB.commit(statement, params)
 
     @staticmethod
     def update_pfs_design_agc(pfs_design_id, guide_star_id, **params):
@@ -218,7 +181,7 @@ class opDB:
         column_values = ','.join(['{}=%({})s'.format(x, x) for x in params])
         statement = 'UPDATE pfs_design_agc SET {} WHERE pfs_design_id=%(pfs_design_id)s AND guide_star_id=%(guide_star_id)s'.format(column_values)
         params.update(pfs_design_id=pfs_design_id, guide_star_id=guide_star_id)
-        opDB.execute(statement, params)
+        opDB.commit(statement, params)
 
     @staticmethod
     def update_agc_exposure(agc_exposure_id, **params):
@@ -226,7 +189,7 @@ class opDB:
         column_values = ','.join(['{}=%({})s'.format(x, x) for x in params])
         statement = 'UPDATE agc_exposure SET {} WHERE agc_exposure_id=%(agc_exposure_id)s'.format(column_values)
         params.update(agc_exposure_id=agc_exposure_id)
-        opDB.execute(statement, params)
+        opDB.commit(statement, params)
 
     @staticmethod
     def update_tel_status(pfs_visit_id, status_sequence_id, **params):
@@ -234,7 +197,7 @@ class opDB:
         column_values = ','.join(['{}=%({})s'.format(x, x) for x in params])
         statement = 'UPDATE tel_status SET {} WHERE pfs_visit_id=%(pfs_visit_id)s AND status_sequence_id=%(status_sequence_id)s'.format(column_values)
         params.update(pfs_visit_id=pfs_visit_id, status_sequence_id=status_sequence_id)
-        opDB.execute(statement, params)
+        opDB.commit(statement, params)
 
     @staticmethod
     def update_agc_data(agc_exposure_id, agc_camera_id, spot_id, **params):
@@ -242,7 +205,7 @@ class opDB:
         column_values = ','.join(['{}=%({})s'.format(x, x) for x in params])
         statement = 'UPDATE agc_data SET {} WHERE agc_exposure_id=%(agc_exposure_id)s AND agc_camera_id=%(agc_camera_id)s AND spot_id=%(spot_id)s'.format(column_values)
         params.update(agc_exposure_id=agc_exposure_id, agc_camera_id=agc_camera_id, spot_id=spot_id)
-        opDB.execute(statement, params)
+        opDB.commit(statement, params)
 
     @staticmethod
     def update_agc_guide_offset(agc_exposure_id, **params):
@@ -250,7 +213,7 @@ class opDB:
         column_values = ','.join(['{}=%({})s'.format(x, x) for x in params])
         statement = 'UPDATE agc_guide_offset SET {} WHERE agc_exposure_id=%(agc_exposure_id)s'.format(column_values)
         params.update(agc_exposure_id=agc_exposure_id)
-        opDB.execute(statement, params)
+        opDB.commit(statement, params)
 
     @staticmethod
     def update_agc_match(agc_exposure_id, agc_camera_id, spot_id, **params):
@@ -258,4 +221,4 @@ class opDB:
         column_values = ','.join(['{}=%({})s'.format(x, x) for x in params])
         statement = 'UPDATE agc_match SET {} WHERE agc_exposure_id=%(agc_exposure_id)s AND agc_camera_id=%(agc_camera_id)s AND spot_id=%(spot_id)s'.format(column_values)
         params.update(agc_exposure_id=agc_exposure_id, agc_camera_id=agc_camera_id, spot_id=spot_id)
-        opDB.execute(statement, params)
+        opDB.commit(statement, params)
