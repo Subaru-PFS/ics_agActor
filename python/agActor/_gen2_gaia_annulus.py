@@ -2,15 +2,11 @@ from datetime import datetime, timezone
 from numbers import Number
 import numpy
 from astropy import units
-from astropy.coordinates import AltAz, Angle, Distance, SkyCoord, solar_system_ephemeris
+from astropy.coordinates import AltAz, Angle, Distance, SkyCoord
 from astropy.time import Time
-from astropy.utils import iers
 from pfs.utils.coordinates import coordinates
 from pfs.utils.coordinates import Subaru_POPT2_PFS
 
-
-iers.conf.auto_download = True
-solar_system_ephemeris.set('de440')
 
 _popt2 = Subaru_POPT2_PFS.POPT2()
 _pfs = Subaru_POPT2_PFS.PFS()

@@ -6,9 +6,6 @@ import astropy.units as au
 import astropy.time as at
 import astropy.coordinates as ac
 
-from astropy.utils import iers
-iers.conf.auto_download = False
-
 from pfs.utils.coordinates import Subaru_POPT2_PFS as pfs
 
 ### ccd pixel size
