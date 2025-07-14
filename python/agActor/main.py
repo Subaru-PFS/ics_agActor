@@ -6,6 +6,7 @@ from actorcore.ICC import ICC
 from agActor.agcc import Agcc
 from agActor.mlp1 import Mlp1
 from agActor.gen2 import Gen2
+from ics.utils import pfsIERS
 
 
 class AgActor(ICC):
