@@ -1,12 +1,46 @@
+import os
 from datetime import datetime, timezone
 from numbers import Number
 
 import numpy as np
+import psycopg2
 from astropy import units as u
 from astropy.coordinates import AltAz, Angle, Distance, SkyCoord, solar_system_ephemeris
+from astropy.table import Table
 from astropy.time import Time
 from astropy.utils import iers
 from pfs.utils.coordinates import Subaru_POPT2_PFS, coordinates
+
+from agActor.utils import subaru
+
+
+class GaiaDB:
+    """Configuration for Gaia star catalog database connection.
+
+    This class provides a centralized way to configure the connection to the Gaia
+    star catalog database. Connection parameters can be set via environment variables:
+
+    - GAIA_DB_HOST: Database host (default: 'g2db.sum.subaru.nao.ac.jp')
+    - GAIA_DB_PORT: Database port (default: 5438)
+    - GAIA_DB_USER: Database user (default: 'obsuser')
+    - GAIA_DB_NAME: Database name (default: 'star_catalog')
+    """
+
+    # Default connection parameters
+    host = os.environ.get("GAIA_DB_HOST", "g2db.sum.subaru.nao.ac.jp")
+    port = int(os.environ.get("GAIA_DB_PORT", 5438))
+    user = os.environ.get("GAIA_DB_USER", "obsuser")
+    dbname = os.environ.get("GAIA_DB_NAME", "star_catalog")
+
+    @staticmethod
+    def get_dsn():
+        """Get the DSN (Data Source Name) string for database connection.
+
+        Returns:
+            str: DSN string for psycopg2.connect()
+        """
+        return f"host={GaiaDB.host} port={GaiaDB.port} user={GaiaDB.user} dbname={GaiaDB.dbname}"
+
 
 iers.conf.auto_download = True
 solar_system_ephemeris.set("de440")
@@ -294,71 +328,61 @@ def search(ra, dec, radius=0.027 + 0.003):
     astropy.table.Table
         The table of the Gaia DR3 sources inside the search areas
     """
+    if np.isscalar(ra):
+        ra = (ra,)
+    if np.isscalar(dec):
+        dec = (dec,)
 
-    def _search(ra, dec, radius):
-        """Perform search of Gaia DR3."""
+    columns = (
+        "source_id",
+        "ref_epoch",
+        "ra",
+        "ra_error",
+        "dec",
+        "dec_error",
+        "parallax",
+        "parallax_error",
+        "pmra",
+        "pmra_error",
+        "pmdec",
+        "pmdec_error",
+        "phot_g_mean_mag",
+    )
+    _units = (
+        u.dimensionless_unscaled,
+        u.yr,
+        u.deg,
+        u.mas,
+        u.deg,
+        u.mas,
+        u.mas,
+        u.mas,
+        u.mas / u.yr,
+        u.mas / u.yr,
+        u.mas / u.yr,
+        u.mas / u.yr,
+        u.mag,
+    )
 
-        if np.isscalar(ra):
-            ra = (ra,)
-        if np.isscalar(dec):
-            dec = (dec,)
-
-        import psycopg2
-        from astropy.table import Table
-
-        columns = (
-            "source_id",
-            "ref_epoch",
-            "ra",
-            "ra_error",
-            "dec",
-            "dec_error",
-            "parallax",
-            "parallax_error",
-            "pmra",
-            "pmra_error",
-            "pmdec",
-            "pmdec_error",
-            "phot_g_mean_mag",
-        )
-        _units = (
-            u.dimensionless_unscaled,
-            u.yr,
-            u.deg,
-            u.mas,
-            u.deg,
-            u.mas,
-            u.mas,
-            u.mas,
-            u.mas / u.yr,
-            u.mas / u.yr,
-            u.mas / u.yr,
-            u.mas / u.yr,
-            u.mag,
-        )
-
-        host = "133.40.167.46"  # 'g2db' for production use
-        port = 5438
-        user = "gen2"  # 'obsuser' for production use
-
-        dsn = "host={} port={} user={} dbname=star_catalog".format(host, port, user)
-        with psycopg2.connect(dsn) as connection:
-            with connection.cursor() as cursor:
-                query = (
-                    "SELECT {} FROM gaia3 WHERE (".format(",".join(columns))
-                    + " OR ".join(
-                        [
-                            "q3c_radial_query(ra,dec,{},{},{})".format(_ra, _dec, radius)
-                            for _ra, _dec in zip(ra, dec)
-                        ]
-                    )
-                    + ") AND pmra IS NOT NULL AND pmdec IS NOT NULL AND parallax IS NOT NULL ORDER BY phot_g_mean_mag"
+    # Use the GaiaDB class to get the DSN string
+    dsn = GaiaDB.get_dsn()
+    with psycopg2.connect(dsn) as connection:
+        with connection.cursor() as cursor:
+            query = (
+                f"SELECT {','.join(columns)} FROM gaia3 WHERE ("
+                + " OR ".join(
+                    [
+                        f"q3c_radial_query(ra,dec,{_ra},{_dec},{radius})"
+                        for _ra, _dec in zip(ra, dec)
+                    ]
                 )
-                cursor.execute(query)
-                objects = cursor.fetchall()
-                return Table(rows=objects, names=columns, units=_units)
+                + ") AND pmra IS NOT NULL AND pmdec IS NOT NULL AND parallax IS NOT NULL ORDER BY phot_g_mean_mag"
+            )
 
-    return _search(ra, dec, radius)
+            cursor.execute(query)
+            objects = cursor.fetchall()
+
+            return Table(rows=objects, names=columns, units=_units)
 
 
 def get_objects(
@@ -427,8 +451,6 @@ def get_objects(
             else Time(obstime) if obstime is not None else Time.now()
         )
     )
-
-    from agActor.utils import subaru
 
     frame_tc = AltAz(
         obstime=obstime,
