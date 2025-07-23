@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from numbers import Number
+import os
 import numpy
 from astropy import units
 from astropy.coordinates import AltAz, Angle, Distance, SkyCoord, solar_system_ephemeris
@@ -8,6 +9,34 @@ from astropy.utils import iers
 from pfs.utils.coordinates import coordinates
 
 from pfs.utils.coordinates import Subaru_POPT2_PFS
+
+
+class GaiaDB:
+    """Configuration for Gaia star catalog database connection.
+    
+    This class provides a centralized way to configure the connection to the Gaia
+    star catalog database. Connection parameters can be set via environment variables:
+    
+    - GAIA_DB_HOST: Database host (default: 'g2db.sum.subaru.nao.ac.jp')
+    - GAIA_DB_PORT: Database port (default: 5438)
+    - GAIA_DB_USER: Database user (default: 'obsuser')
+    - GAIA_DB_NAME: Database name (default: 'star_catalog')
+    """
+    
+    # Default connection parameters
+    host = os.environ.get('GAIA_DB_HOST', 'g2db.sum.subaru.nao.ac.jp')
+    port = int(os.environ.get('GAIA_DB_PORT', 5438))
+    user = os.environ.get('GAIA_DB_USER', 'obsuser')
+    dbname = os.environ.get('GAIA_DB_NAME', 'star_catalog')
+    
+    @staticmethod
+    def get_dsn():
+        """Get the DSN (Data Source Name) string for database connection.
+        
+        Returns:
+            str: DSN string for psycopg2.connect()
+        """
+        return f'host={GaiaDB.host} port={GaiaDB.port} user={GaiaDB.user} dbname={GaiaDB.dbname}'
 
 
 iers.conf.auto_download = True
@@ -311,11 +340,8 @@ def search(ra, dec, radius=0.027 + 0.003):
         columns = ('source_id', 'ref_epoch', 'ra', 'ra_error', 'dec', 'dec_error', 'parallax', 'parallax_error', 'pmra', 'pmra_error', 'pmdec', 'pmdec_error', 'phot_g_mean_mag')
         _units = (units.dimensionless_unscaled, units.yr, units.deg, units.mas, units.deg, units.mas, units.mas, units.mas, units.mas / units.yr, units.mas / units.yr, units.mas / units.yr, units.mas / units.yr, units.mag)
 
-        host = '133.40.167.46'  # 'g2db' for production use
-        port = 5438
-        user = 'gen2'  # 'obsuser' for production use
-
-        dsn = 'host={} port={} user={} dbname=star_catalog'.format(host, port, user)
+        # Use the GaiaDB class to get the DSN string
+        dsn = GaiaDB.get_dsn()
         with psycopg2.connect(dsn) as connection:
             with connection.cursor() as cursor:
                 query = 'SELECT {} FROM gaia3 WHERE ('.format(','.join(columns)) \
