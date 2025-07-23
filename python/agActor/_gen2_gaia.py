@@ -345,10 +345,21 @@ def search(ra, dec, radius=0.027 + 0.003):
         dsn = GaiaDB.get_dsn()
         with psycopg2.connect(dsn) as connection:
             with connection.cursor() as cursor:
-                query = 'SELECT {} FROM gaia3 WHERE ('.format(','.join(columns)) \
-                    + ' OR '.join(['q3c_radial_query(ra,dec,{},{},{})'.format(_ra, _dec, radius) for _ra, _dec in zip(ra, dec)]) \
-                    + ') AND pmra IS NOT NULL AND pmdec IS NOT NULL AND parallax IS NOT NULL ORDER BY phot_g_mean_mag'
-                cursor.execute(query)
+                # Build query with parameter placeholders
+                query = 'SELECT {} FROM gaia3 WHERE ('.format(','.join(columns))
+                query_conditions = []
+                params = []
+                
+                # Create parameterized conditions and collect parameters
+                for _ra, _dec in zip(ra, dec):
+                    query_conditions.append('q3c_radial_query(ra,dec,%s,%s,%s)')
+                    params.extend([_ra, _dec, radius])
+                
+                query += ' OR '.join(query_conditions)
+                query += ') AND pmra IS NOT NULL AND pmdec IS NOT NULL AND parallax IS NOT NULL ORDER BY phot_g_mean_mag'
+                
+                # Execute with parameters passed separately
+                cursor.execute(query, params)
                 objects = cursor.fetchall()
                 return Table(rows=objects, names=columns, units=_units)
 
