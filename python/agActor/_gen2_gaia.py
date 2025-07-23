@@ -1,13 +1,46 @@
+import os
+from argparse import ArgumentParser
 from datetime import datetime, timezone
 from numbers import Number
+
 import numpy
+import psycopg2
+import subaru
 from astropy import units
 from astropy.coordinates import AltAz, Angle, Distance, SkyCoord, solar_system_ephemeris
+from astropy.table import Table
 from astropy.time import Time
 from astropy.utils import iers
-from pfs.utils.coordinates import coordinates
 
-from pfs.utils.coordinates import Subaru_POPT2_PFS
+from pfs.utils.coordinates import Subaru_POPT2_PFS, coordinates
+
+
+class GaiaDB:
+    """Configuration for Gaia star catalog database connection.
+    
+    This class provides a centralized way to configure the connection to the Gaia
+    star catalog database. Connection parameters can be set via environment variables:
+    
+    - GAIA_DB_HOST: Database host (default: 'g2db.sum.subaru.nao.ac.jp')
+    - GAIA_DB_PORT: Database port (default: 5438)
+    - GAIA_DB_USER: Database user (default: 'obsuser')
+    - GAIA_DB_NAME: Database name (default: 'star_catalog')
+    """
+    
+    # Default connection parameters
+    host = os.environ.get('GAIA_DB_HOST', 'g2db.sum.subaru.nao.ac.jp')
+    port = int(os.environ.get('GAIA_DB_PORT', 5438))
+    user = os.environ.get('GAIA_DB_USER', 'obsuser')
+    dbname = os.environ.get('GAIA_DB_NAME', 'star_catalog')
+    
+    @staticmethod
+    def get_dsn():
+        """Get the DSN (Data Source Name) string for database connection.
+        
+        Returns:
+            str: DSN string for psycopg2.connect()
+        """
+        return f'host={GaiaDB.host} port={GaiaDB.port} user={GaiaDB.user} dbname={GaiaDB.dbname}'
 
 
 iers.conf.auto_download = True
@@ -296,36 +329,35 @@ def search(ra, dec, radius=0.027 + 0.003):
     astropy.table.Table
         The table of the Gaia DR3 sources inside the search areas
     """
+    if numpy.isscalar(ra):
+        ra = (ra,)
+    if numpy.isscalar(dec):
+        dec = (dec,)
 
-    def _search(ra, dec, radius):
-        """Perform search of Gaia DR3."""
+    columns = ('source_id', 'ref_epoch', 'ra', 'ra_error', 'dec', 'dec_error', 'parallax', 'parallax_error', 'pmra', 'pmra_error', 'pmdec', 'pmdec_error', 'phot_g_mean_mag')
+    _units = (units.dimensionless_unscaled, units.yr, units.deg, units.mas, units.deg, units.mas, units.mas, units.mas, units.mas / units.yr, units.mas / units.yr, units.mas / units.yr, units.mas / units.yr, units.mag)
 
-        if numpy.isscalar(ra):
-            ra = (ra,)
-        if numpy.isscalar(dec):
-            dec = (dec,)
-
-        import psycopg2
-        from astropy.table import Table
-
-        columns = ('source_id', 'ref_epoch', 'ra', 'ra_error', 'dec', 'dec_error', 'parallax', 'parallax_error', 'pmra', 'pmra_error', 'pmdec', 'pmdec_error', 'phot_g_mean_mag')
-        _units = (units.dimensionless_unscaled, units.yr, units.deg, units.mas, units.deg, units.mas, units.mas, units.mas, units.mas / units.yr, units.mas / units.yr, units.mas / units.yr, units.mas / units.yr, units.mag)
-
-        host = '133.40.167.46'  # 'g2db' for production use
-        port = 5438
-        user = 'gen2'  # 'obsuser' for production use
-
-        dsn = 'host={} port={} user={} dbname=star_catalog'.format(host, port, user)
-        with psycopg2.connect(dsn) as connection:
-            with connection.cursor() as cursor:
-                query = 'SELECT {} FROM gaia3 WHERE ('.format(','.join(columns)) \
-                    + ' OR '.join(['q3c_radial_query(ra,dec,{},{},{})'.format(_ra, _dec, radius) for _ra, _dec in zip(ra, dec)]) \
-                    + ') AND pmra IS NOT NULL AND pmdec IS NOT NULL AND parallax IS NOT NULL ORDER BY phot_g_mean_mag'
-                cursor.execute(query)
-                objects = cursor.fetchall()
-                return Table(rows=objects, names=columns, units=_units)
-
-    return _search(ra, dec, radius)
+    # Use the GaiaDB class to get the DSN string
+    dsn = GaiaDB.get_dsn()
+    with psycopg2.connect(dsn) as connection:
+        with connection.cursor() as cursor:
+            # Build query with parameter placeholders
+            query = 'SELECT {} FROM gaia3 WHERE ('.format(','.join(columns))
+            query_conditions = []
+            params = []
+            
+            # Create parameterized conditions and collect parameters
+            for _ra, _dec in zip(ra, dec):
+                query_conditions.append('q3c_radial_query(ra,dec,%s,%s,%s)')
+                params.extend([_ra, _dec, radius])
+            
+            query += ' OR '.join(query_conditions)
+            query += ') AND pmra IS NOT NULL AND pmdec IS NOT NULL AND parallax IS NOT NULL ORDER BY phot_g_mean_mag'
+            
+            # Execute with parameters passed separately
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+            return Table(rows=rows, names=columns, units=_units)
 
 
 def get_objects(
@@ -387,7 +419,6 @@ def get_objects(
     dec = Angle(dec, unit=units.deg)
     obstime = Time(obstime.astimezone(tz=timezone.utc)) if isinstance(obstime, datetime) else Time(obstime, format='unix') if isinstance(obstime, Number) else Time(obstime) if obstime is not None else Time.now()
 
-    import subaru
     frame_tc = AltAz(obstime=obstime, location=subaru.location, temperature=temperature * units.deg_C, relative_humidity=relative_humidity / 100, pressure=pressure * units.hPa, obswl=obswl * units.micron)
 
     # field center
@@ -480,8 +511,6 @@ def get_objects(
 
 
 if __name__ == '__main__':
-
-    from argparse import ArgumentParser
 
     parser = ArgumentParser()
     parser.add_argument('ra', help='right ascension (ICRS) of the field center (hr)')
