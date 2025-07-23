@@ -329,41 +329,35 @@ def search(ra, dec, radius=0.027 + 0.003):
     astropy.table.Table
         The table of the Gaia DR3 sources inside the search areas
     """
+    if numpy.isscalar(ra):
+        ra = (ra,)
+    if numpy.isscalar(dec):
+        dec = (dec,)
 
-    def _search(ra, dec, radius):
-        """Perform search of Gaia DR3."""
+    columns = ('source_id', 'ref_epoch', 'ra', 'ra_error', 'dec', 'dec_error', 'parallax', 'parallax_error', 'pmra', 'pmra_error', 'pmdec', 'pmdec_error', 'phot_g_mean_mag')
+    _units = (units.dimensionless_unscaled, units.yr, units.deg, units.mas, units.deg, units.mas, units.mas, units.mas, units.mas / units.yr, units.mas / units.yr, units.mas / units.yr, units.mas / units.yr, units.mag)
 
-        if numpy.isscalar(ra):
-            ra = (ra,)
-        if numpy.isscalar(dec):
-            dec = (dec,)
-
-        columns = ('source_id', 'ref_epoch', 'ra', 'ra_error', 'dec', 'dec_error', 'parallax', 'parallax_error', 'pmra', 'pmra_error', 'pmdec', 'pmdec_error', 'phot_g_mean_mag')
-        _units = (units.dimensionless_unscaled, units.yr, units.deg, units.mas, units.deg, units.mas, units.mas, units.mas, units.mas / units.yr, units.mas / units.yr, units.mas / units.yr, units.mas / units.yr, units.mag)
-
-        # Use the GaiaDB class to get the DSN string
-        dsn = GaiaDB.get_dsn()
-        with psycopg2.connect(dsn) as connection:
-            with connection.cursor() as cursor:
-                # Build query with parameter placeholders
-                query = 'SELECT {} FROM gaia3 WHERE ('.format(','.join(columns))
-                query_conditions = []
-                params = []
-                
-                # Create parameterized conditions and collect parameters
-                for _ra, _dec in zip(ra, dec):
-                    query_conditions.append('q3c_radial_query(ra,dec,%s,%s,%s)')
-                    params.extend([_ra, _dec, radius])
-                
-                query += ' OR '.join(query_conditions)
-                query += ') AND pmra IS NOT NULL AND pmdec IS NOT NULL AND parallax IS NOT NULL ORDER BY phot_g_mean_mag'
-                
-                # Execute with parameters passed separately
-                cursor.execute(query, params)
-                objects = cursor.fetchall()
-                return Table(rows=objects, names=columns, units=_units)
-
-    return _search(ra, dec, radius)
+    # Use the GaiaDB class to get the DSN string
+    dsn = GaiaDB.get_dsn()
+    with psycopg2.connect(dsn) as connection:
+        with connection.cursor() as cursor:
+            # Build query with parameter placeholders
+            query = 'SELECT {} FROM gaia3 WHERE ('.format(','.join(columns))
+            query_conditions = []
+            params = []
+            
+            # Create parameterized conditions and collect parameters
+            for _ra, _dec in zip(ra, dec):
+                query_conditions.append('q3c_radial_query(ra,dec,%s,%s,%s)')
+                params.extend([_ra, _dec, radius])
+            
+            query += ' OR '.join(query_conditions)
+            query += ') AND pmra IS NOT NULL AND pmdec IS NOT NULL AND parallax IS NOT NULL ORDER BY phot_g_mean_mag'
+            
+            # Execute with parameters passed separately
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+            return Table(rows=rows, names=columns, units=_units)
 
 
 def get_objects(
