@@ -1,14 +1,18 @@
+import os
+from argparse import ArgumentParser
 from datetime import datetime, timezone
 from numbers import Number
-import os
+
 import numpy
+import psycopg2
+import subaru
 from astropy import units
 from astropy.coordinates import AltAz, Angle, Distance, SkyCoord, solar_system_ephemeris
+from astropy.table import Table
 from astropy.time import Time
 from astropy.utils import iers
-from pfs.utils.coordinates import coordinates
 
-from pfs.utils.coordinates import Subaru_POPT2_PFS
+from pfs.utils.coordinates import Subaru_POPT2_PFS, coordinates
 
 
 class GaiaDB:
@@ -334,9 +338,6 @@ def search(ra, dec, radius=0.027 + 0.003):
         if numpy.isscalar(dec):
             dec = (dec,)
 
-        import psycopg2
-        from astropy.table import Table
-
         columns = ('source_id', 'ref_epoch', 'ra', 'ra_error', 'dec', 'dec_error', 'parallax', 'parallax_error', 'pmra', 'pmra_error', 'pmdec', 'pmdec_error', 'phot_g_mean_mag')
         _units = (units.dimensionless_unscaled, units.yr, units.deg, units.mas, units.deg, units.mas, units.mas, units.mas, units.mas / units.yr, units.mas / units.yr, units.mas / units.yr, units.mas / units.yr, units.mag)
 
@@ -413,7 +414,6 @@ def get_objects(
     dec = Angle(dec, unit=units.deg)
     obstime = Time(obstime.astimezone(tz=timezone.utc)) if isinstance(obstime, datetime) else Time(obstime, format='unix') if isinstance(obstime, Number) else Time(obstime) if obstime is not None else Time.now()
 
-    import subaru
     frame_tc = AltAz(obstime=obstime, location=subaru.location, temperature=temperature * units.deg_C, relative_humidity=relative_humidity / 100, pressure=pressure * units.hPa, obswl=obswl * units.micron)
 
     # field center
@@ -506,8 +506,6 @@ def get_objects(
 
 
 if __name__ == '__main__':
-
-    from argparse import ArgumentParser
 
     parser = ArgumentParser()
     parser.add_argument('ra', help='right ascension (ICRS) of the field center (hr)')
