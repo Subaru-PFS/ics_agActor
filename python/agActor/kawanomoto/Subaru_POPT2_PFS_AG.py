@@ -70,72 +70,6 @@ d_scl = 1.0e-05
 ### pfi parity (flip y)
 pfi_parity = -1.0 # -1 or +1,
 
-# ### constants proper to PFS camera
-# pfs_inr_zero_offset        =  0.00 # in degree
-# pfs_detector_zero_offset_x =  0.00 # in mm
-# pfs_detector_zero_offset_y =  0.00 # in mm
-
-# ### Subaru location
-# sbr_lat =   +19.8225
-# sbr_lon =  +204.523972222
-# sbr_hei = +4163.0
-# Lsbr = ac.EarthLocation(lat=sbr_lat,lon=sbr_lon,height=sbr_hei)
-
-# ### misc.
-# sbr_press  = 620.0
-
-# class Subaru():
-#     def radec2inr(self, tel_ra, tel_de, t):
-#         pr  = 0.0   # Subaru InR ignore atmospheric refraction
-#         wl  = 0.62  # so wavelength is selected freely in visible light
-
-#         tel_coord = ac.SkyCoord(ra=tel_ra, dec=tel_de, unit=(au.deg, au.deg), frame='icrs',equinox='J2000.0')
-#         np_coord  = ac.SkyCoord(ra=0.0,    dec=90.0,   unit=(au.deg, au.deg), frame='icrs',equinox=t)
-#         frame_subaru = ac.AltAz(obstime  = t, location = Lsbr, \
-#                                 pressure = pr*au.hPa, obswl = wl*au.micron)
-#         tel_altaz = tel_coord.transform_to(frame_subaru)
-#         np_altaz  = np_coord.transform_to(frame_subaru)
-#         inr_cal = (tel_altaz.position_angle(np_altaz).degree-180)%360-180
-#         return inr_cal
-
-#     def starSepZPA(self, tel_ra, tel_de, str_ra, str_de, wl, t):
-#         tel_coord = ac.SkyCoord(ra=tel_ra, dec=tel_de, unit=(au.deg, au.deg), frame='icrs')
-#         str_coord = ac.SkyCoord(ra=str_ra, dec=str_de, unit=(au.deg, au.deg), frame='icrs')
-#         frame_subaru = ac.AltAz(obstime  = t, location = Lsbr,\
-#                                 pressure = sbr_press*au.hPa, obswl = wl*au.micron)
-#         tel_altaz = tel_coord.transform_to(frame_subaru)
-#         str_altaz = str_coord.transform_to(frame_subaru)
-
-#         str_sep =  tel_altaz.separation(str_altaz).degree
-#         str_zpa = -tel_altaz.position_angle(str_altaz).degree
-#         return str_sep, str_zpa
-
-#     def starRADEC(self, tel_ra, tel_de, str_sep, str_zpa, wl, t):
-#         str_sep = str_sep*au.degree
-#         str_zpa = str_zpa*au.degree
-
-#         tel_coord = ac.SkyCoord(ra=tel_ra, dec=tel_de, unit=(au.deg, au.deg), frame='icrs')
-#         frame_subaru = ac.AltAz(obstime  = t, location = Lsbr,\
-#                                 pressure = sbr_press*au.hPa, obswl = wl*au.micron)
-#         tel_altaz = tel_coord.transform_to(frame_subaru)
-#         str_altaz = tel_altaz.directional_offset_by(str_zpa, str_sep)
-#         str_coord = str_altaz.transform_to('icrs')
-#         ra = str_coord.ra.degree
-#         de = str_coord.dec.degree
-#         return ra,de
-
-#     def radec2radecplxpm(self, gaia_epoch, str_ra, str_de, str_plx, str_pmRA, str_pmDE, t):
-#         str_plx[np.where(str_plx<0.00001)]=0.00001
-#         str_coord = ac.SkyCoord(ra=str_ra, dec=str_de, unit=(au.deg, au.deg),
-#                                 distance=ac.Distance(parallax=str_plx * au.mas, allow_negative=False),
-#                                 pm_ra_cosdec = str_pmRA * au.mas/au.yr,
-#                                 pm_dec = str_pmDE * au.mas/au.yr,
-#                                 obstime=Time(gaia_epoch, format='decimalyear'),
-#                                 frame='icrs')
-#         str_coord_obstime = str_coord.apply_space_motion(at.Time(t))
-#         ra = str_coord_obstime.ra.degree
-#         de = str_coord_obstime.dec.degree
-#         return ra,de
 
 class PFS():
     def sourceFilter(self, agarray, maxellip, maxsize, minsize):
@@ -405,7 +339,6 @@ class PFS():
         return ra_offset, de_offset, inr_offset, scale_offset, mr
 
     def makeBasis(self, tel_ra, tel_de, str_ra, str_de, t, adc, inr, m2pos3, wl):
-        # v_0,v_1 = PFS.makeBasisFp(self, tel_ra, tel_de, str_ra, str_de, t, adc, inr, m2pos3, wl)
         v_0,v_1 = PFS.makeBasisPfi(self, tel_ra, tel_de, str_ra, str_de, t, adc, inr, m2pos3, wl)
         return v_0,v_1
 
@@ -646,12 +579,6 @@ class PFS():
         return outarray
 
     def agpixel2fppos(self, dsc):
-        # ccdoffx = ccdoffy1_pfi
-        # ccdoffy = ccdoffx1_pfi
-        # ccdoffx = ccdoffx + ccdoffy2_pfi
-        # ccdoffy = ccdoffy + ccdoffx2_pfi
-        # ccdoffx = ccdoffx + glassy_pfi + remshy_pfi
-        # ccdoffy = ccdoffy + glassx_pfi + remshx_pfi
         ccdoffx = ccdoffx_fp
         ccdoffy = ccdoffy_fp
         ccdrot  = ccdrot_pfi
@@ -699,12 +626,6 @@ class PFS():
         return outarray
 
     def fppos2agpixel(self, inarray):
-        # ccdoffx = ccdoffy1_pfi
-        # ccdoffy = ccdoffx1_pfi
-        # ccdoffx = ccdoffx + ccdoffy2_pfi
-        # ccdoffy = ccdoffy + ccdoffx2_pfi
-        # ccdoffx = ccdoffx + glassy_pfi + remshy_pfi
-        # ccdoffy = ccdoffy + glassx_pfi + remshx_pfi
         ccdoffx = ccdoffx_fp
         ccdoffy = ccdoffy_fp
         ccdrot  = ccdrot_pfi
@@ -765,54 +686,3 @@ class PFS():
         focuserror = momentdifference * 0.0086 - 0.026
 
         return focuserror
-
-###
-if __name__ == "__main__":
-    print('### basic functions for Subaru telescope, POPT2 and PFS AG')
-
-    ### function test code
-    # telfile =  sys.argv[1]
-    # telarray= np.loadtxt(telfile, dtype={'names': ('DATE-OBS', 'UT-STR', 'RA2000', 'DEC2000', 'ADC-STR', 'INR-STR', 'M2-POS3', 'WAVELEN'),\
-    #                                      'formats':('<U10', '<U12', '<U12', '<U12', '<U12', '<U12', '<U12', '<U12')})
-    # dateobs = str(telarray['DATE-OBS'])
-    # utstr   = str(telarray['UT-STR'])
-    # ra2000  = str(telarray['RA2000'])
-    # dec2000 = str(telarray['DEC2000'])
-    # adcstr  = float(telarray['ADC-STR'])
-    # inrstr  = float(telarray['INR-STR'])
-    # m2pos3  = float(telarray['M2-POS3'])
-    # wl      = float(telarray['WAVELEN'])
-    # datetime= dateobs+"T"+utstr+"Z"
-    # t       = at.Time(datetime)
-    # coord   = ac.SkyCoord(ra=ra2000, dec=dec2000, unit=(au.hourangle, au.deg),frame='icrs')
-    # tel_ra  = coord.ra.degree
-    # tel_de  = coord.dec.degree
-
-    # dscfile = sys.argv[2]
-    # dsc     = np.loadtxt(dscfile)
-    # gscfile1= sys.argv[3]
-    # gsc1    = np.loadtxt(gscfile1)
-    # gscfile2= sys.argv[4]
-    # gsc2    = np.loadtxt(gscfile2)
-
-    # subaru = Subaru()
-    # pfs    = PFS()
-
-    # ra_offset,de_offset,inr_offset, mr, md = \
-    #     pfs.RADECInRShift(dsc[:,0],\
-    #                       dsc[:,1],\
-    #                       dsc[:,2],\
-    #                       dsc[:,15],\
-    #                       gsc1, gsc2)
-    # print("# %12.6f %12.6f %12.6f" %(ra_offset*3600,de_offset*3600,inr_offset*3600))
-
-    # for items in mr:
-    #     print(items[0],items[1],items[2],items[3],items[4],items[5],items[6],items[7])
-
-    # # ra_offset,de_offset,inr_offset, mr,md = \
-    # #     pfs.RADECShift(dsc[:,0],\
-    # #                    dsc[:,1],\
-    # #                    dsc[:,2],\
-    # #                    dsc[:,15],\
-    # #                    gsc1, gsc2)
-    # # print("# %12.6f %12.6f %12.6f" %(ra_offset*3600,de_offset*3600,inr_offset*3600))
