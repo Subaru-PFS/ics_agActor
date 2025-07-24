@@ -2,8 +2,8 @@ import itertools
 from datetime import datetime, timezone
 from numbers import Number
 
-import numpy
-from astropy import units
+import numpy as np
+from astropy import units as u
 from astropy.coordinates import AltAz, Angle, SkyCoord, solar_system_ephemeris
 from astropy.time import Time
 from astropy.utils import iers
@@ -39,8 +39,8 @@ def measure(
         )
     )
 
-    ra = Angle(ra, unit=units.deg)
-    dec = Angle(dec, unit=units.deg)
+    ra = Angle(ra, unit=u.deg)
+    dec = Angle(dec, unit=u.deg)
     obstime = (
         Time(obstime.astimezone(tz=timezone.utc))
         if isinstance(obstime, datetime)
@@ -56,10 +56,10 @@ def measure(
     frame_tc = AltAz(
         obstime=obstime,
         location=subaru.location,
-        temperature=temperature * units.deg_C,
+        temperature=temperature * u.deg_C,
         relative_humidity=relative_humidity / 100,
-        pressure=pressure * units.hPa,
-        obswl=obswl * units.micron,
+        pressure=pressure * u.hPa,
+        obswl=obswl * u.micron,
     )
     # field center in the horizontal coordinates
     icrs_c = SkyCoord(ra=ra, dec=dec, frame="icrs")
@@ -67,33 +67,33 @@ def measure(
 
     if inr is None:
         # celestial north pole
-        icrs_p = SkyCoord(ra=0 * units.deg, dec=90 * units.deg, frame="icrs")
+        icrs_p = SkyCoord(ra=0 * u.deg, dec=90 * u.deg, frame="icrs")
         altaz_p = icrs_p.transform_to(frame_tc)
-        parallactic_angle = altaz_c.position_angle(altaz_p).to(units.deg).value
+        parallactic_angle = altaz_c.position_angle(altaz_p).to(u.deg).value
         inr = (parallactic_angle + inst_pa + 180) % 360 - 180
         logger and logger.info(
             "parallactic_angle={},inst_pa={},inr={}".format(parallactic_angle, inst_pa, inr)
         )
 
     # detected stellar objects in the equatorial coordinates
-    icam, x_det, y_det, flags = numpy.array(detected_objects)[:, (0, 3, 4, -1)].T
-    x_dp, y_dp = coordinates.det2dp(numpy.rint(icam), x_det, y_det)
+    icam, x_det, y_det, flags = np.array(detected_objects)[:, (0, 3, 4, -1)].T
+    x_dp, y_dp = coordinates.det2dp(np.rint(icam), x_det, y_det)
     x_fp, y_fp = pfs.dp2fp(x_dp, y_dp, inr)
     _, alt = _subaru.radec2azel(ra, dec, obswl, obstime)
     separation, position_angle = popt2.focalplane2celestial(x_fp, y_fp, adc, inr, alt, m2_pos3, obswl, flags)
-    altaz = altaz_c.directional_offset_by(-position_angle * units.deg, separation * units.deg)
+    altaz = altaz_c.directional_offset_by(-position_angle * u.deg, separation * u.deg)
     icrs = altaz.transform_to("icrs")
 
     # source_id, ra, dec, mag
     counter = itertools.count()
     mag = 0
-    objects = numpy.array(
-        [(next(counter), x.ra.to(units.deg).value, x.dec.to(units.deg).value, mag) for x in icrs],
+    objects = np.array(
+        [(next(counter), x.ra.to(u.deg).value, x.dec.to(u.deg).value, mag) for x in icrs],
         dtype=[
-            ("source_id", numpy.int64),  # u8 (80) not supported by FITSIO
-            ("ra", numpy.float64),
-            ("dec", numpy.float64),
-            ("mag", numpy.float32),
+            ("source_id", np.int64),  # u8 (80) not supported by FITSIO
+            ("ra", np.float64),
+            ("dec", np.float64),
+            ("mag", np.float32),
         ],
     )
 

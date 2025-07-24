@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from numbers import Number
 
-from astropy import units
+from astropy import units as u
 from astropy.coordinates import AltAz, Angle, SkyCoord, solar_system_ephemeris
 from astropy.time import Time
 from astropy.utils import iers
@@ -14,8 +14,8 @@ def to_altaz(
     ra, dec, obstime=None, temperature=0, relative_humidity=0, pressure=620, obswl=0.62, dra=0, ddec=0
 ):
 
-    ra = Angle(ra, unit=units.deg)
-    dec = Angle(dec, unit=units.deg)
+    ra = Angle(ra, unit=u.deg)
+    dec = Angle(dec, unit=u.deg)
     obstime = (
         Time(obstime.astimezone(tz=timezone.utc))
         if isinstance(obstime, datetime)
@@ -26,13 +26,13 @@ def to_altaz(
         )
     )
 
-    temperature *= units.deg_C
+    temperature *= u.deg_C
     relative_humidity /= 100
-    pressure *= units.hPa
-    obswl *= units.micron
+    pressure *= u.hPa
+    obswl *= u.micron
 
-    dra *= units.arcsec
-    ddec *= units.arcsec
+    dra *= u.arcsec
+    ddec *= u.arcsec
 
     import subaru
 
@@ -48,10 +48,10 @@ def to_altaz(
     icrs = SkyCoord(ra=[ra, ra + dra], dec=[dec, dec + ddec], frame="icrs")
     altaz = icrs.transform_to(frame)
 
-    alt = altaz[0].alt.to(units.deg).value
-    az = altaz[0].az.to(units.deg).value
+    alt = altaz[0].alt.to(u.deg).value
+    az = altaz[0].az.to(u.deg).value
 
-    dalt = (altaz[1].alt - altaz[0].alt).to(units.arcsec).value
-    daz = (altaz[1].az - altaz[0].az).to(units.arcsec).value
+    dalt = (altaz[1].alt - altaz[0].alt).to(u.arcsec).value
+    daz = (altaz[1].az - altaz[0].az).to(u.arcsec).value
 
     return alt, az, dalt, daz

@@ -1,4 +1,4 @@
-import numpy
+import numpy as np
 
 from kawanomoto import FieldAcquisitionAndFocusing
 from opdb import opDB as opdb
@@ -35,12 +35,12 @@ def _focus(detected_objects, logger=None, **kwargs):
     def semi_axes(xy, x2, y2):
 
         p = (x2 + y2) / 2
-        q = numpy.sqrt(numpy.square((x2 - y2) / 2) + numpy.square(xy))
-        a = numpy.sqrt(p + q)
-        b = numpy.sqrt(p - q)
+        q = np.sqrt(np.square((x2 - y2) / 2) + np.square(xy))
+        a = np.sqrt(p + q)
+        b = np.sqrt(p - q)
         return a, b
 
-    _detected_objects = numpy.array(
+    _detected_objects = np.array(
         [
             (
                 x[0] + 1,  # camera_id (1-6)
@@ -59,6 +59,6 @@ def _focus(detected_objects, logger=None, **kwargs):
     pfs = FieldAcquisitionAndFocusing.PFS()
     dzs = pfs.Focus(_detected_objects, **_kwargs)
     logger and logger.info("dzs={}".format(dzs))
-    dz = numpy.nanmedian(dzs)
+    dz = np.nanmedian(dzs)
     logger and logger.info("dz={}".format(dz))
     return dz, dzs

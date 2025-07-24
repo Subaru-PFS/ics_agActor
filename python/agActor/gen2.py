@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from astropy import units
+from astropy import units as u
 from astropy.coordinates import Angle
 
 
@@ -153,8 +153,8 @@ class Gen2:
         adc_pa = self.tel_adc["angle"]
         m2_pos3 = self.m2["zpos"]
         pointing = self.pointing
-        cmd_ra = Angle(pointing["ra"], unit=units.hourangle).to(units.deg).value
-        cmd_dec = Angle(pointing["dec"], unit=units.deg).value
+        cmd_ra = Angle(pointing["ra"], unit=u.hourangle).to(u.deg).value
+        cmd_dec = Angle(pointing["dec"], unit=u.deg).value
         # dome_shutter_status
         # dome_light_status
         # created_at

@@ -3,7 +3,7 @@ import logging
 import threading
 import time
 
-import numpy
+import numpy as np
 
 from agActor import actorCalls, autoguide, data_utils, focus as _focus, pfs_design
 from agActor.telescope_center import telCenter as tel_center
@@ -458,7 +458,7 @@ class AgThread(threading.Thread):
                         )
                         for filename, value in zip(filenames, values):
                             self.logger.info("AgThread.run: Saving {}".format(filename))
-                            numpy.save(filename, value)
+                            np.save(filename, value)
                         cmd.inform('data={},{},{},"{}","{}","{}"'.format(ra, dec, inst_pa, *filenames))
                         cmd.inform("detectionState=0")
                         dx, dy, size, peak, flux = values[3], values[4], values[5], values[6], values[7]

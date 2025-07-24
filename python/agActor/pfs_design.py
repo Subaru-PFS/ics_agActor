@@ -3,8 +3,8 @@ from datetime import datetime, timezone
 from numbers import Number
 
 import fitsio
-import numpy
-from astropy import units
+import numpy as np
+from astropy import units as u
 from astropy.coordinates import Angle, Distance, SkyCoord, solar_system_ephemeris
 from astropy.time import Time
 from astropy.utils import iers
@@ -64,14 +64,14 @@ class pfsDesign:
             inst_pa = header["POSANG"]
             _guide_objects = fits["guidestars"].read()
 
-        _guide_objects["parallax"][numpy.where(_guide_objects["parallax"] < 1e-6)] = 1e-6
+        _guide_objects["parallax"][np.where(_guide_objects["parallax"] < 1e-6)] = 1e-6
         _icrs = SkyCoord(
-            ra=_guide_objects["ra"] * units.deg,
-            dec=_guide_objects["dec"] * units.deg,
+            ra=_guide_objects["ra"] * u.deg,
+            dec=_guide_objects["dec"] * u.deg,
             frame="icrs",
-            distance=Distance(parallax=Angle(_guide_objects["parallax"], unit=units.mas)),
-            pm_ra_cosdec=_guide_objects["pmRa"] * units.mas / units.yr,
-            pm_dec=_guide_objects["pmDec"] * units.mas / units.yr,
+            distance=Distance(parallax=Angle(_guide_objects["parallax"], unit=u.mas)),
+            pm_ra_cosdec=_guide_objects["pmRa"] * u.mas / u.yr,
+            pm_dec=_guide_objects["pmDec"] * u.mas / u.yr,
             obstime=Time(_guide_objects["epoch"], format="jyear_str", scale="tcb"),
         )
         _icrs_d = _icrs.apply_space_motion(new_obstime=_obstime)  # of date
