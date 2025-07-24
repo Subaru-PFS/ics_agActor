@@ -101,40 +101,34 @@ class ag:
 
     def start_autoguide(self, cmd=None, design=None, visit_id=None, from_sky=None, exposure_time=EXPOSURE_TIME, cadence=CADENCE, center=None, **kwargs):
 
-        #cmd = cmd if cmd else self.actor.bcast
         mode = ag.Mode.AUTO_SKY if from_sky else ag.Mode.AUTO_DB if design is not None else ag.Mode.AUTO_OTF
         self.logger.info(f'start_autoguide: {mode=},{design=},{visit_id=},{exposure_time=},{cadence=},{center=}')
         self.thread.set_params(mode=mode, design=design, visit_id=visit_id, exposure_time=exposure_time, cadence=cadence, center=center, options={}, **kwargs)
 
     def restart_autoguide(self, cmd=None):
 
-        #cmd = cmd if cmd else self.actor.bcast
         mode = ag.Mode.ON
         self.logger.info(f'restart_autoguide: {mode=}')
         self.thread.set_params(mode=mode)
 
     def initialize_autoguide(self, cmd=None, design=None, visit_id=None, from_sky=None, exposure_time=EXPOSURE_TIME, cadence=CADENCE, center=None, **kwargs):
 
-        #cmd = cmd if cmd else self.actor.bcast
         mode = ag.Mode.REF_SKY if from_sky else ag.Mode.REF_DB if design is not None else ag.Mode.REF_OTF
         self.logger.info(f'initialize_autoguide: {mode=},{design=},{visit_id=},{exposure_time=},{cadence=},{center=}')
         self.thread.set_params(mode=mode, design=design, visit_id=visit_id, exposure_time=exposure_time, cadence=cadence, center=center, options={}, **kwargs)
 
     def stop_autoguide(self, cmd=None):
 
-        #cmd = cmd if cmd else self.actor.bcast
         self.logger.info('stop_autoguide:')
         self.thread.set_params(mode=ag.Mode.STOP)
 
     def reconfigure_autoguide(self, cmd=None, **kwargs):
 
-        #cmd = cmd if cmd else self.actor.bcast
         self.logger.info('reconfigure_autoguide:')
         self.thread.set_params(**kwargs)
 
     def acquire_field(self, cmd=None, design=None, visit_id=None, exposure_time=EXPOSURE_TIME, center=None, **kwargs):
 
-        #cmd = cmd if cmd else self.actor.bcast
         mode = ag.Mode.AUTO_ONCE_DB if design is not None else ag.Mode.AUTO_ONCE_OTF
         self.logger.info(f'acquire_field: {mode=},{design=},{visit_id=},{exposure_time=},{center=}')
         self.thread.set_params(mode=mode, design=design, visit_id=visit_id, exposure_time=exposure_time, center=center, options={}, **kwargs)
@@ -392,7 +386,7 @@ class AgThread(threading.Thread):
                             timeLim=5
                         )
                         result.get()
-                        #cmd.inform('guideReady=1')
+
                         kwargs = {key: kwargs.get(key) for key in ('max_ellipticity', 'max_size', 'min_size') if key in kwargs}
                         # always compute focus offset and tilt
                         self.logger.info('AgThread.run: focus._focus for frame_id={}'.format(frame_id))
@@ -430,12 +424,10 @@ class AgThread(threading.Thread):
                     self._set_params(mode=ag.Mode.OFF)
                 if mode == ag.Mode.STOP:
                     self.logger.info('AgThread.run: STOP')
-                    #cmd.inform('detectionState=0')
                     cmd.inform('guideReady=0')
                     self._set_params(mode=ag.Mode.OFF)
             except Exception as e:
-                self.logger.exception('AgThread.run:')
-                #self.logger.error('AgThread.run: {}'.format(e))
+                self.logger.error('AgThread.run: {}'.format(e))
             end = time.time()
             timeout = max(0, cadence / 1000 - (end - start)) if mode == ag.Mode.ON else 0.5
             self.__abort.wait(timeout)

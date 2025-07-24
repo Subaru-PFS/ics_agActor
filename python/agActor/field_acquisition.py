@@ -133,7 +133,6 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
     if len(detected_objects) == 0 and all([d[-1] <= 1 for d in detected_objects]):
         raise RuntimeError("No valid spots detected, can't compute offsets")
 
-    #logger and logger.info('detected_objects={}'.format(detected_objects))
     design_id = kwargs.get('design_id')
     design_path = kwargs.get('design_path')
     logger and logger.info('design_id={},design_path={}'.format(design_id, design_path))
@@ -160,7 +159,7 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
     guide_objects = filter_guide_objects(guide_objects, logger)
 
     logger and logger.info('ra={},dec={},inst_pa={}'.format(ra, dec, inst_pa))
-    #logger and logger.info('guide_objects={}'.format(guide_objects))
+
     if 'dra' in kwargs: ra += kwargs.get('dra') / 3600
     if 'ddec' in kwargs: dec += kwargs.get('ddec') / 3600
     if 'dpa' in kwargs: inst_pa += kwargs.get('dpa') / 3600

@@ -55,8 +55,6 @@ class AgActor(ICC):
 
             _models = ('agcc', 'mlp1', 'gen2',)
             self.addModels(_models)
-            #self.models['agcc'].keyVarDict[''].addCallback(self.agcc.receiveStatusKeys, callNow=False)
-            #self.models['mlp1'].keyVarDict[''].addCallback(self.mlp1.receiveStatusKeys, callNow=False)
             self.models['gen2'].keyVarDict['tel_axes'].addCallback(self.gen2.receiveStatusKeys, callNow=False)  # for timestamp only
 
     # override
@@ -85,7 +83,6 @@ class AgActor(ICC):
 
             def __del__(self):
 
-                #self.logger.info('_Result.__del__:')
                 del self.connector
 
             def get(self):
