@@ -86,26 +86,3 @@ class pfsDesign:
     def to_design_path(design_id, design_path=''):
 
         return os.path.join(design_path, 'pfsDesign-0x{:016x}.fits'.format(design_id))
-
-
-if __name__ == '__main__':
-
-    from argparse import ArgumentParser
-
-    parser = ArgumentParser()
-    parser.add_argument('--design-id', type=lambda x: int(x, 0), default=None, help='design identifier')
-    parser.add_argument('--design-path', default=None, help='design path')
-    parser.add_argument('obstime', nargs='?', default=None, help='time of observation (datetime)')
-    args, _ = parser.parse_known_args()
-
-    design_id = args.design_id
-    design_path = '.' if args.design_id is not None and args.design_path is None else args.design_path
-    obstime = args.obstime
-    print('design_id={},design_path={},obstime={}'.format(design_id, design_path, obstime))
-
-    import logging
-
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(name='pfs_design')
-    guide_objects, ra, dec, inst_pa = pfsDesign(design_id, design_path, logger=logger).guide_objects(obstime=obstime)
-    print('guide_objects={},ra={},dec={},inst_pa={}'.format(guide_objects, ra, dec, inst_pa))
