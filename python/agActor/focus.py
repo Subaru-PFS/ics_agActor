@@ -1,7 +1,7 @@
 import numpy
-from opdb import opDB as opdb
-from kawanomoto import FieldAcquisitionAndFocusing
 
+from kawanomoto import FieldAcquisitionAndFocusing
+from opdb import opDB as opdb
 
 # mapping of keys and value types between focus.py and FieldAcquisitionAndFocusing.py
 _KEYMAP = {

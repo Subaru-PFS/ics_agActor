@@ -1,13 +1,13 @@
+import os
 from datetime import datetime, timezone
 from numbers import Number
-import os
+
+import fitsio
+import numpy
 from astropy import units
 from astropy.coordinates import Angle, Distance, SkyCoord, solar_system_ephemeris
 from astropy.time import Time
 from astropy.utils import iers
-import fitsio
-import numpy
-
 
 iers.conf.auto_download = True
 solar_system_ephemeris.set('de440')

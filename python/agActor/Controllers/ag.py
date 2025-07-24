@@ -2,9 +2,10 @@ import enum
 import logging
 import threading
 import time
+
 import numpy
-from agActor import autoguide, focus as _focus, data_utils, pfs_design
-from agActor import actorCalls
+
+from agActor import actorCalls, autoguide, data_utils, focus as _focus, pfs_design
 from agActor.telescope_center import telCenter as tel_center
 
 

@@ -1,5 +1,5 @@
 import numpy
-from opdb import opDB as opdb
+
 from pfs_design import pfsDesign as pfs_design
 
 
