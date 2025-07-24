@@ -427,7 +427,7 @@ class AgThread(threading.Thread):
                     cmd.inform('guideReady=0')
                     self._set_params(mode=ag.Mode.OFF)
             except Exception as e:
-                self.logger.exception('AgThread.run:')
+                self.logger.error('AgThread.run: {}'.format(e))
             end = time.time()
             timeout = max(0, cadence / 1000 - (end - start)) if mode == ag.Mode.ON else 0.5
             self.__abort.wait(timeout)
