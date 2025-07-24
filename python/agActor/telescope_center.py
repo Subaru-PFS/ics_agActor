@@ -48,8 +48,7 @@ class telCenter:
                 5:8
             ]  # command ra, dec, and inst_pa (including dither offsets and guide offsets)
             ra -= (
-                tel_guide["ra"]
-                + tel_dither["ra"] / float(np.cos(np.deg2rad(dec - tel_guide["dec"] / 3600)))
+                tel_guide["ra"] + tel_dither["ra"] / float(np.cos(np.deg2rad(dec - tel_guide["dec"] / 3600)))
             ) / 3600
             dec -= (tel_guide["dec"] + tel_dither["dec"]) / 3600
             inst_pa -= (tel_guide["insrot"] + tel_dither["pa"]) / 3600
