@@ -1,4 +1,4 @@
-import numpy
+import numpy as np
 
 from opdb import opDB as opdb
 
@@ -43,7 +43,7 @@ def write_agc_guide_offset(
 
 def write_agc_match(*, design_id, frame_id, guide_objects, detected_objects, identified_objects):
 
-    data = numpy.array(
+    data = np.array(
         [
             (
                 detected_objects["camera_id"][x[0]],
@@ -58,14 +58,14 @@ def write_agc_match(*, design_id, frame_id, guide_objects, detected_objects, ide
             for x in identified_objects
         ],
         dtype=[
-            ("agc_camera_id", numpy.int32),
-            ("spot_id", numpy.int32),
-            ("guide_star_id", numpy.int64),
-            ("agc_nominal_x_mm", numpy.float32),
-            ("agc_nominal_y_mm", numpy.float32),
-            ("agc_center_x_mm", numpy.float32),
-            ("agc_center_y_mm", numpy.float32),
-            ("flags", numpy.int32),
+            ("agc_camera_id", np.int32),
+            ("spot_id", np.int32),
+            ("guide_star_id", np.int64),
+            ("agc_nominal_x_mm", np.float32),
+            ("agc_nominal_y_mm", np.float32),
+            ("agc_center_x_mm", np.float32),
+            ("agc_center_y_mm", np.float32),
+            ("flags", np.int32),
         ],
     )
     # print(data)

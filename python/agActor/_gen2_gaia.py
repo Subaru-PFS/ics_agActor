@@ -1,8 +1,8 @@
 from datetime import datetime, timezone
 from numbers import Number
 
-import numpy
-from astropy import units
+import numpy as np
+from astropy import units as u
 from astropy.coordinates import AltAz, Angle, Distance, SkyCoord, solar_system_ephemeris
 from astropy.time import Time
 from astropy.utils import iers
@@ -231,7 +231,7 @@ def dp2idet(x_dp, y_dp):
     """
 
     # determine the detector id from the position angle of the detector plane coordinates
-    icam = numpy.mod(numpy.rint(numpy.arctan2(y_dp, x_dp) * 3 / numpy.pi), 6).astype(numpy.intc)
+    icam = np.mod(np.rint(np.arctan2(y_dp, x_dp) * 3 / np.pi), 6).astype(np.intc)
     x_det, y_det = dp2det(icam, x_dp, y_dp)
     return icam, x_det, y_det
 
@@ -271,9 +271,9 @@ def z2adc(z, filter_id):
     }
 
     _, _, _, _, _, e0, e1, e2, e3, e4 = _ADC_PARAMS[filter_id]
-    tanz = numpy.tan(numpy.deg2rad(z))
+    tanz = np.tan(np.deg2rad(z))
     y_adc = e0 + (e1 + (e2 + (e3 + e4 * tanz) * tanz) * tanz) * tanz
-    return numpy.clip(y_adc, 0, 22)
+    return np.clip(y_adc, 0, 22)
 
 
 def search(ra, dec, radius=0.027 + 0.003):
@@ -298,9 +298,9 @@ def search(ra, dec, radius=0.027 + 0.003):
     def _search(ra, dec, radius):
         """Perform search of Gaia DR3."""
 
-        if numpy.isscalar(ra):
+        if np.isscalar(ra):
             ra = (ra,)
-        if numpy.isscalar(dec):
+        if np.isscalar(dec):
             dec = (dec,)
 
         import psycopg2
@@ -322,19 +322,19 @@ def search(ra, dec, radius=0.027 + 0.003):
             "phot_g_mean_mag",
         )
         _units = (
-            units.dimensionless_unscaled,
-            units.yr,
-            units.deg,
-            units.mas,
-            units.deg,
-            units.mas,
-            units.mas,
-            units.mas,
-            units.mas / units.yr,
-            units.mas / units.yr,
-            units.mas / units.yr,
-            units.mas / units.yr,
-            units.mag,
+            u.dimensionless_unscaled,
+            u.yr,
+            u.deg,
+            u.mas,
+            u.deg,
+            u.mas,
+            u.mas,
+            u.mas,
+            u.mas / u.yr,
+            u.mas / u.yr,
+            u.mas / u.yr,
+            u.mas / u.yr,
+            u.mag,
         )
 
         host = "133.40.167.46"  # 'g2db' for production use
@@ -416,8 +416,8 @@ def get_objects(
         guide stellar objects
     """
 
-    ra = Angle(ra, unit=units.deg)
-    dec = Angle(dec, unit=units.deg)
+    ra = Angle(ra, unit=u.deg)
+    dec = Angle(dec, unit=u.deg)
     obstime = (
         Time(obstime.astimezone(tz=timezone.utc))
         if isinstance(obstime, datetime)
@@ -433,10 +433,10 @@ def get_objects(
     frame_tc = AltAz(
         obstime=obstime,
         location=subaru.location,
-        temperature=temperature * units.deg_C,
+        temperature=temperature * u.deg_C,
         relative_humidity=relative_humidity / 100,
-        pressure=pressure * units.hPa,
-        obswl=obswl * units.micron,
+        pressure=pressure * u.hPa,
+        obswl=obswl * u.micron,
     )
 
     # field center
@@ -445,13 +445,13 @@ def get_objects(
 
     if inr is None:
         # celestial north pole
-        icrs_p = SkyCoord(ra=0 * units.deg, dec=90 * units.deg, frame="icrs")
+        icrs_p = SkyCoord(ra=0 * u.deg, dec=90 * u.deg, frame="icrs")
         altaz_p = icrs_p.transform_to(frame_tc)
-        parallactic_angle = altaz_c.position_angle(altaz_p).to(units.deg).value
+        parallactic_angle = altaz_c.position_angle(altaz_p).to(u.deg).value
         inr = (parallactic_angle + inst_pa + 180) % 360 - 180
 
     # centers of the detectors in the detector plane coordinates
-    x_dp, y_dp = det2dp(numpy.asarray(cameras), (511.5 + 24), (511.5 + 9))
+    x_dp, y_dp = det2dp(np.asarray(cameras), (511.5 + 24), (511.5 + 9))
 
     # centers of the detectors in the focal plane coordinates
     x_fp, y_fp = dp2fp(x_dp, y_dp, inr)
@@ -459,14 +459,14 @@ def get_objects(
     if adc is None:
         if filter_id is None:
             filter_id = 107  # wideband, uniform weighting
-        adc = z2adc(altaz_c.zen.to(units.deg).value, filter_id=filter_id)  # mm
+        adc = z2adc(altaz_c.zen.to(u.deg).value, filter_id=filter_id)  # mm
 
-    separation, position_angle = fp2sky(x_fp, y_fp, adc, inr, altaz_c.alt.to(units.deg).value, m2pos3, obswl)
-    altaz = altaz_c.directional_offset_by(-position_angle * units.deg, separation * units.deg)
+    separation, position_angle = fp2sky(x_fp, y_fp, adc, inr, altaz_c.alt.to(u.deg).value, m2pos3, obswl)
+    altaz = altaz_c.directional_offset_by(-position_angle * u.deg, separation * u.deg)
     icrs = altaz.transform_to("icrs")
 
     _objects = search(icrs.ra.deg, icrs.dec.deg)
-    _objects["parallax"][numpy.where(_objects["parallax"] < 1e-6)] = 1e-6
+    _objects["parallax"][np.where(_objects["parallax"] < 1e-6)] = 1e-6
     _icrs = SkyCoord(
         ra=_objects["ra"],
         dec=_objects["dec"],
@@ -478,18 +478,18 @@ def get_objects(
     )
     _icrs_d = _icrs.apply_space_motion(new_obstime=obstime)  # of date
     _altaz = _icrs_d.transform_to(frame_tc)
-    separation = altaz_c.separation(_altaz).to(units.deg).value
-    position_angle = altaz_c.position_angle(_altaz).to(units.deg).value
-    x_fp, y_fp = sky2fp(separation, -position_angle, adc, inr, altaz_c.alt.to(units.deg).value, m2pos3, obswl)
+    separation = altaz_c.separation(_altaz).to(u.deg).value
+    position_angle = altaz_c.position_angle(_altaz).to(u.deg).value
+    x_fp, y_fp = sky2fp(separation, -position_angle, adc, inr, altaz_c.alt.to(u.deg).value, m2pos3, obswl)
     x_dp, y_dp = fp2dp(x_fp, y_fp, inr)
     icam, x_det, y_det = dp2idet(x_dp, y_dp)
 
-    objects = numpy.array(
+    objects = np.array(
         [
             (
                 _source_id,
-                _skycoord.ra.to(units.deg).value,
-                _skycoord.dec.to(units.deg).value,
+                _skycoord.ra.to(u.deg).value,
+                _skycoord.dec.to(u.deg).value,
                 _mag,
                 _camera_id,
                 _x_det,
@@ -513,18 +513,18 @@ def get_objects(
             )
         ],
         dtype=[
-            ("source_id", numpy.int64),  # u8 (80) not supported by FITSIO
-            ("ra", numpy.float64),
-            ("dec", numpy.float64),
-            ("mag", numpy.float32),
-            ("camera_id", numpy.int16),
-            ("x", numpy.float32),
-            ("y", numpy.float32),
-            ("x_dp", numpy.float32),
-            ("y_dp", numpy.float32),
-            ("x_fp", numpy.float32),
-            ("y_fp", numpy.float32),
+            ("source_id", np.int64),  # u8 (80) not supported by FITSIO
+            ("ra", np.float64),
+            ("dec", np.float64),
+            ("mag", np.float32),
+            ("camera_id", np.int16),
+            ("x", np.float32),
+            ("y", np.float32),
+            ("x_dp", np.float32),
+            ("y_dp", np.float32),
+            ("x_fp", np.float32),
+            ("y_fp", np.float32),
         ],
     )
 
-    return objects, altaz_c.az.to(units.deg).value, altaz_c.alt.to(units.deg).value, inr, adc
+    return objects, altaz_c.az.to(u.deg).value, altaz_c.alt.to(u.deg).value, inr, adc

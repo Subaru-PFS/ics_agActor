@@ -2,7 +2,7 @@
 
 import time
 
-import numpy
+import numpy as np
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
 from pfs.utils.coordinates import Subaru_POPT2_PFS
@@ -273,7 +273,7 @@ class AgCmd:
             # retrieve guide star coordinates from opdb
             # retrieve metrics of detected objects from opdb
             # compute offsets, scale, transparency, and seeing
-            dalt = daz = numpy.nan
+            dalt = daz = np.nan
             if guide:
                 self.actor.logger.info("AgCmd.acquire_field: guide=True")
                 cmd.inform("detectionState=1")
@@ -298,7 +298,7 @@ class AgCmd:
                 )
                 for filename, value in zip(filenames, values):
                     self.actor.logger.info("AgCmd.acquire_field: Saving {}".format(filename))
-                    numpy.save(filename, value)
+                    np.save(filename, value)
                 cmd.inform('data={},{},{},"{}","{}","{}"'.format(ra, dec, inst_pa, *filenames))
                 cmd.inform("detectionState=0")
                 dx, dy, size, peak, flux = values[3], values[4], values[5], values[6], values[7]
@@ -337,7 +337,7 @@ class AgCmd:
                 )
                 for filename, value in zip(filenames, values):
                     self.actor.logger.info("AgCmd.acquire_field: Saving {}".format(filename))
-                    numpy.save(filename, value)
+                    np.save(filename, value)
                 cmd.inform('data={},{},{},"{}","{}","{}"'.format(ra, dec, inst_pa, *filenames))
                 cmd.inform("detectionState=0")
                 # send corrections to gen2 (or iic)
@@ -439,14 +439,14 @@ class AgCmd:
             # retrieve detected objects from agcc (or opdb)
             # compute focus offset and tilt
             dz, dzs = _focus.focus(frame_id=frame_id, logger=self.actor.logger, **kwargs)
-            if numpy.isnan(dz):
+            if np.isnan(dz):
                 cmd.fail('text="AgCmd.focus: dz={}"'.format(dz))
                 return
             cmd.inform('text="dz={}"'.format(dz))
             # send corrections to gen2 (or iic)
             cmd.inform(
                 "guideErrors={},{},{},{},{},{},{},{}".format(
-                    frame_id, numpy.nan, numpy.nan, numpy.nan, numpy.nan, numpy.nan, dz, numpy.nan
+                    frame_id, np.nan, np.nan, np.nan, np.nan, np.nan, dz, np.nan
                 )
             )
             cmd.inform("focusErrors={},{},{},{},{},{},{}".format(frame_id, *dzs))

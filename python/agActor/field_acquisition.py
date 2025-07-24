@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from enum import IntFlag
 from numbers import Number
 
-import numpy
+import numpy as np
 from astropy.table import Table
 from numpy.lib import recfunctions as rfn
 from pfs.utils.coordinates import coordinates
@@ -232,14 +232,14 @@ def _acquire_field(
     def semi_axes(xy, x2, y2):
 
         p = (x2 + y2) / 2
-        q = numpy.sqrt(numpy.square((x2 - y2) / 2) + numpy.square(xy))
-        a = numpy.sqrt(p + q)
-        b = numpy.sqrt(p - q)
+        q = np.sqrt(np.square((x2 - y2) / 2) + np.square(xy))
+        a = np.sqrt(p + q)
+        b = np.sqrt(p - q)
         return a, b
 
-    _guide_objects = numpy.array([(x[1], x[2], x[3]) for x in guide_objects])
+    _guide_objects = np.array([(x[1], x[2], x[3]) for x in guide_objects])
 
-    _detected_objects = numpy.array(
+    _detected_objects = np.array(
         [
             (
                 x[0],
@@ -285,7 +285,7 @@ def _acquire_field(
         alt, az, dalt, daz = to_altaz.to_altaz(ra, dec, taken_at, dra=dra, ddec=ddec)
         logger and logger.info("alt={},az={},dalt={},daz={}".format(alt, az, dalt, daz))
         values = dalt, daz
-    guide_objects = numpy.array(
+    guide_objects = np.array(
         [
             (
                 x[0],
@@ -302,40 +302,40 @@ def _acquire_field(
             for x in guide_objects
         ],
         dtype=[
-            ("source_id", numpy.int64),  # u8 (80) not supported by FITSIO
-            ("ra", numpy.float64),
-            ("dec", numpy.float64),
-            ("mag", numpy.float32),
-            ("camera_id", numpy.int16),
-            ("guide_object_xdet", numpy.float32),
-            ("guide_object_ydet", numpy.float32),
-            ("guide_object_x", numpy.float32),
-            ("guide_object_y", numpy.float32),
-            ("guide_star_flag", numpy.int32),  # guide star flag
-            ("filter_flag", numpy.int32),  # filter flag
+            ("source_id", np.int64),  # u8 (80) not supported by FITSIO
+            ("ra", np.float64),
+            ("dec", np.float64),
+            ("mag", np.float32),
+            ("camera_id", np.int16),
+            ("guide_object_xdet", np.float32),
+            ("guide_object_ydet", np.float32),
+            ("guide_object_x", np.float32),
+            ("guide_object_y", np.float32),
+            ("guide_star_flag", np.int32),  # guide star flag
+            ("filter_flag", np.int32),  # filter flag
         ],
     )
-    detected_objects = numpy.array(
+    detected_objects = np.array(
         detected_objects,
         dtype=[
-            ("camera_id", numpy.int16),
-            ("spot_id", numpy.int16),
-            ("moment_00", numpy.float32),
-            ("centroid_x", numpy.float32),
-            ("centroid_y", numpy.float32),
-            ("central_moment_11", numpy.float32),
-            ("central_moment_20", numpy.float32),
-            ("central_moment_02", numpy.float32),
-            ("peak_x", numpy.uint16),
-            ("peak_y", numpy.uint16),
-            ("peak", numpy.uint16),
-            ("background", numpy.float32),
-            ("flags", numpy.uint8),
+            ("camera_id", np.int16),
+            ("spot_id", np.int16),
+            ("moment_00", np.float32),
+            ("centroid_x", np.float32),
+            ("centroid_y", np.float32),
+            ("central_moment_11", np.float32),
+            ("central_moment_20", np.float32),
+            ("central_moment_02", np.float32),
+            ("peak_x", np.uint16),
+            ("peak_y", np.uint16),
+            ("peak", np.uint16),
+            ("background", np.float32),
+            ("flags", np.uint8),
         ],
     )
     mr, md, v = diags
-    (index_v,) = numpy.where(v)
-    identified_objects = numpy.array(
+    (index_v,) = np.where(v)
+    identified_objects = np.array(
         [
             (
                 k,  # index of detected object
@@ -355,20 +355,20 @@ def _acquire_field(
             )
         ],
         dtype=[
-            ("detected_object_id", numpy.int16),
-            ("guide_object_id", numpy.int16),
-            ("detected_object_x", numpy.float32),
-            ("detected_object_y", numpy.float32),
-            ("guide_object_x", numpy.float32),
-            ("guide_object_y", numpy.float32),
-            ("guide_object_xdet", numpy.float32),
-            ("guide_object_ydet", numpy.float32),
+            ("detected_object_id", np.int16),
+            ("guide_object_id", np.int16),
+            ("detected_object_x", np.float32),
+            ("detected_object_y", np.float32),
+            ("guide_object_x", np.float32),
+            ("guide_object_y", np.float32),
+            ("guide_object_xdet", np.float32),
+            ("guide_object_ydet", np.float32),
         ],
     )
 
     # convert to arcsec
     logger and logger.info("Converting dra, ddec to arcsec: dra={},ddec={}".format(dra, ddec))
-    dx = -dra * numpy.cos(numpy.deg2rad(dec))  # arcsec
+    dx = -dra * np.cos(np.deg2rad(dec))  # arcsec
     dy = ddec  # arcsec (HSC definition)
     logger and logger.info("dx={},dy={}".format(dx, dy))
     # find "representative" spot size, peak intensity, and flux by "median" of pointing errors
@@ -378,9 +378,9 @@ def _acquire_field(
     esq = (identified_objects["detected_object_x"] - identified_objects["guide_object_x"]) ** 2 + (
         identified_objects["detected_object_y"] - identified_objects["guide_object_y"]
     ) ** 2  # squares of pointing errors in detector plane coordinates
-    n = len(esq) - numpy.isnan(esq).sum()
+    n = len(esq) - np.isnan(esq).sum()
     if n > 0:
-        i = numpy.argpartition(esq, n // 2)[n // 2]  # index of "median" of identified objects
+        i = np.argpartition(esq, n // 2)[n // 2]  # index of "median" of identified objects
         k = identified_objects["detected_object_id"][i]  # index of "median" of detected objects
         a, b = semi_axes(
             detected_objects["central_moment_11"][k],
@@ -452,14 +452,14 @@ def filter_guide_objects(guide_objects, logger, initial=False):
     if guide_objects_df is not None:
         logger.info("Adding filter flag column to guide objects.")
         filterFlag_column = guide_objects_df.filtered_by.to_numpy("<i4")
-        filterFlag_column = numpy.array(filterFlag_column, dtype=[("filterFlag", "<i4")])
+        filterFlag_column = np.array(filterFlag_column, dtype=[("filterFlag", "<i4")])
         guide_objects = rfn.merge_arrays((guide_objects, filterFlag_column), asrecarray=True, flatten=True)
     else:
         logger.info("No filtering applied, using all guide objects.")
         # If not present, we need to add zero entries for the guide_star_flag and filter_flag.
-        guideStarFlag_column = numpy.zeros(len(guide_objects), dtype=[("guideStarFlag", "<i4")])
+        guideStarFlag_column = np.zeros(len(guide_objects), dtype=[("guideStarFlag", "<i4")])
         guide_objects = rfn.merge_arrays((guide_objects, guideStarFlag_column), asrecarray=True, flatten=True)
 
-        filterFlag_column = numpy.zeros(len(guide_objects), dtype=[("filterFlag", "<i4")])
+        filterFlag_column = np.zeros(len(guide_objects), dtype=[("filterFlag", "<i4")])
         guide_objects = rfn.merge_arrays((guide_objects, filterFlag_column), asrecarray=True, flatten=True)
     return guide_objects
