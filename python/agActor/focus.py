@@ -32,7 +32,6 @@ def focus(*, frame_id, logger=None, **kwargs):
 
 def _focus(detected_objects, logger=None, **kwargs):
 
-    #logger and logger.info('detected_objects={}'.format(detected_objects))
 
     def semi_axes(xy, x2, y2):
 

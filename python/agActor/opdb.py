@@ -22,10 +22,6 @@ class opDB(icsDB):
     @staticmethod
     def query_pfs_design_agc(pfs_design_id):
 
-        # return opDB.fetchall(
-        #     'SELECT guide_star_id,epoch,guide_star_ra,guide_star_dec,guide_star_pm_ra,guide_star_pm_dec,guide_star_parallax,guide_star_magnitude,passband,guide_star_color,agc_camera_id,agc_target_x_pix,agc_target_y_pix,comments FROM pfs_design_agc WHERE pfs_design_id=%s',
-        #     (pfs_design_id,)
-        # )
         return opDB.fetchall(
             'SELECT guide_star_id,guide_star_ra,guide_star_dec,guide_star_magnitude,agc_camera_id,agc_target_x_pix,agc_target_y_pix,guide_star_flag FROM pfs_design_agc WHERE pfs_design_id=%s ORDER BY guide_star_id',
             (pfs_design_id,)

@@ -1,7 +1,6 @@
 import astrometry
 import field_acquisition
 import _gen2_gaia as gaia
-#import _gen2_gaia_annulus as gaia
 from opdb import opDB as opdb
 from pfs_design import pfsDesign as pfs_design
 
@@ -106,7 +105,7 @@ def autoguide(*, frame_id, obswl=0.62, logger=None, **kwargs):
     logger and logger.info('Calling autoguide.autoguide with frame_id={}'.format(frame_id))
     field_acquisition._parse_kwargs(kwargs)
     guide_objects = Field.guide_objects
-    #logger and logger.info('guide_objects={}'.format(guide_objects))
+    
     ra, dec, inst_pa = Field.center
     logger and logger.info('ra={},dec={}'.format(ra, dec))
     logger and logger.info('Getting telescope status')

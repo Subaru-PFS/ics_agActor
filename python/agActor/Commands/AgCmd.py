@@ -81,7 +81,6 @@ class AgCmd:
         """Return status keywords."""
 
         self.actor.sendVersionKey(cmd)
-        #self.actor.ag.sendStatusKeys(cmd, force=True)
         cmd.finish()
 
     def show(self, cmd):
@@ -100,7 +99,6 @@ class AgCmd:
     def acquire_field(self, cmd):
 
         controller = self.actor.controllers['ag']
-        #self.actor.logger.info('controller={}'.format(controller))
         mode = controller.get_mode()
         self.actor.logger.info('AgCmd.acquire_field: mode={}'.format(mode))
         if mode != controller.Mode.OFF:
@@ -265,7 +263,6 @@ class AgCmd:
                     timeLim=5
                 )
                 result.get()
-                #cmd.inform('guideReady=1')
             else:
                 self.actor.logger.info('AgCmd.acquire_field: guide=False')
                 cmd.inform('detectionState=1')
@@ -318,7 +315,6 @@ class AgCmd:
     def focus(self, cmd):
 
         controller = self.actor.controllers['ag']
-        #self.actor.logger.info('controller={}'.format(controller))
         mode = controller.get_mode()
         self.actor.logger.info('AgCmd.focus: mode={}'.format(mode))
         if mode != controller.Mode.OFF:
@@ -398,7 +394,6 @@ class AgCmd:
     def start_autoguide(self, cmd):
         self.actor.logger.info('AgCmd.start_autoguide: {}'.format(cmd.cmd.keywords))
         controller = self.actor.controllers['ag']
-        #self.actor.logger.info('controller={}'.format(controller))
 
         design_id = None
         if 'design_id' in cmd.cmd.keywords:
@@ -472,7 +467,6 @@ class AgCmd:
     def initialize_autoguide(self, cmd):
         self.actor.logger.info('AgCmd.initialize_autoguide: {}'.format(cmd.cmd.keywords))
         controller = self.actor.controllers['ag']
-        #self.actor.logger.info('controller={}'.format(controller))
 
         design_id = None
         if 'design_id' in cmd.cmd.keywords:
@@ -546,7 +540,6 @@ class AgCmd:
     def restart_autoguide(self, cmd):
         self.actor.logger.info('AgCmd.restart_autoguide: {}'.format(cmd.cmd.keywords))
         controller = self.actor.controllers['ag']
-        #self.actor.logger.info('controller={}'.format(controller))
 
         try:
             controller.restart_autoguide(cmd=cmd)
@@ -559,7 +552,6 @@ class AgCmd:
     def stop_autoguide(self, cmd):
         self.actor.logger.info('AgCmd.stop_autoguide: {}'.format(cmd.cmd.keywords))
         controller = self.actor.controllers['ag']
-        #self.actor.logger.info('controller={}'.format(controller))
 
         try:
             controller.stop_autoguide()
@@ -572,7 +564,6 @@ class AgCmd:
     def reconfigure_autoguide(self, cmd):
         self.actor.logger.info('AgCmd.reconfigure_autoguide: {}'.format(cmd.cmd.keywords))
         controller = self.actor.controllers['ag']
-        #self.actor.logger.info('controller={}'.format(controller))
 
         kwargs = {}
         if 'visit_id' in cmd.cmd.keywords:
@@ -631,12 +622,6 @@ class AgCmd:
 
     def offset(self, cmd):
         self.actor.logger.info('AgCmd.offset: {}'.format(cmd.cmd.keywords))
-        # controller = self.actor.controllers['ag']
-        # #self.actor.logger.info('controller={}'.format(controller))
-        # mode = controller.get_mode()
-        # if mode != controller.Mode.OFF:
-        #     cmd.fail('text="AgCmd.offset: mode={}"'.format(mode))
-        #     return
 
         def zero_offset(*, dx=None, dy=None, dinr=None, dscale=None, relative=False):
 
