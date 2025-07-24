@@ -1,10 +1,5 @@
 # -*- coding: utf-8 -*-
 import numpy as np
-import sys
-
-import astropy.units as au
-import astropy.time as at
-import astropy.coordinates as ac
 
 from astropy.utils import iers
 iers.conf.auto_download = False

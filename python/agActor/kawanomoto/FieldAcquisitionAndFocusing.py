@@ -1,13 +1,10 @@
 # -*- coding: utf-8 -*-
-import numpy as np
-import sys
-
-import astropy.units as au
-import astropy.time as at
 import astropy.coordinates as ac
+import astropy.units as au
+import numpy as np
+from pfs.utils.coordinates import Subaru_POPT2_PFS
 
 from . import Subaru_POPT2_PFS_AG
-from pfs.utils.coordinates import Subaru_POPT2_PFS
 
 ### Subaru location
 sbr_lat =   +19.8255
