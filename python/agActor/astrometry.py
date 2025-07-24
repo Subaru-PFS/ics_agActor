@@ -1,14 +1,13 @@
-from datetime import datetime, timezone
 import itertools
+from datetime import datetime, timezone
 from numbers import Number
+
 import numpy
 from astropy import units
 from astropy.coordinates import AltAz, Angle, SkyCoord, solar_system_ephemeris
 from astropy.time import Time
 from astropy.utils import iers
-from pfs.utils.coordinates import coordinates
-from pfs.utils.coordinates import Subaru_POPT2_PFS
-
+from pfs.utils.coordinates import Subaru_POPT2_PFS, coordinates
 
 iers.conf.auto_download = True
 solar_system_ephemeris.set('de440')

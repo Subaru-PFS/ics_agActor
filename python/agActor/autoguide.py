@@ -1,6 +1,6 @@
+import _gen2_gaia as gaia
 import astrometry
 import field_acquisition
-import _gen2_gaia as gaia
 from opdb import opDB as opdb
 from pfs_design import pfsDesign as pfs_design
 

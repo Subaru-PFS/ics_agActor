@@ -1,10 +1,10 @@
 from datetime import datetime, timezone
 from numbers import Number
+
 from astropy import units
 from astropy.coordinates import AltAz, Angle, SkyCoord, solar_system_ephemeris
 from astropy.time import Time
 from astropy.utils import iers
-
 
 iers.conf.auto_download = True
 solar_system_ephemeris.set('de440')
