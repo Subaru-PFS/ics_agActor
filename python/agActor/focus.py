@@ -64,25 +64,3 @@ def _focus(detected_objects, logger=None, **kwargs):
     dz = numpy.nanmedian(dzs)
     logger and logger.info('dz={}'.format(dz))
     return dz, dzs
-
-
-if __name__ == '__main__':
-
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--frame-id', type=int, required=True, help='frame identifier')
-    parser.add_argument('--max-ellipticity', type=float, default=argparse.SUPPRESS, help='')
-    parser.add_argument('--max-size', type=float, default=argparse.SUPPRESS, help='')
-    parser.add_argument('--min-size', type=float, default=argparse.SUPPRESS, help='')
-    args, _ = parser.parse_known_args()
-
-    kwargs = {key: getattr(args, key) for key in _KEYMAP if key in args}
-    print('kwargs={}'.format(kwargs))
-
-    import logging
-
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(name='focus')
-    dz, _ = focus(frame_id=args.frame_id, logger=logger, **kwargs)
-    print('dz={}'.format(dz))
