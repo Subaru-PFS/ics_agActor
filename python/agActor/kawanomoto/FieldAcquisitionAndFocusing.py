@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-import astropy.coordinates as ac
-import astropy.units as au
 import numpy as np
+from astropy import units as u
+from astropy.coordinates import AltAz, EarthLocation, SkyCoord
 from pfs.utils.coordinates import Subaru_POPT2_PFS
 
 from . import Subaru_POPT2_PFS_AG
@@ -10,7 +10,7 @@ from . import Subaru_POPT2_PFS_AG
 sbr_lat =   +19.8255
 sbr_lon =  +204.523972222
 sbr_hei = +4163.0
-Lsbr = ac.EarthLocation(lat=sbr_lat,lon=sbr_lon,height=sbr_hei)
+Lsbr = EarthLocation(lat=sbr_lat,lon=sbr_lon,height=sbr_hei)
 
 ### misc.
 sbr_press  = 620.0
@@ -26,9 +26,9 @@ PFS_a6 = -0.006588
 
 class PFS():
     def FA(self, carray, darray, tel_ra, tel_de, dt, adc, inr, m2pos3, wl, inrflag=1, scaleflag=0, maxellip=0.6, maxsize=20.0, minsize=0.92, maxresid=0.5):
-        tel_coord = ac.SkyCoord(ra=tel_ra, dec=tel_de, unit=(au.deg, au.deg), frame='icrs')
-        frame_subaru = ac.AltAz(obstime  = dt, location = Lsbr,\
-                                pressure = sbr_press*au.hPa, obswl = wl*au.micron)
+        tel_coord = SkyCoord(ra=tel_ra, dec=tel_de, unit=(u.deg, u.deg), frame='icrs')
+        frame_subaru = AltAz(obstime  = dt, location = Lsbr,\
+                                pressure = sbr_press*u.hPa, obswl = wl*u.micron)
         tel_altaz = tel_coord.transform_to(frame_subaru)
         az = tel_altaz.az.degree+180.0
         el = tel_altaz.alt.degree
