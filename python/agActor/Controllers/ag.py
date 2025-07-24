@@ -14,21 +14,23 @@ class ag:
     class Mode(enum.IntFlag):
 
         # flags (Fs), inputs (Is), and states (Ss)
-        OFF = 0                         # [--S] idle
-        ON = 1                          # [FIS] start/resume autoguide
-        ONCE = 2                        # [FIS] autoguide once
-        REF_SKY = 4                     # [FIS] initialize only, guide objects from exposure
-        REF_DB = 8                      # [FIS] initialize only, guide objects from opdb
-        REF_OTF = 16                    # [FIS] initialize only, guide objects from catalog on the fly
-        STOP = 32                       # [-I-] stop autoguide
-        AUTO_SKY = REF_SKY | ON         # [-IS] auto-start, guide objects from first exposure
-        AUTO_DB = REF_DB | ON           # [-IS] auto-start, guide objects from opdb
-        AUTO_OTF = REF_OTF | ON         # [-IS] auto-start, guide objects from catalog on the fly
-        #AUTO_ONCE_SKY = REF_SKY | ONCE  # [-IS] initialize and autoguide once, guide objects from exposure
-        AUTO_ONCE_DB = REF_DB | ONCE    # [-IS] initialize and autoguide once, guide objects from opdb
-                                        #       (field acquisition with autoguider)
-        AUTO_ONCE_OTF = REF_OTF | ONCE  # [-IS] initialize and autoguide once, guide objects from catalog on the fly
-                                        #       (on-the-fly field acquisition with autoguider)
+        OFF = 0  # [--S] idle
+        ON = 1  # [FIS] start/resume autoguide
+        ONCE = 2  # [FIS] autoguide once
+        REF_SKY = 4  # [FIS] initialize only, guide objects from exposure
+        REF_DB = 8  # [FIS] initialize only, guide objects from opdb
+        REF_OTF = 16  # [FIS] initialize only, guide objects from catalog on the fly
+        STOP = 32  # [-I-] stop autoguide
+        AUTO_SKY = REF_SKY | ON  # [-IS] auto-start, guide objects from first exposure
+        AUTO_DB = REF_DB | ON  # [-IS] auto-start, guide objects from opdb
+        AUTO_OTF = REF_OTF | ON  # [-IS] auto-start, guide objects from catalog on the fly
+        # AUTO_ONCE_SKY = REF_SKY | ONCE  # [-IS] initialize and autoguide once, guide objects from exposure
+        AUTO_ONCE_DB = REF_DB | ONCE  # [-IS] initialize and autoguide once, guide objects from opdb
+        #       (field acquisition with autoguider)
+        AUTO_ONCE_OTF = (
+            REF_OTF | ONCE
+        )  # [-IS] initialize and autoguide once, guide objects from catalog on the fly
+        #       (on-the-fly field acquisition with autoguider)
 
     EXPOSURE_TIME = 2000  # ms
     CADENCE = 0  # ms
@@ -45,9 +47,20 @@ class ag:
 
     class Params:
 
-        __slots__ = ('mode', 'design', 'visit_id', 'exposure_time', 'cadence', 'center', 'options')
+        __slots__ = ("mode", "design", "visit_id", "exposure_time", "cadence", "center", "options")
 
-        _OPTIONS = ('magnitude', 'dry_run', 'fit_dinr', 'fit_dscale', 'max_ellipticity', 'max_size', 'min_size', 'max_residual', 'exposure_delay', 'tec_off')
+        _OPTIONS = (
+            "magnitude",
+            "dry_run",
+            "fit_dinr",
+            "fit_dscale",
+            "max_ellipticity",
+            "max_size",
+            "min_size",
+            "max_residual",
+            "exposure_delay",
+            "tec_off",
+        )
 
         def __init__(self, **kwargs):
 
@@ -78,17 +91,17 @@ class ag:
 
     def __del__(self):
 
-        self.logger.info('ag.__del__:')
+        self.logger.info("ag.__del__:")
 
     def start(self, cmd=None):
 
-        self.logger.info('starting ag controller...')
+        self.logger.info("starting ag controller...")
         self.thread = AgThread(actor=self.actor, logger=self.logger)
         self.thread.start()
 
     def stop(self, cmd=None):
 
-        self.logger.info('stopping ag controller...')
+        self.logger.info("stopping ag controller...")
         if self.thread is not None:
             self.thread.stop()
             self.thread.join()
@@ -97,42 +110,94 @@ class ag:
     def get_mode(self, cmd=None):
 
         mode, *_ = self.thread.get_params()
-        self.logger.info(f'get_mode: {mode}')
+        self.logger.info(f"get_mode: {mode}")
         return mode
 
-    def start_autoguide(self, cmd=None, design=None, visit_id=None, from_sky=None, exposure_time=EXPOSURE_TIME, cadence=CADENCE, center=None, **kwargs):
+    def start_autoguide(
+        self,
+        cmd=None,
+        design=None,
+        visit_id=None,
+        from_sky=None,
+        exposure_time=EXPOSURE_TIME,
+        cadence=CADENCE,
+        center=None,
+        **kwargs,
+    ):
 
         mode = ag.Mode.AUTO_SKY if from_sky else ag.Mode.AUTO_DB if design is not None else ag.Mode.AUTO_OTF
-        self.logger.info(f'start_autoguide: {mode=},{design=},{visit_id=},{exposure_time=},{cadence=},{center=}')
-        self.thread.set_params(mode=mode, design=design, visit_id=visit_id, exposure_time=exposure_time, cadence=cadence, center=center, options={}, **kwargs)
+        self.logger.info(
+            f"start_autoguide: {mode=},{design=},{visit_id=},{exposure_time=},{cadence=},{center=}"
+        )
+        self.thread.set_params(
+            mode=mode,
+            design=design,
+            visit_id=visit_id,
+            exposure_time=exposure_time,
+            cadence=cadence,
+            center=center,
+            options={},
+            **kwargs,
+        )
 
     def restart_autoguide(self, cmd=None):
 
         mode = ag.Mode.ON
-        self.logger.info(f'restart_autoguide: {mode=}')
+        self.logger.info(f"restart_autoguide: {mode=}")
         self.thread.set_params(mode=mode)
 
-    def initialize_autoguide(self, cmd=None, design=None, visit_id=None, from_sky=None, exposure_time=EXPOSURE_TIME, cadence=CADENCE, center=None, **kwargs):
+    def initialize_autoguide(
+        self,
+        cmd=None,
+        design=None,
+        visit_id=None,
+        from_sky=None,
+        exposure_time=EXPOSURE_TIME,
+        cadence=CADENCE,
+        center=None,
+        **kwargs,
+    ):
 
         mode = ag.Mode.REF_SKY if from_sky else ag.Mode.REF_DB if design is not None else ag.Mode.REF_OTF
-        self.logger.info(f'initialize_autoguide: {mode=},{design=},{visit_id=},{exposure_time=},{cadence=},{center=}')
-        self.thread.set_params(mode=mode, design=design, visit_id=visit_id, exposure_time=exposure_time, cadence=cadence, center=center, options={}, **kwargs)
+        self.logger.info(
+            f"initialize_autoguide: {mode=},{design=},{visit_id=},{exposure_time=},{cadence=},{center=}"
+        )
+        self.thread.set_params(
+            mode=mode,
+            design=design,
+            visit_id=visit_id,
+            exposure_time=exposure_time,
+            cadence=cadence,
+            center=center,
+            options={},
+            **kwargs,
+        )
 
     def stop_autoguide(self, cmd=None):
 
-        self.logger.info('stop_autoguide:')
+        self.logger.info("stop_autoguide:")
         self.thread.set_params(mode=ag.Mode.STOP)
 
     def reconfigure_autoguide(self, cmd=None, **kwargs):
 
-        self.logger.info('reconfigure_autoguide:')
+        self.logger.info("reconfigure_autoguide:")
         self.thread.set_params(**kwargs)
 
-    def acquire_field(self, cmd=None, design=None, visit_id=None, exposure_time=EXPOSURE_TIME, center=None, **kwargs):
+    def acquire_field(
+        self, cmd=None, design=None, visit_id=None, exposure_time=EXPOSURE_TIME, center=None, **kwargs
+    ):
 
         mode = ag.Mode.AUTO_ONCE_DB if design is not None else ag.Mode.AUTO_ONCE_OTF
-        self.logger.info(f'acquire_field: {mode=},{design=},{visit_id=},{exposure_time=},{center=}')
-        self.thread.set_params(mode=mode, design=design, visit_id=visit_id, exposure_time=exposure_time, center=center, options={}, **kwargs)
+        self.logger.info(f"acquire_field: {mode=},{design=},{visit_id=},{exposure_time=},{center=}")
+        self.thread.set_params(
+            mode=mode,
+            design=design,
+            visit_id=visit_id,
+            exposure_time=exposure_time,
+            center=center,
+            options={},
+            **kwargs,
+        )
 
 
 class AgThread(threading.Thread):
@@ -145,26 +210,26 @@ class AgThread(threading.Thread):
         self.logger = logger
         self.input_params = {}
         self.params = ag.Params(mode=ag.Mode.OFF, exposure_time=ag.EXPOSURE_TIME, cadence=ag.CADENCE)
-        self.logger.info('AgThread.__init__: {}'.format(self.params.get()))
+        self.logger.info("AgThread.__init__: {}".format(self.params.get()))
         self.lock = threading.Lock()
         self.__abort = threading.Event()
         self.__stop = threading.Event()
 
-        self.with_opdb_agc_guide_offset = actor.actorConfig.get('agc_guide_offset', False)
-        self.with_opdb_agc_match = actor.actorConfig.get('agc_match', False)
-        self.with_agcc_timestamp = actor.actorConfig.get('agcc_timestamp', False)
-        tel_status = [x.strip() for x in actor.actorConfig.get('tel_status', ('agc_exposure',)).split(',')]
-        self.with_gen2_status = 'gen2' in tel_status
-        self.with_mlp1_status = 'mlp1' in tel_status
-        self.with_opdb_tel_status = 'tel_status' in tel_status
+        self.with_opdb_agc_guide_offset = actor.actorConfig.get("agc_guide_offset", False)
+        self.with_opdb_agc_match = actor.actorConfig.get("agc_match", False)
+        self.with_agcc_timestamp = actor.actorConfig.get("agcc_timestamp", False)
+        tel_status = [x.strip() for x in actor.actorConfig.get("tel_status", ("agc_exposure",)).split(",")]
+        self.with_gen2_status = "gen2" in tel_status
+        self.with_mlp1_status = "mlp1" in tel_status
+        self.with_opdb_tel_status = "tel_status" in tel_status
 
     def __del__(self):
 
-        self.logger.info('AgThread.__del__:')
+        self.logger.info("AgThread.__del__:")
 
     def stop(self):
 
-        self.logger.info('AgThread.stop:')
+        self.logger.info("AgThread.stop:")
         self.__stop.set()
         self.__abort.set()
 
@@ -195,7 +260,7 @@ class AgThread(threading.Thread):
         with self.lock:
             self.logger.info(f"AgThread.set_params: {kwargs}")
             self.input_params.update(**kwargs)
-            if 'mode' in kwargs:
+            if "mode" in kwargs:
                 self.__abort.set()
 
     def run(self):
@@ -203,8 +268,8 @@ class AgThread(threading.Thread):
         cmd = self.actor.bcast
 
         time.sleep(0.2)  # wait for tron to start accepting messages from this actor (~0.1 s needed)
-        cmd.inform('detectionState=0')
-        cmd.inform('guideReady=0')
+        cmd.inform("detectionState=0")
+        cmd.inform("guideReady=0")
 
         while True:
 
@@ -217,186 +282,228 @@ class AgThread(threading.Thread):
             dither, offset = None, None
             try:
                 if mode & ag.Mode.REF_OTF and not mode & (ag.Mode.ON | ag.Mode.ONCE):
-                    self.logger.info('AgThread.run: REF_OTF')
+                    self.logger.info("AgThread.run: REF_OTF")
                     if self.with_gen2_status:
-                        self.logger.info('AgThread.run: gen2 status')
+                        self.logger.info("AgThread.run: gen2 status")
                         kwargs = {}
                         if self.with_mlp1_status:
-                            self.logger.info('AgThread.run: mlp1 status')
+                            self.logger.info("AgThread.run: mlp1 status")
                             telescope_state = self.actor.mlp1.telescopeState
-                            self.logger.info('AgThread.run: telescopeState={}'.format(telescope_state))
-                            kwargs['inr'] = telescope_state['rotator_real_angle']
+                            self.logger.info("AgThread.run: telescopeState={}".format(telescope_state))
+                            kwargs["inr"] = telescope_state["rotator_real_angle"]
                         # update gen2 status values
-                        self.logger.info('AgThread.run: update gen2 status')
-                        tel_status = actorCalls.updateTelStatus(self.actor,
-                                                                self.logger,
-                                                                visit_id)
-                        self.logger.info(f'AgThread.run: tel_status={tel_status}')
-                        kwargs['tel_status'] = tel_status
-                        _tel_center = tel_center(actor=self.actor, center=center, design=design, tel_status=tel_status)
+                        self.logger.info("AgThread.run: update gen2 status")
+                        tel_status = actorCalls.updateTelStatus(self.actor, self.logger, visit_id)
+                        self.logger.info(f"AgThread.run: tel_status={tel_status}")
+                        kwargs["tel_status"] = tel_status
+                        _tel_center = tel_center(
+                            actor=self.actor, center=center, design=design, tel_status=tel_status
+                        )
                         if center is None:
-                            center, offset = _tel_center.dither  # dithered center and guide offset correction (insrot only)
-                            self.logger.info(f'AgThread.run: center={center}')
+                            center, offset = (
+                                _tel_center.dither
+                            )  # dithered center and guide offset correction (insrot only)
+                            self.logger.info(f"AgThread.run: center={center}")
                         else:
                             offset = _tel_center.offset  # dithering and guide offset correction
-                        self.logger.info(f'AgThread.run: offset={offset}')
+                        self.logger.info(f"AgThread.run: offset={offset}")
                         if self.with_mlp1_status:
-                            self.logger.info('AgThread.run: mlp1 status')
-                            taken_at = self.actor.mlp1.setUnixDay(telescope_state['az_el_detect_time'], tel_status[8].timestamp())
-                            kwargs['taken_at'] = taken_at
+                            self.logger.info("AgThread.run: mlp1 status")
+                            taken_at = self.actor.mlp1.setUnixDay(
+                                telescope_state["az_el_detect_time"], tel_status[8].timestamp()
+                            )
+                            kwargs["taken_at"] = taken_at
                         if center is not None:
-                            kwargs['center'] = center
+                            kwargs["center"] = center
                         if offset is not None:
-                            kwargs['offset'] = offset
-                        if 'magnitude' in options:
-                            kwargs['magnitude'] = options.get('magnitude')
+                            kwargs["offset"] = offset
+                        if "magnitude" in options:
+                            kwargs["magnitude"] = options.get("magnitude")
 
-                        self.logger.info('AgThread.run: REF_OTF set_design and set_design_ac')
+                        self.logger.info("AgThread.run: REF_OTF set_design and set_design_ac")
                         autoguide.set_design(logger=self.logger, **kwargs)
                         autoguide.set_design_agc(logger=self.logger, **kwargs)
                         mode &= ~ag.Mode.REF_OTF
                         self._set_params(mode=mode)
                 if mode & ag.Mode.REF_DB:
-                    self.logger.info('AgThread.run: Setting design for REF_DB')
+                    self.logger.info("AgThread.run: Setting design for REF_DB")
                     autoguide.set_design(design=design, logger=self.logger)
                     kwargs = {}
-                    if 'magnitude' in options:
-                        kwargs['magnitude'] = options.get('magnitude')
+                    if "magnitude" in options:
+                        kwargs["magnitude"] = options.get("magnitude")
 
-                    self.logger.info('AgThread.run: REF_DB set_design and set_design_ac')
+                    self.logger.info("AgThread.run: REF_DB set_design and set_design_ac")
                     autoguide.set_design_agc(logger=self.logger, **kwargs)  # obstime=<current time>
                     mode &= ~ag.Mode.REF_DB
                     self._set_params(mode=mode)
                 if mode & (ag.Mode.ON | ag.Mode.ONCE | ag.Mode.REF_SKY):
-                    self.logger.info('AgThread.run: Setting design for ON/ONCE/REF_SKY')
-                    exposure_delay = options.get('exposure_delay', ag.EXPOSURE_DELAY)
-                    tec_off = options.get('tec_off', ag.TEC_OFF)
-                    cmd.inform('exposureTime={}'.format(exposure_time))
+                    self.logger.info("AgThread.run: Setting design for ON/ONCE/REF_SKY")
+                    exposure_delay = options.get("exposure_delay", ag.EXPOSURE_DELAY)
+                    tec_off = options.get("tec_off", ag.TEC_OFF)
+                    cmd.inform("exposureTime={}".format(exposure_time))
                     # start an exposure
-                    cmdStr = 'expose object exptime={} centroid=1'.format(exposure_time / 1000)
+                    cmdStr = "expose object exptime={} centroid=1".format(exposure_time / 1000)
                     if visit_id is not None:
-                        cmdStr += ' visit={}'.format(visit_id)
+                        cmdStr += " visit={}".format(visit_id)
                     if exposure_delay > 0:
-                        cmdStr += ' threadDelay={}'.format(exposure_delay)
+                        cmdStr += " threadDelay={}".format(exposure_delay)
                     if tec_off:
-                        cmdStr += ' tecOFF'
+                        cmdStr += " tecOFF"
 
-                    self.logger.info('Taking AG exposure with: cmdStr={}'.format(cmdStr))
+                    self.logger.info("Taking AG exposure with: cmdStr={}".format(cmdStr))
                     result = self.actor.queueCommand(
-                        actor='agcc',
+                        actor="agcc",
                         cmdStr=cmdStr,
-                        timeLim=((exposure_time + 6 * exposure_delay) // 1000 + 15)
+                        timeLim=((exposure_time + 6 * exposure_delay) // 1000 + 15),
                     )
                     time.sleep((exposure_time + 7 * exposure_delay) / 1000 / 2)
                     kwargs = {}
                     telescope_state = None
                     if self.with_mlp1_status:
                         telescope_state = self.actor.mlp1.telescopeState
-                        self.logger.info('AgThread.run: telescopeState={}'.format(telescope_state))
-                        kwargs['inr'] = telescope_state['rotator_real_angle']
+                        self.logger.info("AgThread.run: telescopeState={}".format(telescope_state))
+                        kwargs["inr"] = telescope_state["rotator_real_angle"]
                     if self.with_gen2_status or self.with_opdb_tel_status:
                         # update gen2 status values
-                        self.logger.info('AgThread.run: getting gen2 status')
+                        self.logger.info("AgThread.run: getting gen2 status")
                         if self.with_gen2_status:
-                            tel_status = actorCalls.updateTelStatus(self.actor,
-                                                                    self.logger,
-                                                                    visit_id)
-                            self.logger.info('AgThread.run: tel_status={}'.format(tel_status))
-                            kwargs['tel_status'] = tel_status
-                            _tel_center = tel_center(actor=self.actor, center=center, design=design, tel_status=tel_status)
+                            tel_status = actorCalls.updateTelStatus(self.actor, self.logger, visit_id)
+                            self.logger.info("AgThread.run: tel_status={}".format(tel_status))
+                            kwargs["tel_status"] = tel_status
+                            _tel_center = tel_center(
+                                actor=self.actor, center=center, design=design, tel_status=tel_status
+                            )
                             if all(x is None for x in (center, design)):
-                                center, offset = _tel_center.dither  # dithered center and guide offset correction (insrot only)
-                                self.logger.info('AgThread.run: center={}'.format(center))
+                                center, offset = (
+                                    _tel_center.dither
+                                )  # dithered center and guide offset correction (insrot only)
+                                self.logger.info("AgThread.run: center={}".format(center))
                             else:
                                 offset = _tel_center.offset  # dithering and guide offset correction
-                            self.logger.info('AgThread.run: offset={}'.format(offset))
+                            self.logger.info("AgThread.run: offset={}".format(offset))
                         if self.with_opdb_tel_status:
                             status_update = self.actor.gen2.statusUpdate
-                            status_id = (status_update['visit'], status_update['sequenceNum'])
-                            self.logger.info('AgThread.run: status_id={}'.format(status_id))
-                            kwargs['status_id'] = status_id
+                            status_id = (status_update["visit"], status_update["sequenceNum"])
+                            self.logger.info("AgThread.run: status_id={}".format(status_id))
+                            kwargs["status_id"] = status_id
                     # wait for an exposure to complete
                     result.get()
                     frame_id = self.actor.agcc.frameId
-                    self.logger.info('AgThread.run: frameId={}'.format(frame_id))
+                    self.logger.info("AgThread.run: frameId={}".format(frame_id))
                     data_time = self.actor.agcc.dataTime
-                    self.logger.info('AgThread.run: dataTime={}'.format(data_time))
+                    self.logger.info("AgThread.run: dataTime={}".format(data_time))
                     taken_at = data_time + (exposure_time + 7 * exposure_delay) / 1000 / 2
-                    self.actor.logger.info('AgThread.run: taken_at={}'.format(taken_at))
+                    self.actor.logger.info("AgThread.run: taken_at={}".format(taken_at))
                     if self.with_agcc_timestamp:
-                        kwargs['taken_at'] = taken_at  # unix timestamp, not timezone-aware datetime
+                        kwargs["taken_at"] = taken_at  # unix timestamp, not timezone-aware datetime
                     if self.with_mlp1_status:
                         # possibly override timestamp from agcc
-                        taken_at = self.actor.mlp1.setUnixDay(telescope_state['az_el_detect_time'], taken_at)
-                        kwargs['taken_at'] = taken_at
+                        taken_at = self.actor.mlp1.setUnixDay(telescope_state["az_el_detect_time"], taken_at)
+                        kwargs["taken_at"] = taken_at
                     if center is not None:
-                        kwargs['center'] = center
+                        kwargs["center"] = center
                     if offset is not None:
-                        kwargs['offset'] = offset
-                    if 'magnitude' in options:
-                        kwargs['magnitude'] = options.get('magnitude')
+                        kwargs["offset"] = offset
+                    if "magnitude" in options:
+                        kwargs["magnitude"] = options.get("magnitude")
 
-                    self.logger.info('AgThread.run: kwargs={}'.format(kwargs))
+                    self.logger.info("AgThread.run: kwargs={}".format(kwargs))
 
                     if mode & ag.Mode.REF_OTF:
-                        self.logger.info('AgThread.run: REF_OTF set_design and set_design_ac')
+                        self.logger.info("AgThread.run: REF_OTF set_design and set_design_ac")
                         autoguide.set_design(logger=self.logger, **kwargs)
                         autoguide.set_design_agc(logger=self.logger, **kwargs)
                         mode &= ~ag.Mode.REF_OTF
                         self._set_params(mode=mode)
                     # retrieve detected objects from opdb
                     if mode & ag.Mode.REF_SKY:
-                        self.logger.info('AgThread.run: REF_SKY set_design and set_design_ac')
+                        self.logger.info("AgThread.run: REF_SKY set_design and set_design_ac")
                         # store initial conditions
-                        autoguide.set_design(design=design, logger=self.logger, **kwargs)  # center takes precedence over design
+                        autoguide.set_design(
+                            design=design, logger=self.logger, **kwargs
+                        )  # center takes precedence over design
                         autoguide.set_design_agc(frame_id=frame_id, logger=self.logger, **kwargs)
                         mode &= ~ag.Mode.REF_SKY
                         self._set_params(mode=mode)
                     else:  # mode & (ag.Mode.ON | ag.Mode.ONCE)
-                        self.logger.info('AgThread.run: ON/ONCE set_design and set_design_ac')
-                        dry_run = options.get('dry_run', ag.DRY_RUN)
-                        if 'fit_dinr' in options:
-                            kwargs['fit_dinr'] = options.get('fit_dinr')
-                        if 'fit_dscale' in options:
-                            kwargs['fit_dscale'] = options.get('fit_dscale')
-                        if 'max_ellipticity' in options:
-                            kwargs['max_ellipticity'] = options.get('max_ellipticity')
-                        if 'max_size' in options:
-                            kwargs['max_size'] = options.get('max_size')
-                        if 'min_size' in options:
-                            kwargs['min_size'] = options.get('min_size')
-                        if 'max_residual' in options:
-                            kwargs['max_residual'] = options.get('max_residual')
-                        cmd.inform('detectionState=1')
+                        self.logger.info("AgThread.run: ON/ONCE set_design and set_design_ac")
+                        dry_run = options.get("dry_run", ag.DRY_RUN)
+                        if "fit_dinr" in options:
+                            kwargs["fit_dinr"] = options.get("fit_dinr")
+                        if "fit_dscale" in options:
+                            kwargs["fit_dscale"] = options.get("fit_dscale")
+                        if "max_ellipticity" in options:
+                            kwargs["max_ellipticity"] = options.get("max_ellipticity")
+                        if "max_size" in options:
+                            kwargs["max_size"] = options.get("max_size")
+                        if "min_size" in options:
+                            kwargs["min_size"] = options.get("min_size")
+                        if "max_residual" in options:
+                            kwargs["max_residual"] = options.get("max_residual")
+                        cmd.inform("detectionState=1")
                         # compute guide errors
-                        self.logger.info('AgThread.run: autoguide.autoguide for frame_id={}'.format(frame_id))
-                        ra, dec, inst_pa, dra, ddec, dinr, dscale, dalt, daz, *values = autoguide.autoguide(frame_id=frame_id, logger=self.logger, **kwargs)
-                        cmd.inform('text="ra={},dec={},inst_pa={},dra={},ddec={},dinr={},dscale={},dalt={},daz={}"'.format(ra, dec, inst_pa, dra, ddec, dinr, dscale, dalt, daz))
-                        filenames = ('/dev/shm/guide_objects.npy', '/dev/shm/detected_objects.npy', '/dev/shm/identified_objects.npy')
+                        self.logger.info("AgThread.run: autoguide.autoguide for frame_id={}".format(frame_id))
+                        ra, dec, inst_pa, dra, ddec, dinr, dscale, dalt, daz, *values = autoguide.autoguide(
+                            frame_id=frame_id, logger=self.logger, **kwargs
+                        )
+                        cmd.inform(
+                            'text="ra={},dec={},inst_pa={},dra={},ddec={},dinr={},dscale={},dalt={},daz={}"'.format(
+                                ra, dec, inst_pa, dra, ddec, dinr, dscale, dalt, daz
+                            )
+                        )
+                        filenames = (
+                            "/dev/shm/guide_objects.npy",
+                            "/dev/shm/detected_objects.npy",
+                            "/dev/shm/identified_objects.npy",
+                        )
                         for filename, value in zip(filenames, values):
-                            self.logger.info('AgThread.run: Saving {}'.format(filename))
+                            self.logger.info("AgThread.run: Saving {}".format(filename))
                             numpy.save(filename, value)
                         cmd.inform('data={},{},{},"{}","{}","{}"'.format(ra, dec, inst_pa, *filenames))
-                        cmd.inform('detectionState=0')
+                        cmd.inform("detectionState=0")
                         dx, dy, size, peak, flux = values[3], values[4], values[5], values[6], values[7]
-                        self.logger.info('AgThread.run: Sending mlp1 command dx={},dy={},size={},peak={},flux={}'.format(dx, dy, size, peak, flux))
+                        self.logger.info(
+                            "AgThread.run: Sending mlp1 command dx={},dy={},size={},peak={},flux={}".format(
+                                dx, dy, size, peak, flux
+                            )
+                        )
                         result = self.actor.queueCommand(
-                            actor='mlp1',
+                            actor="mlp1",
                             # daz, dalt: arcsec, positive feedback; dx, dy: mas, HSC -> PFS; size: mas; peak, flux: adu
-                            cmdStr='guide azel={},{} ready={} time={} delay=0 xy={},{} size={} intensity={} flux={}'.format(- daz, - dalt, int(not dry_run), taken_at, dx * 1e3, - dy * 1e3, size * 13 / 98e-3, peak, flux),
-                            timeLim=5
+                            cmdStr="guide azel={},{} ready={} time={} delay=0 xy={},{} size={} intensity={} flux={}".format(
+                                -daz,
+                                -dalt,
+                                int(not dry_run),
+                                taken_at,
+                                dx * 1e3,
+                                -dy * 1e3,
+                                size * 13 / 98e-3,
+                                peak,
+                                flux,
+                            ),
+                            timeLim=5,
                         )
                         result.get()
 
-                        kwargs = {key: kwargs.get(key) for key in ('max_ellipticity', 'max_size', 'min_size') if key in kwargs}
+                        kwargs = {
+                            key: kwargs.get(key)
+                            for key in ("max_ellipticity", "max_size", "min_size")
+                            if key in kwargs
+                        }
                         # always compute focus offset and tilt
-                        self.logger.info('AgThread.run: focus._focus for frame_id={}'.format(frame_id))
+                        self.logger.info("AgThread.run: focus._focus for frame_id={}".format(frame_id))
                         dz, dzs = _focus._focus(detected_objects=values[1], logger=self.logger, **kwargs)
                         # send corrections to gen2 (or iic)
-                        cmd.inform('guideErrors={},{},{},{},{},{},{},{}'.format(frame_id, dra, ddec, dinr, daz, dalt, dz, dscale))
-                        cmd.inform('focusErrors={},{},{},{},{},{},{}'.format(frame_id, *dzs))
+                        cmd.inform(
+                            "guideErrors={},{},{},{},{},{},{},{}".format(
+                                frame_id, dra, ddec, dinr, daz, dalt, dz, dscale
+                            )
+                        )
+                        cmd.inform("focusErrors={},{},{},{},{},{},{}".format(frame_id, *dzs))
                         if self.with_opdb_agc_guide_offset:
-                            self.logger.info('AgThread.run: write_agc_guide_offset for frame_id={}'.format(frame_id))
+                            self.logger.info(
+                                "AgThread.run: write_agc_guide_offset for frame_id={}".format(frame_id)
+                            )
                             data_utils.write_agc_guide_offset(
                                 frame_id=frame_id,
                                 ra=ra,
@@ -409,28 +516,36 @@ class AgThread(threading.Thread):
                                 delta_az=daz,
                                 delta_el=dalt,
                                 delta_z=dz,
-                                delta_zs=dzs
+                                delta_zs=dzs,
                             )
                         if self.with_opdb_agc_match:
-                            self.logger.info('AgThread.run: write_agc_match for frame_id={}'.format(frame_id))
+                            self.logger.info("AgThread.run: write_agc_match for frame_id={}".format(frame_id))
                             data_utils.write_agc_match(
-                                design_id=design_id if design_id is not None else pfs_design.pfsDesign.to_design_id(design_path) if design_path is not None else 0,
+                                design_id=(
+                                    design_id
+                                    if design_id is not None
+                                    else (
+                                        pfs_design.pfsDesign.to_design_id(design_path)
+                                        if design_path is not None
+                                        else 0
+                                    )
+                                ),
                                 frame_id=frame_id,
                                 guide_objects=values[0],
                                 detected_objects=values[1],
-                                identified_objects=values[2]
+                                identified_objects=values[2],
                             )
                 if mode & ag.Mode.ONCE:
-                    self.logger.info('AgThread.run: ONCE')
+                    self.logger.info("AgThread.run: ONCE")
                     self._set_params(mode=ag.Mode.OFF)
                 if mode == ag.Mode.STOP:
-                    self.logger.info('AgThread.run: STOP')
-                    cmd.inform('guideReady=0')
+                    self.logger.info("AgThread.run: STOP")
+                    cmd.inform("guideReady=0")
                     self._set_params(mode=ag.Mode.OFF)
             except Exception as e:
-                self.logger.error('AgThread.run: {}'.format(e))
+                self.logger.error("AgThread.run: {}".format(e))
             end = time.time()
             timeout = max(0, cadence / 1000 - (end - start)) if mode == ag.Mode.ON else 0.5
             self.__abort.wait(timeout)
 
-        cmd.inform('guideReady=0')
+        cmd.inform("guideReady=0")

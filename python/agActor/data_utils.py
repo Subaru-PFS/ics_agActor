@@ -3,7 +3,21 @@ import numpy
 from opdb import opDB as opdb
 
 
-def write_agc_guide_offset(*, frame_id, ra=None, dec=None, pa=None, delta_ra=None, delta_dec=None, delta_insrot=None, delta_scale=None, delta_az=None, delta_el=None, delta_z=None, delta_zs=None):
+def write_agc_guide_offset(
+    *,
+    frame_id,
+    ra=None,
+    dec=None,
+    pa=None,
+    delta_ra=None,
+    delta_dec=None,
+    delta_insrot=None,
+    delta_scale=None,
+    delta_az=None,
+    delta_el=None,
+    delta_z=None,
+    delta_zs=None,
+):
 
     params = dict(
         guide_ra=ra,
@@ -15,7 +29,7 @@ def write_agc_guide_offset(*, frame_id, ra=None, dec=None, pa=None, delta_ra=Non
         guide_delta_scale=delta_scale,
         guide_delta_az=delta_az,
         guide_delta_el=delta_el,
-        guide_delta_z=delta_z
+        guide_delta_z=delta_z,
     )
     if delta_zs is not None:
         params.update(guide_delta_z1=delta_zs[0])
@@ -32,25 +46,27 @@ def write_agc_match(*, design_id, frame_id, guide_objects, detected_objects, ide
     data = numpy.array(
         [
             (
-                detected_objects['camera_id'][x[0]],
-                detected_objects['spot_id'][x[0]],
-                guide_objects['source_id'][x[1]],
-                x[4], - x[5],  # hsc -> pfs focal plane coordinate system
-                x[2], - x[3],  # hsc -> pfs focal plane coordinate system
-                guide_objects['filter_flag'][x[1]]  # flags
+                detected_objects["camera_id"][x[0]],
+                detected_objects["spot_id"][x[0]],
+                guide_objects["source_id"][x[1]],
+                x[4],
+                -x[5],  # hsc -> pfs focal plane coordinate system
+                x[2],
+                -x[3],  # hsc -> pfs focal plane coordinate system
+                guide_objects["filter_flag"][x[1]],  # flags
             )
             for x in identified_objects
         ],
         dtype=[
-            ('agc_camera_id', numpy.int32),
-            ('spot_id', numpy.int32),
-            ('guide_star_id', numpy.int64),
-            ('agc_nominal_x_mm', numpy.float32),
-            ('agc_nominal_y_mm', numpy.float32),
-            ('agc_center_x_mm', numpy.float32),
-            ('agc_center_y_mm', numpy.float32),
-            ('flags', numpy.int32)
-        ]
+            ("agc_camera_id", numpy.int32),
+            ("spot_id", numpy.int32),
+            ("guide_star_id", numpy.int64),
+            ("agc_nominal_x_mm", numpy.float32),
+            ("agc_nominal_y_mm", numpy.float32),
+            ("agc_center_x_mm", numpy.float32),
+            ("agc_center_y_mm", numpy.float32),
+            ("flags", numpy.int32),
+        ],
     )
-    #print(data)
+    # print(data)
     opdb.insert_agc_match(frame_id, design_id, data)

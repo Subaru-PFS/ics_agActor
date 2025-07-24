@@ -16,14 +16,11 @@ def updateTelStatus(actor, logger, visit_id=None):
 
     # Note that visit_id can be 0 when the ag is testing or doing OTF
     if visit_id:
-        visitStr = 'visit={}'.format(visit_id)
+        visitStr = "visit={}".format(visit_id)
     else:
-        visitStr = ''
+        visitStr = ""
     actor.queueCommand(
-        actor='gen2',
-        cmdStr='updateTelStatus caller={} {}'.format(actor.name,
-                                                     visitStr),
-        timeLim=5
+        actor="gen2", cmdStr="updateTelStatus caller={} {}".format(actor.name, visitStr), timeLim=5
     ).get()
     tel_status = actor.gen2.tel_status
 

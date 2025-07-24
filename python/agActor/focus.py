@@ -5,9 +5,9 @@ from opdb import opDB as opdb
 
 # mapping of keys and value types between focus.py and FieldAcquisitionAndFocusing.py
 _KEYMAP = {
-    'max_ellipticity': ('maxellip', float),
-    'max_size': ('maxsize', float),
-    'min_size': ('minsize', float)
+    "max_ellipticity": ("maxellip", float),
+    "max_size": ("maxsize", float),
+    "min_size": ("minsize", float),
 }
 
 
@@ -23,15 +23,14 @@ def _map_kwargs(kwargs):
 
 def focus(*, frame_id, logger=None, **kwargs):
 
-    logger and logger.info('frame_id={}'.format(frame_id))
+    logger and logger.info("frame_id={}".format(frame_id))
     detected_objects = opdb.query_agc_data(frame_id)
     _kwargs = _filter_kwargs(kwargs)
-    logger and logger.info('_kwargs={}'.format(_kwargs))
+    logger and logger.info("_kwargs={}".format(_kwargs))
     return _focus(detected_objects, logger=logger, **_kwargs)
 
 
 def _focus(detected_objects, logger=None, **kwargs):
-
 
     def semi_axes(xy, x2, y2):
 
@@ -50,16 +49,16 @@ def _focus(detected_objects, logger=None, **kwargs):
                 0,  # centroid_y (unused)
                 0,  # flux (unused)
                 *semi_axes(x[5], x[6], x[7]),  # semi-major and semi-minor axes
-                x[-1]  # flags
+                x[-1],  # flags
             )
             for x in detected_objects
         ]
     )
     _kwargs = _map_kwargs(kwargs)
-    logger and logger.info('_kwargs={}'.format(_kwargs))
+    logger and logger.info("_kwargs={}".format(_kwargs))
     pfs = FieldAcquisitionAndFocusing.PFS()
     dzs = pfs.Focus(_detected_objects, **_kwargs)
-    logger and logger.info('dzs={}'.format(dzs))
+    logger and logger.info("dzs={}".format(dzs))
     dz = numpy.nanmedian(dzs)
-    logger and logger.info('dz={}'.format(dz))
+    logger and logger.info("dz={}".format(dz))
     return dz, dzs
