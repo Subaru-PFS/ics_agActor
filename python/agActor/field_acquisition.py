@@ -7,7 +7,7 @@ from astropy.table import Table
 from numpy.lib import recfunctions as rfn
 from pfs.utils.coordinates import coordinates
 
-from agActor.catalog import _gen2_gaia as gaia
+from agActor.catalog import gen2_gaia as gaia
 from agActor.catalog.pfs_design import pfsDesign as pfs_design
 from agActor.coordinates import FieldAcquisitionAndFocusing
 from agActor.utils import to_altaz

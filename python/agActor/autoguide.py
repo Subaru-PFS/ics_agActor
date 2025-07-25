@@ -1,4 +1,4 @@
-from agActor.catalog import _gen2_gaia as gaia, astrometry
+from agActor.catalog import gen2_gaia as gaia, astrometry
 from agActor.field_acquisition import filter_guide_objects, calculate_guide_offsets, get_tel_status, filter_kwargs, parse_kwargs
 from agActor.utils.opdb import opDB as opdb
 from agActor.catalog.pfs_design import pfsDesign as pfs_design
