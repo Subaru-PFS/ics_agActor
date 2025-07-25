@@ -7,11 +7,11 @@ from astropy.table import Table
 from numpy.lib import recfunctions as rfn
 from pfs.utils.coordinates import coordinates
 
-import _gen2_gaia as gaia
-import to_altaz
-from kawanomoto import FieldAcquisitionAndFocusing
-from opdb import opDB as opdb
-from pfs_design import pfsDesign as pfs_design
+from agActor.catalog import gen2_gaia as gaia
+from agActor.catalog.pfs_design import pfsDesign as pfs_design
+from agActor.coordinates import FieldAcquisitionAndFocusing
+from agActor.utils import to_altaz
+from agActor.utils.opdb import opDB as opdb
 
 # mapping of keys and value types between field_acquisition.py and FieldAcquisitionAndFocusing.py
 _KEYMAP = {
@@ -62,7 +62,7 @@ class AutoGuiderStarMask(IntFlag):
     MAX_RESID = 0x10000
 
 
-def _filter_kwargs(kwargs):
+def filter_kwargs(kwargs):
 
     return {k: v for k, v in kwargs.items() if k in _KEYMAP}
 
@@ -72,7 +72,7 @@ def _map_kwargs(kwargs):
     return {_KEYMAP[k][0]: _KEYMAP[k][1](v) for k, v in kwargs.items() if k in _KEYMAP}
 
 
-def _parse_kwargs(kwargs):
+def parse_kwargs(kwargs):
 
     if (center := kwargs.pop("center", None)) is not None:
         ra, dec, *optional = center
@@ -103,7 +103,7 @@ def _parse_kwargs(kwargs):
         kwargs.setdefault("m2_pos3", m2_pos3)
 
 
-def _get_tel_status(*, frame_id, logger=None, **kwargs):
+def get_tel_status(*, frame_id, logger=None, **kwargs):
     logger and logger.info("Getting telescope status for frame_id={}".format(frame_id))
     taken_at = kwargs.get("taken_at")
     inr = kwargs.get("inr")
@@ -136,8 +136,8 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
     logger and logger.info(
         f"Calling acquire_field with frame_id={frame_id}, obswl={obswl}, altazimuth={altazimuth}"
     )
-    _parse_kwargs(kwargs)
-    taken_at, inr, adc, m2_pos3 = _get_tel_status(frame_id=frame_id, logger=logger, **kwargs)
+    parse_kwargs(kwargs)
+    taken_at, inr, adc, m2_pos3 = get_tel_status(frame_id=frame_id, logger=logger, **kwargs)
     logger and logger.info("Getting agc_data from opdb for frame_id={}".format(frame_id))
     detected_objects = opdb.query_agc_data(frame_id)
     logger and logger.info(f"Got {len(detected_objects)=} detected objects)")
@@ -191,13 +191,13 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
     if "dinr" in kwargs:
         inr += kwargs.get("dinr") / 3600
     logger and logger.info("ra={},dec={},inst_pa={},inr={}".format(ra, dec, inst_pa, inr))
-    _kwargs = _filter_kwargs(kwargs)
+    _kwargs = filter_kwargs(kwargs)
     logger and logger.info("Calling _acquire_field with _kwargs={}".format(_kwargs))
     return (
         ra,
         dec,
         inst_pa,
-        *_acquire_field(
+        *calculate_guide_offsets(
             guide_objects,
             detected_objects,
             ra,
@@ -214,7 +214,7 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
     )
 
 
-def _acquire_field(
+def calculate_guide_offsets(
     guide_objects,
     detected_objects,
     ra,

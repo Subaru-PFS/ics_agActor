@@ -1,6 +1,6 @@
 import numpy as np
 
-from opdb import opDB as opdb
+from agActor.utils.opdb import opDB as opdb
 
 
 def write_agc_guide_offset(

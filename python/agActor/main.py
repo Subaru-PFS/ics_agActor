@@ -5,9 +5,9 @@ import queue
 
 from actorcore.ICC import ICC
 
-from agActor.agcc import Agcc
-from agActor.gen2 import Gen2
-from agActor.mlp1 import Mlp1
+from agActor.models.agcc import Agcc
+from agActor.models.gen2 import Gen2
+from agActor.models.mlp1 import Mlp1
 
 
 class AgActor(ICC):
@@ -46,7 +46,6 @@ class AgActor(ICC):
 
             self._everConnected = True
 
-            # self.allControllers = ['ac', 'af', 'ag',]
             self.allControllers = [
                 "ag",
             ]

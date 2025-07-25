@@ -7,9 +7,11 @@ import opscore.protocols.keys as keys
 import opscore.protocols.types as types
 from pfs.utils.coordinates import Subaru_POPT2_PFS
 
-from agActor import actorCalls, data_utils, field_acquisition, focus as _focus, pfs_design
+from agActor import field_acquisition
+from agActor.catalog import pfs_design
+from agActor.utils import actorCalls, data_utils, focus as _focus
 from agActor.Controllers.ag import ag
-from agActor.telescope_center import telCenter as tel_center
+from agActor.utils.telescope_center import telCenter as tel_center
 
 
 class AgCmd:
