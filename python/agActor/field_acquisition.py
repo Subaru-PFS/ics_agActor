@@ -67,26 +67,54 @@ def parse_kwargs(kwargs):
 
 
 def get_tel_status(*, frame_id, logger=None, **kwargs):
+    """Get the telescope status information for a specific frame ID.
+
+    Args:
+        frame_id: The frame ID to retrieve telescope status for.
+        logger: Optional logger instance for logging messages.
+        **kwargs: Additional keyword arguments that may include:
+            taken_at: Timestamp when the frame was taken
+            inr: Instrument rotator angle
+            adc: Atmospheric dispersion corrector value  
+            m2_pos3: Secondary mirror position
+            sequence_id: Sequence ID for querying telescope status
+
+    Returns:
+        tuple: A tuple containing:
+            taken_at: Timestamp when the frame was taken
+            inr: Instrument rotator angle in degrees
+            adc: Atmospheric dispersion corrector value
+            m2_pos3: Secondary mirror position in mm
+
+    If any of the optional values are not provided in kwargs, they will be retrieved
+    from the opdb database using the frame_id and sequence_id (if provided).
+    """
     log_message(logger, f"Getting telescope status for {frame_id=}")
+    
+    # Extract values from kwargs if provided
     taken_at = kwargs.get("taken_at")
     inr = kwargs.get("inr")
     adc = kwargs.get("adc")
     m2_pos3 = kwargs.get("m2_pos3")
-    if any(x is None for x in (taken_at, inr, adc, m2_pos3)):
+    
+    # Check if we need to fetch any missing values from the database
+    if any(value is None for value in (taken_at, inr, adc, m2_pos3)):
+        # First, query the agc_exposure table to get basic information, including visit_id.
         log_message(logger, f"Getting agc_exposure from opdb for frame_id={frame_id}")
-        visit_id, _, _taken_at, _, _, _inr, _adc, _, _, _, _m2_pos3 = opdb.query_agc_exposure(frame_id)
-        if (sequence_id := kwargs.get("sequence_id")) is not None:
+        visit_id, _, db_taken_at, _, _, db_inr, db_adc, _, _, _, db_m2_pos3 = opdb.query_agc_exposure(frame_id)
+        
+        # If sequence_id is provided, get more accurate information from tel_status table
+        sequence_id = kwargs.get("sequence_id")
+        if sequence_id is not None:
             log_message(logger, f"Getting telescope status from opdb for {visit_id=},{sequence_id=}")
-            # use visit_id from agc_exposure table
-            _, _, _inr, _adc, _m2_pos3, _, _, _, _, _taken_at = opdb.query_tel_status(visit_id, sequence_id)
-        if taken_at is None:
-            taken_at = _taken_at
-        if inr is None:
-            inr = _inr
-        if adc is None:
-            adc = _adc
-        if m2_pos3 is None:
-            m2_pos3 = _m2_pos3
+            _, _, db_inr, db_adc, db_m2_pos3, _, _, _, _, db_taken_at = opdb.query_tel_status(visit_id, sequence_id)
+        
+        # Use database values for any missing parameters
+        taken_at = taken_at or db_taken_at
+        inr = inr or db_inr
+        adc = adc or db_adc
+        m2_pos3 = m2_pos3 or db_m2_pos3
+    
     log_message(logger, f"{taken_at=},{inr=},{adc=},{m2_pos3=}")
     return taken_at, inr, adc, m2_pos3
 
