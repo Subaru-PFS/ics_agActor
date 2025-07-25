@@ -9,8 +9,10 @@ from pfs.utils.coordinates import Subaru_POPT2_PFS
 
 from agActor import field_acquisition
 from agActor.catalog import pfs_design
-from agActor.utils import actorCalls, data_utils, focus as _focus
 from agActor.Controllers.ag import ag
+from agActor.utils import actorCalls
+from agActor.utils import data as data_utils
+from agActor.utils import focus as _focus
 from agActor.utils.telescope_center import telCenter as tel_center
 
 
@@ -215,7 +217,7 @@ class AgCmd:
                 cmdStr += " tecOFF"
 
             self.actor.logger.info(f"AgCmd.acquire_field: Sending agcc cmdStr={cmdStr}")
-            result = self.actor.queueCommand(
+            agcc_exposure_result = self.actor.queueCommand(
                 actor="agcc", cmdStr=cmdStr, timeLim=((exposure_time + 6 * exposure_delay) // 1000 + 15)
             )
             # This synchronous sleep is to defer the request for telescope info to roughly
@@ -251,7 +253,7 @@ class AgCmd:
                     self.actor.logger.info(f"AgCmd.acquire_field: status_id={status_id}")
                     kwargs["status_id"] = status_id
             # wait for an exposure to complete
-            result.get()
+            agcc_exposure_result.get()
             frame_id = self.actor.agcc.frameId
             self.actor.logger.info(f"AgCmd.acquire_field: frameId={frame_id}")
             data_time = self.actor.agcc.dataTime
@@ -283,25 +285,43 @@ class AgCmd:
                 self.actor.logger.info(
                     "AgCmd.acquire_field: Calling field_acquisition.acquire_field for guiding"
                 )
-                ra, dec, inst_pa, dra, ddec, dinr, dscale, dalt, daz, *values = (
-                    field_acquisition.acquire_field(
-                        design=design, frame_id=frame_id, altazimuth=True, logger=self.actor.logger, **kwargs
-                    )
+                guide_offsets = field_acquisition.acquire_field(
+                    design=design, frame_id=frame_id, altazimuth=True, logger=self.actor.logger, **kwargs
                 )  # design takes precedence over center
+                ra = guide_offsets.ra
+                dec = guide_offsets.dec
+                inst_pa = guide_offsets.inst_pa
+                dra = guide_offsets.ra_offset
+                ddec = guide_offsets.dec_offset
+                dinr = guide_offsets.inr_offset
+                dscale = guide_offsets.scale_offset
+                dalt = guide_offsets.dalt
+                daz = guide_offsets.daz
+                guide_files = [
+                    guide_offsets.guide_objects,
+                    guide_offsets.detected_objects,
+                    guide_offsets.identified_objects,
+                ]
                 cmd.inform(f'text="{ra=},{dec=},{inst_pa=},{dra=},{ddec=},{dinr=},{dscale=},{dalt=},{daz=}"')
                 filenames = (
                     "/dev/shm/guide_objects.npy",
                     "/dev/shm/detected_objects.npy",
                     "/dev/shm/identified_objects.npy",
                 )
-                for filename, value in zip(filenames, values):
+                for filename, value in zip(filenames, guide_files):
                     self.actor.logger.info(f"AgCmd.acquire_field: Saving {filename}")
                     np.save(filename, value)
                 cmd.inform('data={},{},{},"{}","{}","{}"'.format(ra, dec, inst_pa, *filenames))
                 cmd.inform("detectionState=0")
-                dx, dy, size, peak, flux = values[3], values[4], values[5], values[6], values[7]
+                dx, dy, size, peak, flux = (
+                    guide_offsets.dx,
+                    guide_offsets.dy,
+                    guide_offsets.size,
+                    guide_offsets.peak,
+                    guide_offsets.flux,
+                )
                 # send corrections to mlp1 and gen2 (or iic)
-                result = self.actor.queueCommand(
+                mlp_result = self.actor.queueCommand(
                     actor="mlp1",
                     # daz, dalt: arcsec, positive feedback; dx, dy: mas, HSC -> PFS; size: mas; peak, flux: adu
                     cmdStr="guide azel={},{} ready={} time={} delay=0 xy={},{} size={} intensity={} flux={}".format(
@@ -317,23 +337,37 @@ class AgCmd:
                     ),
                     timeLim=5,
                 )
-                result.get()
+                mlp_result.get()
             else:
                 self.actor.logger.info("AgCmd.acquire_field: guide=False")
                 cmd.inform("detectionState=1")
                 self.actor.logger.info(
                     "AgCmd.acquire_field: Calling field_acquisition.acquire_field not guiding"
                 )
-                ra, dec, inst_pa, dra, ddec, dinr, dscale, *values = field_acquisition.acquire_field(
+                guide_offsets = field_acquisition.acquire_field(
                     design=design, frame_id=frame_id, logger=self.actor.logger, **kwargs
                 )  # design takes precedence over center
+                ra = guide_offsets.ra
+                dec = guide_offsets.dec
+                inst_pa = guide_offsets.inst_pa
+                dra = guide_offsets.ra_offset
+                ddec = guide_offsets.dec_offset
+                dinr = guide_offsets.inr_offset
+                dscale = guide_offsets.scale_offset
+                dalt = guide_offsets.dalt
+                daz = guide_offsets.daz
+                guide_files = [
+                    guide_offsets.guide_objects,
+                    guide_offsets.detected_objects,
+                    guide_offsets.identified_objects,
+                ]
                 cmd.inform(f'text="dra={dra},ddec={ddec},dinr={dinr},dscale={dscale}"')
                 filenames = (
                     "/dev/shm/guide_objects.npy",
                     "/dev/shm/detected_objects.npy",
                     "/dev/shm/identified_objects.npy",
                 )
-                for filename, value in zip(filenames, values):
+                for filename, value in zip(filenames, guide_files):
                     self.actor.logger.info(f"AgCmd.acquire_field: Saving {filename}")
                     np.save(filename, value)
                 cmd.inform('data={},{},{},"{}","{}","{}"'.format(ra, dec, inst_pa, *filenames))
@@ -341,7 +375,7 @@ class AgCmd:
                 # send corrections to gen2 (or iic)
             # always compute focus offset and tilt
             self.actor.logger.info("AgCmd.acquire_field: Calling focus._focus")
-            dz, dzs = _focus._focus(detected_objects=values[1], logger=self.actor.logger)
+            dz, dzs = _focus._focus(detected_objects=guide_offsets.detected_objects, logger=self.actor.logger)
             # send corrections to gen2 (or iic)
             cmd.inform(
                 "guideErrors={},{},{},{},{},{},{},{}".format(frame_id, dra, ddec, dinr, daz, dalt, dz, dscale)
@@ -371,9 +405,9 @@ class AgCmd:
                         else pfs_design.pfsDesign.to_design_id(design_path) if design_path is not None else 0
                     ),
                     frame_id=frame_id,
-                    guide_objects=values[0],
-                    detected_objects=values[1],
-                    identified_objects=values[2],
+                    guide_objects=guide_offsets.guide_objects,
+                    detected_objects=guide_offsets.detected_objects,
+                    identified_objects=guide_offsets.identified_objects,
                 )
         except Exception as e:
             self.actor.logger.exception("AgCmd.acquire_field:")

@@ -1,7 +1,8 @@
 import numpy as np
 
-from agActor.coordinates import FieldAcquisitionAndFocusing
+from agActor.coordinates.FieldAcquisitionAndFocusing import calculate_focus_errors
 from agActor.utils.logging import log_message
+from agActor.utils.math import semi_axes
 from agActor.utils.opdb import opDB as opdb
 
 # mapping of keys and value types between focus.py and FieldAcquisitionAndFocusing.py
@@ -33,14 +34,6 @@ def focus(*, frame_id, logger=None, **kwargs):
 
 def _focus(detected_objects, logger=None, **kwargs):
 
-    def semi_axes(xy, x2, y2):
-
-        p = (x2 + y2) / 2
-        q = np.sqrt(np.square((x2 - y2) / 2) + np.square(xy))
-        a = np.sqrt(p + q)
-        b = np.sqrt(p - q)
-        return a, b
-
     _detected_objects = np.array(
         [
             (
@@ -57,8 +50,7 @@ def _focus(detected_objects, logger=None, **kwargs):
     )
     _kwargs = _map_kwargs(kwargs)
     log_message(logger, f"_kwargs={_kwargs}")
-    pfs = FieldAcquisitionAndFocusing.PFS()
-    dzs = pfs.Focus(_detected_objects, **_kwargs)
+    dzs = calculate_focus_errors(_detected_objects, **_kwargs)
     log_message(logger, f"dzs={dzs}")
     dz = np.nanmedian(dzs)
     log_message(logger, f"dz={dz}")
