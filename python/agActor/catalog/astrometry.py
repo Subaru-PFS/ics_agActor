@@ -9,6 +9,8 @@ from astropy.time import Time
 from astropy.utils import iers
 from pfs.utils.coordinates import Subaru_POPT2_PFS, coordinates
 
+from agActor.utils.logging import log_message
+
 iers.conf.auto_download = True
 solar_system_ephemeris.set("de440")
 
@@ -33,10 +35,10 @@ def measure(
     logger=None,
 ):
 
-    logger and logger.info(
-        "ra={},dec={},obstime={},inst_pa={},inr={},adc={},m2_pos3={},temperature={},relative_humidity={},pressure={},obswl={}".format(
-            ra, dec, obstime, inst_pa, inr, adc, m2_pos3, temperature, relative_humidity, pressure, obswl
-        )
+    log_message(
+        logger,
+        f"{ra=},{dec=},{obstime=},{inst_pa=},{inr=},{adc=},"
+        f"{m2_pos3=},{temperature=},{relative_humidity=},{pressure=},{obswl=}",
     )
 
     ra = Angle(ra, unit=u.deg)
@@ -71,9 +73,7 @@ def measure(
         altaz_p = icrs_p.transform_to(frame_tc)
         parallactic_angle = altaz_c.position_angle(altaz_p).to(u.deg).value
         inr = (parallactic_angle + inst_pa + 180) % 360 - 180
-        logger and logger.info(
-            "parallactic_angle={},inst_pa={},inr={}".format(parallactic_angle, inst_pa, inr)
-        )
+        log_message(logger, f"parallactic_angle={parallactic_angle},inst_pa={inst_pa},inr={inr}")
 
     # detected stellar objects in the equatorial coordinates
     icam, x_det, y_det, flags = np.array(detected_objects)[:, (0, 3, 4, -1)].T
