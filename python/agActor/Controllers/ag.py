@@ -291,7 +291,7 @@ class AgThread(threading.Thread):
                         if self.with_mlp1_status:
                             self.logger.info("AgThread.run: mlp1 status")
                             telescope_state = self.actor.mlp1.telescopeState
-                            self.logger.info("AgThread.run: telescopeState={}".format(telescope_state))
+                            self.logger.info(f"AgThread.run: telescopeState={telescope_state}")
                             kwargs["inr"] = telescope_state["rotator_real_angle"]
                         # update gen2 status values
                         self.logger.info("AgThread.run: update gen2 status")
@@ -363,14 +363,14 @@ class AgThread(threading.Thread):
                     telescope_state = None
                     if self.with_mlp1_status:
                         telescope_state = self.actor.mlp1.telescopeState
-                        self.logger.info("AgThread.run: telescopeState={}".format(telescope_state))
+                        self.logger.info(f"AgThread.run: telescopeState={telescope_state}")
                         kwargs["inr"] = telescope_state["rotator_real_angle"]
                     if self.with_gen2_status or self.with_opdb_tel_status:
                         # update gen2 status values
                         self.logger.info("AgThread.run: getting gen2 status")
                         if self.with_gen2_status:
                             tel_status = actorCalls.updateTelStatus(self.actor, self.logger, visit_id)
-                            self.logger.info("AgThread.run: tel_status={}".format(tel_status))
+                            self.logger.info(f"AgThread.run: tel_status={tel_status}")
                             kwargs["tel_status"] = tel_status
                             _tel_center = tel_center(
                                 actor=self.actor, center=center, design=design, tel_status=tel_status
@@ -379,23 +379,23 @@ class AgThread(threading.Thread):
                                 center, offset = (
                                     _tel_center.dither
                                 )  # dithered center and guide offset correction (insrot only)
-                                self.logger.info("AgThread.run: center={}".format(center))
+                                self.logger.info(f"AgThread.run: center={center}")
                             else:
                                 offset = _tel_center.offset  # dithering and guide offset correction
-                            self.logger.info("AgThread.run: offset={}".format(offset))
+                            self.logger.info(f"AgThread.run: offset={offset}")
                         if self.with_opdb_tel_status:
                             status_update = self.actor.gen2.statusUpdate
                             status_id = (status_update["visit"], status_update["sequenceNum"])
-                            self.logger.info("AgThread.run: status_id={}".format(status_id))
+                            self.logger.info(f"AgThread.run: status_id={status_id}")
                             kwargs["status_id"] = status_id
                     # wait for an exposure to complete
                     result.get()
                     frame_id = self.actor.agcc.frameId
-                    self.logger.info("AgThread.run: frameId={}".format(frame_id))
+                    self.logger.info(f"AgThread.run: frameId={frame_id}")
                     data_time = self.actor.agcc.dataTime
-                    self.logger.info("AgThread.run: dataTime={}".format(data_time))
+                    self.logger.info(f"AgThread.run: dataTime={data_time}")
                     taken_at = data_time + (exposure_time + 7 * exposure_delay) / 1000 / 2
-                    self.actor.logger.info("AgThread.run: taken_at={}".format(taken_at))
+                    self.logger.info(f"AgThread.run: taken_at={taken_at}")
                     if self.with_agcc_timestamp:
                         kwargs["taken_at"] = taken_at  # unix timestamp, not timezone-aware datetime
                     if self.with_mlp1_status:
@@ -409,7 +409,7 @@ class AgThread(threading.Thread):
                     if "magnitude" in options:
                         kwargs["magnitude"] = options.get("magnitude")
 
-                    self.logger.info("AgThread.run: kwargs={}".format(kwargs))
+                    self.logger.info(f"AgThread.run: kwargs={kwargs}")
 
                     if mode & ag.Mode.REF_OTF:
                         self.logger.info("AgThread.run: REF_OTF set_design and set_design_ac")
@@ -444,7 +444,7 @@ class AgThread(threading.Thread):
                             kwargs["max_residual"] = options.get("max_residual")
                         cmd.inform("detectionState=1")
                         # compute guide errors
-                        self.logger.info("AgThread.run: autoguide.autoguide for frame_id={}".format(frame_id))
+                        self.logger.info(f"AgThread.run: autoguide.autoguide for frame_id={frame_id}")
                         ra, dec, inst_pa, dra, ddec, dinr, dscale, dalt, daz, *values = autoguide.autoguide(
                             frame_id=frame_id, logger=self.logger, **kwargs
                         )
@@ -459,15 +459,13 @@ class AgThread(threading.Thread):
                             "/dev/shm/identified_objects.npy",
                         )
                         for filename, value in zip(filenames, values):
-                            self.logger.info("AgThread.run: Saving {}".format(filename))
+                            self.logger.info(f"AgThread.run: Saving {filename}")
                             np.save(filename, value)
                         cmd.inform('data={},{},{},"{}","{}","{}"'.format(ra, dec, inst_pa, *filenames))
                         cmd.inform("detectionState=0")
                         dx, dy, size, peak, flux = values[3], values[4], values[5], values[6], values[7]
                         self.logger.info(
-                            "AgThread.run: Sending mlp1 command dx={},dy={},size={},peak={},flux={}".format(
-                                dx, dy, size, peak, flux
-                            )
+                            f"AgThread.run: Sending mlp1 command {dx=},{dy=},{size=},{peak=},{flux=}"
                         )
                         result = self.actor.queueCommand(
                             actor="mlp1",
@@ -493,7 +491,7 @@ class AgThread(threading.Thread):
                             if key in kwargs
                         }
                         # always compute focus offset and tilt
-                        self.logger.info("AgThread.run: focus._focus for frame_id={}".format(frame_id))
+                        self.logger.info(f"AgThread.run: focus._focus for frame_id={frame_id}")
                         dz, dzs = _focus._focus(detected_objects=values[1], logger=self.logger, **kwargs)
                         # send corrections to gen2 (or iic)
                         cmd.inform(
@@ -503,9 +501,7 @@ class AgThread(threading.Thread):
                         )
                         cmd.inform("focusErrors={},{},{},{},{},{},{}".format(frame_id, *dzs))
                         if self.with_opdb_agc_guide_offset:
-                            self.logger.info(
-                                "AgThread.run: write_agc_guide_offset for frame_id={}".format(frame_id)
-                            )
+                            self.logger.info(f"AgThread.run: write_agc_guide_offset for {frame_id=}")
                             data_utils.write_agc_guide_offset(
                                 frame_id=frame_id,
                                 ra=ra,
@@ -521,7 +517,7 @@ class AgThread(threading.Thread):
                                 delta_zs=dzs,
                             )
                         if self.with_opdb_agc_match:
-                            self.logger.info("AgThread.run: write_agc_match for frame_id={}".format(frame_id))
+                            self.logger.info(f"AgThread.run: write_agc_match for frame_id={frame_id}")
                             data_utils.write_agc_match(
                                 design_id=(
                                     design_id
@@ -545,7 +541,7 @@ class AgThread(threading.Thread):
                     cmd.inform("guideReady=0")
                     self._set_params(mode=ag.Mode.OFF)
             except Exception as e:
-                self.logger.error("AgThread.run: {}".format(e))
+                self.logger.error(f"AgThread.run: {e}")
             end = time.time()
             timeout = max(0, cadence / 1000 - (end - start)) if mode == ag.Mode.ON else 0.5
             self.__abort.wait(timeout)

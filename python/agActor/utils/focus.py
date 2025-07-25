@@ -1,6 +1,7 @@
 import numpy as np
 
 from agActor.coordinates import FieldAcquisitionAndFocusing
+from agActor.utils.logging import log_message
 from agActor.utils.opdb import opDB as opdb
 
 # mapping of keys and value types between focus.py and FieldAcquisitionAndFocusing.py
@@ -23,10 +24,10 @@ def _map_kwargs(kwargs):
 
 def focus(*, frame_id, logger=None, **kwargs):
 
-    logger and logger.info("frame_id={}".format(frame_id))
+    log_message(logger, f"frame_id={frame_id}")
     detected_objects = opdb.query_agc_data(frame_id)
     _kwargs = _filter_kwargs(kwargs)
-    logger and logger.info("_kwargs={}".format(_kwargs))
+    log_message(logger, f"_kwargs={_kwargs}")
     return _focus(detected_objects, logger=logger, **_kwargs)
 
 
@@ -55,10 +56,10 @@ def _focus(detected_objects, logger=None, **kwargs):
         ]
     )
     _kwargs = _map_kwargs(kwargs)
-    logger and logger.info("_kwargs={}".format(_kwargs))
+    log_message(logger, f"_kwargs={_kwargs}")
     pfs = FieldAcquisitionAndFocusing.PFS()
     dzs = pfs.Focus(_detected_objects, **_kwargs)
-    logger and logger.info("dzs={}".format(dzs))
+    log_message(logger, f"dzs={dzs}")
     dz = np.nanmedian(dzs)
-    logger and logger.info("dz={}".format(dz))
+    log_message(logger, f"dz={dz}")
     return dz, dzs

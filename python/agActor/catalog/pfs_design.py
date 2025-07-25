@@ -9,6 +9,8 @@ from astropy.coordinates import Angle, Distance, SkyCoord, solar_system_ephemeri
 from astropy.time import Time
 from astropy.utils import iers
 
+from agActor.utils.logging import log_message
+
 iers.conf.auto_download = True
 solar_system_ephemeris.set("de440")
 
@@ -21,16 +23,12 @@ class pfsDesign:
             if design_path is None:
                 raise TypeError('__init__() missing argument(s): "design_id" and/or "design_path"')
             elif not os.path.isfile(design_path):
-                raise ValueError(
-                    '__init__() "design_path" not an existing regular file: "{}"'.format(design_path)
-                )
+                raise ValueError(f'__init__() "design_path" not an existing regular file: "{design_path}"')
         else:
             if design_path is None:
                 design_path = "/data/pfsDesign"
             elif not os.path.isdir(design_path):
-                raise ValueError(
-                    '__init__() "design_path" not an existing directory: "{}"'.format(design_path)
-                )
+                raise ValueError(f'__init__() "design_path" not an existing directory: "{design_path}"')
             design_path = self.to_design_path(design_id, design_path)
         self.design_path = design_path
         self.logger = logger
@@ -56,7 +54,7 @@ class pfsDesign:
                 else Time(obstime) if obstime is not None else Time.now()
             )
         )
-        self.logger and self.logger.info("obstime={},_obstime={}".format(obstime, _obstime))
+        log_message(self.logger, f"obstime={obstime},_obstime={_obstime}")
         with fitsio.FITS(self.design_path) as fits:
             header = fits[0].read_header()
             ra = header["RA"]
@@ -97,4 +95,4 @@ class pfsDesign:
     @staticmethod
     def to_design_path(design_id, design_path=""):
 
-        return os.path.join(design_path, "pfsDesign-0x{:016x}.fits".format(design_id))
+        return os.path.join(design_path, f"pfsDesign-0x{design_id:016x}.fits")

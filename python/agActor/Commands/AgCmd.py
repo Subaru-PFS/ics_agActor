@@ -128,16 +128,16 @@ class AgCmd:
                     cmd.inform('text="{}"'.format(repr(v)))
             except Exception as e:
                 self.actor.logger.exception("AgCmd.show:")
-                cmd.warn('text="AgCmd.show: {}: {}"'.format(n, e))
+                cmd.warn(f'text="AgCmd.show: {n}: {e}"')
         cmd.finish()
 
     def acquire_field(self, cmd):
 
         controller = self.actor.controllers["ag"]
         mode = controller.get_mode()
-        self.actor.logger.info("AgCmd.acquire_field: mode={}".format(mode))
+        self.actor.logger.info(f"AgCmd.acquire_field: mode={mode}")
         if mode != controller.Mode.OFF:
-            cmd.fail('text="AgCmd.acquire_field: mode={}"'.format(mode))
+            cmd.fail(f'text="AgCmd.acquire_field: mode={mode}"')
             return
 
         design_id = None
@@ -201,20 +201,20 @@ class AgCmd:
         if "tec_off" in cmd.cmd.keywords:
             tec_off = bool(cmd.cmd.keywords["tec_off"].values[0])
 
-        self.actor.logger.info("AgCmd.acquire_field: kwargs={}".format(kwargs))
+        self.actor.logger.info(f"AgCmd.acquire_field: kwargs={kwargs}")
 
         try:
-            cmd.inform("exposureTime={}".format(exposure_time))
+            cmd.inform(f"exposureTime={exposure_time}")
             # start an exposure
-            cmdStr = "expose object exptime={} centroid=1".format(exposure_time / 1000)
+            cmdStr = f"expose object exptime={exposure_time / 1000} centroid=1"
             if visit_id is not None:
-                cmdStr += " visit={}".format(visit_id)
+                cmdStr += f" visit={visit_id}"
             if exposure_delay > 0:
-                cmdStr += " threadDelay={}".format(exposure_delay)
+                cmdStr += f" threadDelay={exposure_delay}"
             if tec_off:
                 cmdStr += " tecOFF"
 
-            self.actor.logger.info("AgCmd.acquire_field: Sending agcc cmdStr={}".format(cmdStr))
+            self.actor.logger.info(f"AgCmd.acquire_field: Sending agcc cmdStr={cmdStr}")
             result = self.actor.queueCommand(
                 actor="agcc", cmdStr=cmdStr, timeLim=((exposure_time + 6 * exposure_delay) // 1000 + 15)
             )
@@ -224,13 +224,13 @@ class AgCmd:
             telescope_state = None
             if self.with_mlp1_status:
                 telescope_state = self.actor.mlp1.telescopeState
-                self.actor.logger.info("AgCmd.acquire_field: telescopeState={}".format(telescope_state))
+                self.actor.logger.info(f"AgCmd.acquire_field: telescopeState={telescope_state}")
                 kwargs["inr"] = telescope_state["rotator_real_angle"]
             if self.with_gen2_status or self.with_opdb_tel_status:
                 if self.with_gen2_status:
                     # update gen2 status values
                     tel_status = actorCalls.updateTelStatus(self.actor, self.actor.logger, visit_id)
-                    self.actor.logger.info("AgCmd.acquire_field: tel_status={}".format(tel_status))
+                    self.actor.logger.info(f"AgCmd.acquire_field: tel_status={tel_status}")
                     kwargs["tel_status"] = tel_status
                     _tel_center = tel_center(
                         actor=self.actor, center=center, design=design, tel_status=tel_status
@@ -239,25 +239,25 @@ class AgCmd:
                         center, _offset = (
                             _tel_center.dither
                         )  # dithered center and guide offset correction (insrot only)
-                        self.actor.logger.info("AgCmd.acquire_field: center={}".format(center))
+                        self.actor.logger.info(f"AgCmd.acquire_field: center={center}")
                     else:
                         _offset = _tel_center.offset  # dithering and guide offset correction
                     if offset is None:
                         offset = _offset
-                        self.actor.logger.info("AgCmd.acquire_field: offset={}".format(offset))
+                        self.actor.logger.info(f"AgCmd.acquire_field: offset={offset}")
                 if self.with_opdb_tel_status:
                     status_update = self.actor.gen2.statusUpdate
                     status_id = (status_update["visit"], status_update["sequenceNum"])
-                    self.actor.logger.info("AgCmd.acquire_field: status_id={}".format(status_id))
+                    self.actor.logger.info(f"AgCmd.acquire_field: status_id={status_id}")
                     kwargs["status_id"] = status_id
             # wait for an exposure to complete
             result.get()
             frame_id = self.actor.agcc.frameId
-            self.actor.logger.info("AgCmd.acquire_field: frameId={}".format(frame_id))
+            self.actor.logger.info(f"AgCmd.acquire_field: frameId={frame_id}")
             data_time = self.actor.agcc.dataTime
-            self.actor.logger.info("AgCmd.acquire_field: dataTime={}".format(data_time))
+            self.actor.logger.info(f"AgCmd.acquire_field: dataTime={data_time}")
             taken_at = data_time + (exposure_time + 7 * exposure_delay) / 1000 / 2
-            self.actor.logger.info("AgCmd.acquire_field: taken_at={}".format(taken_at))
+            self.actor.logger.info(f"AgCmd.acquire_field: taken_at={taken_at}")
             if self.with_agcc_timestamp:
                 kwargs["taken_at"] = taken_at  # unix timestamp, not timezone-aware datetime
             if self.with_mlp1_status:
@@ -288,18 +288,14 @@ class AgCmd:
                         design=design, frame_id=frame_id, altazimuth=True, logger=self.actor.logger, **kwargs
                     )
                 )  # design takes precedence over center
-                cmd.inform(
-                    'text="ra={},dec={},inst_pa={},dra={},ddec={},dinr={},dscale={},dalt={},daz={}"'.format(
-                        ra, dec, inst_pa, dra, ddec, dinr, dscale, dalt, daz
-                    )
-                )
+                cmd.inform(f'text="{ra=},{dec=},{inst_pa=},{dra=},{ddec=},{dinr=},{dscale=},{dalt=},{daz=}"')
                 filenames = (
                     "/dev/shm/guide_objects.npy",
                     "/dev/shm/detected_objects.npy",
                     "/dev/shm/identified_objects.npy",
                 )
                 for filename, value in zip(filenames, values):
-                    self.actor.logger.info("AgCmd.acquire_field: Saving {}".format(filename))
+                    self.actor.logger.info(f"AgCmd.acquire_field: Saving {filename}")
                     np.save(filename, value)
                 cmd.inform('data={},{},{},"{}","{}","{}"'.format(ra, dec, inst_pa, *filenames))
                 cmd.inform("detectionState=0")
@@ -331,14 +327,14 @@ class AgCmd:
                 ra, dec, inst_pa, dra, ddec, dinr, dscale, *values = field_acquisition.acquire_field(
                     design=design, frame_id=frame_id, logger=self.actor.logger, **kwargs
                 )  # design takes precedence over center
-                cmd.inform('text="dra={},ddec={},dinr={},dscale={}"'.format(dra, ddec, dinr, dscale))
+                cmd.inform(f'text="dra={dra},ddec={ddec},dinr={dinr},dscale={dscale}"')
                 filenames = (
                     "/dev/shm/guide_objects.npy",
                     "/dev/shm/detected_objects.npy",
                     "/dev/shm/identified_objects.npy",
                 )
                 for filename, value in zip(filenames, values):
-                    self.actor.logger.info("AgCmd.acquire_field: Saving {}".format(filename))
+                    self.actor.logger.info(f"AgCmd.acquire_field: Saving {filename}")
                     np.save(filename, value)
                 cmd.inform('data={},{},{},"{}","{}","{}"'.format(ra, dec, inst_pa, *filenames))
                 cmd.inform("detectionState=0")
@@ -381,7 +377,7 @@ class AgCmd:
                 )
         except Exception as e:
             self.actor.logger.exception("AgCmd.acquire_field:")
-            cmd.fail('text="AgCmd.acquire_field: {}"'.format(e))
+            cmd.fail(f'text="AgCmd.acquire_field: {e}"')
             return
         cmd.finish()
 
@@ -389,9 +385,9 @@ class AgCmd:
 
         controller = self.actor.controllers["ag"]
         mode = controller.get_mode()
-        self.actor.logger.info("AgCmd.focus: mode={}".format(mode))
+        self.actor.logger.info(f"AgCmd.focus: mode={mode}")
         if mode != controller.Mode.OFF:
-            cmd.fail('text="AgCmd.focus: mode={}"'.format(mode))
+            cmd.fail(f'text="AgCmd.focus: mode={mode}"')
             return
 
         visit_id = None
@@ -422,13 +418,13 @@ class AgCmd:
             tec_off = bool(cmd.cmd.keywords["tec_off"].values[0])
 
         try:
-            cmd.inform("exposureTime={}".format(exposure_time))
+            cmd.inform(f"exposureTime={exposure_time}")
             # start an exposure
-            cmdStr = "expose object exptime={} centroid=1".format(exposure_time / 1000)
+            cmdStr = f"expose object exptime={exposure_time / 1000} centroid=1"
             if visit_id is not None:
-                cmdStr += " visit={}".format(visit_id)
+                cmdStr += f" visit={visit_id}"
             if exposure_delay > 0:
-                cmdStr += " threadDelay={}".format(exposure_delay)
+                cmdStr += f" threadDelay={exposure_delay}"
             if tec_off:
                 cmdStr += " tecOFF"
             result = self.actor.queueCommand(
@@ -437,14 +433,14 @@ class AgCmd:
             # wait for an exposure to complete
             result.get()
             frame_id = self.actor.agcc.frameId
-            self.actor.logger.info("AgCmd.focus: frameId={}".format(frame_id))
+            self.actor.logger.info(f"AgCmd.focus: frameId={frame_id}")
             # retrieve detected objects from agcc (or opdb)
             # compute focus offset and tilt
             dz, dzs = _focus.focus(frame_id=frame_id, logger=self.actor.logger, **kwargs)
             if np.isnan(dz):
-                cmd.fail('text="AgCmd.focus: dz={}"'.format(dz))
+                cmd.fail(f'text="AgCmd.focus: dz={dz}"')
                 return
-            cmd.inform('text="dz={}"'.format(dz))
+            cmd.inform(f'text="dz={dz}"')
             # send corrections to gen2 (or iic)
             cmd.inform(
                 "guideErrors={},{},{},{},{},{},{},{}".format(
@@ -458,12 +454,12 @@ class AgCmd:
                 data_utils.write_agc_guide_offset(frame_id=frame_id, delta_z=dz, delta_zs=dzs)
         except Exception as e:
             self.actor.logger.exception("AgCmd.focus:")
-            cmd.fail('text="AgCmd.focus: {}"'.format(e))
+            cmd.fail(f'text="AgCmd.focus: {e}"')
             return
         cmd.finish()
 
     def start_autoguide(self, cmd):
-        self.actor.logger.info("AgCmd.start_autoguide: {}".format(cmd.cmd.keywords))
+        self.actor.logger.info(f"AgCmd.start_autoguide: {cmd.cmd.keywords}")
         controller = self.actor.controllers["ag"]
 
         design_id = None
@@ -527,7 +523,7 @@ class AgCmd:
             kwargs["tec_off"] = tec_off
 
         try:
-            self.actor.logger.info("AgCmd.start_autoguide: kwargs={}".format(kwargs))
+            self.actor.logger.info(f"AgCmd.start_autoguide: kwargs={kwargs}")
             controller.start_autoguide(
                 cmd=cmd,
                 design=design,
@@ -540,12 +536,12 @@ class AgCmd:
             )
         except Exception as e:
             self.actor.logger.exception("AgCmd.start_autoguide:")
-            cmd.fail('text="AgCmd.start_autoguide: {}"'.format(e))
+            cmd.fail(f'text="AgCmd.start_autoguide: {e}"')
             return
         cmd.finish()
 
     def initialize_autoguide(self, cmd):
-        self.actor.logger.info("AgCmd.initialize_autoguide: {}".format(cmd.cmd.keywords))
+        self.actor.logger.info(f"AgCmd.initialize_autoguide: {cmd.cmd.keywords}")
         controller = self.actor.controllers["ag"]
 
         design_id = None
@@ -609,7 +605,7 @@ class AgCmd:
             kwargs["tec_off"] = tec_off
 
         try:
-            self.actor.logger.info("AgCmd.initialize_autoguide: kwargs={}".format(kwargs))
+            self.actor.logger.info(f"AgCmd.initialize_autoguide: kwargs={kwargs}")
             controller.initialize_autoguide(
                 cmd=cmd,
                 design=design,
@@ -622,36 +618,36 @@ class AgCmd:
             )
         except Exception as e:
             self.actor.logger.exception("AgCmd.initialize_autoguide:")
-            cmd.fail('text="AgCmd.initialize_autoguide: {}"'.format(e))
+            cmd.fail(f'text="AgCmd.initialize_autoguide: {e}"')
             return
         cmd.finish()
 
     def restart_autoguide(self, cmd):
-        self.actor.logger.info("AgCmd.restart_autoguide: {}".format(cmd.cmd.keywords))
+        self.actor.logger.info(f"AgCmd.restart_autoguide: {cmd.cmd.keywords}")
         controller = self.actor.controllers["ag"]
 
         try:
             controller.restart_autoguide(cmd=cmd)
         except Exception as e:
             self.actor.logger.exception("AgCmd.restart_autoguide:")
-            cmd.fail('text="AgCmd.restart_autoguide: {}"'.format(e))
+            cmd.fail(f'text="AgCmd.restart_autoguide: {e}"')
             return
         cmd.finish()
 
     def stop_autoguide(self, cmd):
-        self.actor.logger.info("AgCmd.stop_autoguide: {}".format(cmd.cmd.keywords))
+        self.actor.logger.info(f"AgCmd.stop_autoguide: {cmd.cmd.keywords}")
         controller = self.actor.controllers["ag"]
 
         try:
             controller.stop_autoguide()
         except Exception as e:
             self.actor.logger.exception("AgCmd.stop_autoguide:")
-            cmd.fail('text="AgCmd.stop_autoguide: {}"'.format(e))
+            cmd.fail(f'text="AgCmd.stop_autoguide: {e}"')
             return
         cmd.finish()
 
     def reconfigure_autoguide(self, cmd):
-        self.actor.logger.info("AgCmd.reconfigure_autoguide: {}".format(cmd.cmd.keywords))
+        self.actor.logger.info(f"AgCmd.reconfigure_autoguide: {cmd.cmd.keywords}")
         controller = self.actor.controllers["ag"]
 
         kwargs = {}
@@ -703,14 +699,14 @@ class AgCmd:
             controller.reconfigure_autoguide(cmd=cmd, **kwargs)
         except Exception as e:
             self.actor.logger.exception("AgCmd.reconfigure_autoguide:")
-            cmd.fail('text="AgCmd.reconfigure_autoguide: {}"'.format(e))
+            cmd.fail(f'text="AgCmd.reconfigure_autoguide: {e}"')
             return
         cmd.finish()
 
     _SCALE0 = Subaru_POPT2_PFS.Unknown_Scale_Factor_AG
 
     def offset(self, cmd):
-        self.actor.logger.info("AgCmd.offset: {}".format(cmd.cmd.keywords))
+        self.actor.logger.info(f"AgCmd.offset: {cmd.cmd.keywords}")
 
         def zero_offset(*, dx=None, dy=None, dinr=None, dscale=None, relative=False):
 
@@ -758,7 +754,7 @@ class AgCmd:
         dx, dy, dinr, dscale = zero_offset(
             dx=dx, dy=dy, dinr=dinr, dscale=dscale, relative="relative" in cmd.cmd.keywords
         )
-        self.actor.logger.info("AgCmd.offset: dx={},dy={},dinr={},dscale={}".format(dx, dy, dinr, dscale))
-        cmd.inform('text="dx={},dy={},dinr={},dscale={}"'.format(dx, dy, dinr, dscale))
-        cmd.inform("guideOffsets={},{}".format(dx, dy))
+        self.actor.logger.info(f"AgCmd.offset: dx={dx},dy={dy},dinr={dinr},dscale={dscale}")
+        cmd.inform(f'text="dx={dx},dy={dy},dinr={dinr},dscale={dscale}"')
+        cmd.inform(f"guideOffsets={dx},{dy}")
         cmd.finish()
