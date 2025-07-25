@@ -99,9 +99,11 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
     detected_objects = opdb.query_agc_data(frame_id)
     log_message(logger, f"Got {len(detected_objects)} detected objects")
 
-    # Check we have detected objects and all flags are <= 1 (right-side flag).
-    # TODO fix logical error here.
-    if len(detected_objects) == 0 and all([d[-1] <= 1 for d in detected_objects]):
+    # This creates a list of only the valid objects, where d[-1] is the `flag` column.
+    # The flag should either be zero (left side of detector) or one (right side with glass).
+    valid_detected_objects = [d for d in detected_objects if d[-1] <= 1]
+
+    if len(valid_detected_objects) == 0:
         raise RuntimeError("No valid spots detected, can't compute offsets")
 
     design_id = kwargs.get("design_id")
@@ -157,7 +159,7 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
         inst_pa,
         *calculate_guide_offsets(
             guide_objects,
-            detected_objects,
+            valid_detected_objects,
             ra,
             dec,
             taken_at,
