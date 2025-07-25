@@ -1,5 +1,7 @@
 from datetime import datetime, timezone
+from logging import Logger
 from numbers import Number
+from typing import Any, Dict, Sequence, Tuple
 
 import numpy as np
 from astropy.table import Table
@@ -75,7 +77,7 @@ def get_tel_status(*, frame_id, logger=None, **kwargs):
         **kwargs: Additional keyword arguments that may include:
             taken_at: Timestamp when the frame was taken
             inr: Instrument rotator angle
-            adc: Atmospheric dispersion corrector value  
+            adc: Atmospheric dispersion corrector value
             m2_pos3: Secondary mirror position
             sequence_id: Sequence ID for querying telescope status
 
@@ -90,42 +92,109 @@ def get_tel_status(*, frame_id, logger=None, **kwargs):
     from the opdb database using the frame_id and sequence_id (if provided).
     """
     log_message(logger, f"Getting telescope status for {frame_id=}")
-    
+
     # Extract values from kwargs if provided
     taken_at = kwargs.get("taken_at")
     inr = kwargs.get("inr")
     adc = kwargs.get("adc")
     m2_pos3 = kwargs.get("m2_pos3")
-    
+
     # Check if we need to fetch any missing values from the database
     if any(value is None for value in (taken_at, inr, adc, m2_pos3)):
         # First, query the agc_exposure table to get basic information, including visit_id.
         log_message(logger, f"Getting agc_exposure from opdb for frame_id={frame_id}")
-        visit_id, _, db_taken_at, _, _, db_inr, db_adc, _, _, _, db_m2_pos3 = opdb.query_agc_exposure(frame_id)
-        
+        visit_id, _, db_taken_at, _, _, db_inr, db_adc, _, _, _, db_m2_pos3 = opdb.query_agc_exposure(
+            frame_id
+        )
+
         # If sequence_id is provided, get more accurate information from tel_status table
         sequence_id = kwargs.get("sequence_id")
         if sequence_id is not None:
             log_message(logger, f"Getting telescope status from opdb for {visit_id=},{sequence_id=}")
-            _, _, db_inr, db_adc, db_m2_pos3, _, _, _, _, db_taken_at = opdb.query_tel_status(visit_id, sequence_id)
-        
+            _, _, db_inr, db_adc, db_m2_pos3, _, _, _, _, db_taken_at = opdb.query_tel_status(
+                visit_id, sequence_id
+            )
+
         # Use database values for any missing parameters
         taken_at = taken_at or db_taken_at
         inr = inr or db_inr
         adc = adc or db_adc
         m2_pos3 = m2_pos3 or db_m2_pos3
-    
+
     log_message(logger, f"{taken_at=},{inr=},{adc=},{m2_pos3=}")
     return taken_at, inr, adc, m2_pos3
 
 
-def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwargs):
+def acquire_field(
+    *,
+    frame_id: int,
+    obswl: float = 0.62,
+    altazimuth: bool = False,
+    logger: Logger | None = None,
+    **kwargs: Any,
+) -> tuple[float, float, float, float, float, float, float, Any]:
+    """Perform the necessary steps for field acquisition, including which guide stars are used.
+
+    The guide stars are looked up in three different ways:
+
+    1. If the `design_path` is provided, the PfsDesign file is used. This is the preferred method.
+    2. If the `design_path` is not provided, the `design_id` is used to query the opdb.
+    3. If neither the `design_id` nor `design_path` are provided, the gaia database is queried using the RA/Dec.
+
+    Parameters
+    ----------
+    frame_id : int
+        The frame ID to retrieve telescope status for.
+    obswl : float, optional
+        Observation wavelength in nm, defaults to 0.62.
+    altazimuth : bool, optional
+        Also return the AltAz coordinates in degrees, defaults to False.
+    logger : object, optional
+        Optional logger instance for logging messages.
+    **kwargs : dict
+        Additional keyword arguments that may include:
+
+        - taken_at : datetime or float
+            Timestamp when the frame was taken
+        - inr : float
+            Instrument rotator angle in degrees
+        - adc : float
+            Atmospheric dispersion corrector value
+        - m2_pos3 : float
+            Secondary mirror position in mm
+        - sequence_id : int
+            Sequence ID for querying telescope status
+
+    Returns
+    -------
+    tuple
+        A tuple containing:
+
+        - ra : float
+            Right ascension in degrees
+        - dec : float
+            Declination in degrees
+        - inst_pa : float
+            Instrument position angle in degrees
+        - dra : float
+            Right ascension offset in arcseconds
+        - ddec : float
+            Declination offset in arcseconds
+        - dinr : float
+            Instrument rotator angle offset in arcseconds
+        - dscale : float
+            Scale factor
+        - Additional values if altazimuth=True
+
+    Notes
+    -----
+    If kwargs is missing any values, they will be provided by a lookup in the `get_tel_status` function.
+    """
     log_message(logger, f"Calling acquire_field with {frame_id=}, {obswl=}, {altazimuth=}")
     parse_kwargs(kwargs)
     taken_at, inr, adc, m2_pos3 = get_tel_status(frame_id=frame_id, logger=logger, **kwargs)
-    log_message(logger, f"Getting agc_data from opdb for {frame_id=}")
+    log_message(logger, f"Getting detected objects from opdb.agc_data for {frame_id=}")
     detected_objects = opdb.query_agc_data(frame_id)
-    log_message(logger, f"Got {len(detected_objects)} detected objects")
 
     # This creates a list of only the valid objects, where d[-1] is the `flag` column.
     # The flag should either be zero (left side of detector) or one (right side with glass).
@@ -134,6 +203,8 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
     if len(valid_detected_objects) == 0:
         raise RuntimeError("No valid spots detected, can't compute offsets")
 
+    log_message(logger, f"Got {len(detected_objects)} detected objects")
+
     design_id = kwargs.get("design_id")
     design_path = kwargs.get("design_path")
     log_message(logger, f"{design_id=},{design_path=}")
@@ -141,8 +212,8 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
     dec = kwargs.get("dec")
     inst_pa = kwargs.get("inst_pa")
 
-    if all(x is None for x in (design_id, design_path)):
-        log_message(logger, "Getting guide objects from gaia db.")
+    if design_path is None and design_id is None:
+        log_message(logger, "No design_id or design_path provided, getting guide objects from gaia db.")
         guide_objects, *_ = gaia.get_objects(
             ra=ra, dec=dec, obstime=taken_at, inst_pa=inst_pa, adc=adc, m2pos3=m2_pos3, obswl=obswl
         )
@@ -155,32 +226,38 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
                 design_id, design_path, logger=logger
             ).guide_objects(obstime=taken_at)
         else:
-            log_message(logger, f"Getting guide objects from opdb via {design_id=}")
+            log_message(logger, f"No design_path provided, getting guide objects from opdb via {design_id=}")
             _, _ra, _dec, _inst_pa, *_ = opdb.query_pfs_design(design_id)
             guide_objects = opdb.query_pfs_design_agc(design_id)
-        if ra is None:
-            ra = _ra
-        if dec is None:
-            dec = _dec
-        if inst_pa is None:
-            inst_pa = _inst_pa
+
+        ra = ra or _ra
+        dec = dec or _dec
+        inst_pa = inst_pa or _inst_pa
+
+    log_message(logger, f"Using {ra=},{dec=},{inst_pa=}")
 
     log_message(logger, f"Got {len(guide_objects)} guide objects before filtering.")
     guide_objects = filter_guide_objects(guide_objects, logger)
 
-    log_message(logger, f"{ra=},{dec=},{inst_pa=}")
-
     if "dra" in kwargs:
         ra += kwargs.get("dra") / 3600
+        log_message(logger, f"ra modified by dra: {ra=}")
     if "ddec" in kwargs:
         dec += kwargs.get("ddec") / 3600
+        log_message(logger, f"ddec modified by ddec: {dec=}")
     if "dpa" in kwargs:
         inst_pa += kwargs.get("dpa") / 3600
+        log_message(logger, f"inst_pa modified by dpa: {inst_pa=}")
     if "dinr" in kwargs:
         inr += kwargs.get("dinr") / 3600
-    log_message(logger, f"{ra=},{dec=},{inst_pa=},{inr=}")
+        log_message(logger, f"inr modified by dinr: {inr=}")
+
+    log_message(logger, f"Final values for calculating offsets: {ra=},{dec=},{inst_pa=},{inr=}")
+
     _kwargs = filter_kwargs(kwargs)
+
     log_message(logger, f"Calling calculate_guide_offsets with {_kwargs=}")
+
     return (
         ra,
         dec,
@@ -203,19 +280,77 @@ def acquire_field(*, frame_id, obswl=0.62, altazimuth=False, logger=None, **kwar
 
 
 def calculate_guide_offsets(
-    guide_objects,
-    detected_objects,
-    ra,
-    dec,
-    taken_at,
-    adc,
-    inst_pa=0.0,
-    m2_pos3=6.0,
-    obswl=0.62,
-    altazimuth=False,
-    logger=None,
-    **kwargs,
-):
+    guide_objects: Sequence[Tuple[Any, ...]],
+    detected_objects: Sequence[Tuple[Any, ...]],
+    ra: float,
+    dec: float,
+    taken_at: datetime | float | Any,
+    adc: Sequence[float],
+    inst_pa: float = 0.0,
+    m2_pos3: float = 6.0,
+    obswl: float = 0.62,
+    altazimuth: bool = False,
+    logger: Logger | None = None,
+    **kwargs: Dict[str, Any],
+) -> Tuple[float, float, float, float, Any]:
+    """Calculate guide offsets for the detected objects using the guide objects from the catalog.
+
+    This function calculates the guide offsets (right ascension, declination, and rotation)
+    by matching detected objects with guide objects from the catalog. It also calculates
+    scale changes and converts coordinates between different reference frames.
+
+    Parameters
+    ----------
+    guide_objects : array-like
+        Array of guide objects from the catalog with their coordinates and properties.
+    detected_objects : array-like
+        Array of objects detected in the image with their coordinates and properties.
+    ra : float
+        Right ascension of the field center in degrees.
+    dec : float
+        Declination of the field center in degrees.
+    taken_at : datetime or float
+        Time when the image was taken, either as a datetime object or a timestamp.
+    adc : array-like
+        ADC (Atmospheric Dispersion Corrector) parameters.
+    inst_pa : float, optional
+        Instrument position angle in degrees. Default is 0.0.
+    m2_pos3 : float, optional
+        M2 mirror position along the optical axis in mm. Default is 6.0.
+    obswl : float, optional
+        Observation wavelength in microns. Default is 0.62.
+    altazimuth : bool, optional
+        If True, convert offsets to altitude-azimuth coordinates. Default is False.
+    logger : object, optional
+        Logger object for logging messages. Default is None.
+    **kwargs : dict, optional
+        Additional keyword arguments to pass to the field acquisition and focusing calculation.
+
+    Returns
+    -------
+    dra : float
+        Right ascension offset in arcseconds.
+    ddec : float
+        Declination offset in arcseconds.
+    dinr : float
+        Rotation offset in arcseconds.
+    dscale : float
+        Scale change.
+    *values : tuple
+        Additional return values depending on the altazimuth parameter:
+        - If altazimuth=True: (dalt, daz, guide_objects, detected_objects, identified_objects, dx, dy, size, peak, flux)
+        - If altazimuth=False: (guide_objects, detected_objects, identified_objects, dx, dy, size, peak, flux)
+
+        Where:
+        - dalt, daz: altitude and azimuth offsets in arcseconds
+        - guide_objects: structured array of guide objects with additional calculated fields
+        - detected_objects: structured array of detected objects
+        - identified_objects: structured array of matched guide and detected objects
+        - dx, dy: offsets in x and y directions in arcseconds
+        - size: representative spot size in pixels
+        - peak: representative peak intensity
+        - flux: representative flux
+    """
 
     def semi_axes(xy, x2, y2):
 
@@ -379,7 +514,7 @@ def calculate_guide_offsets(
         peak = detected_objects["peak"][k]
         flux = detected_objects["moment_00"][k]
     values = *values, guide_objects, detected_objects, identified_objects, dx, dy, size, peak, flux
-    return (dra, ddec, dinr, dscale, *values)
+    return dra, ddec, dinr, dscale, *values
 
 
 def filter_guide_objects(guide_objects, logger=None, initial=False):
