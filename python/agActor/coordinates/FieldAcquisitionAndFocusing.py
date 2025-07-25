@@ -2,7 +2,7 @@
 import numpy as np
 from pfs.utils.coordinates import Subaru_POPT2_PFS
 
-from . import Subaru_POPT2_PFS_AG
+from agActor.coordinates import Subaru_POPT2_PFS_AG
 
 
 class PFS:
