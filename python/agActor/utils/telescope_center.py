@@ -1,6 +1,6 @@
 import numpy as np
 
-from pfs_design import pfsDesign as pfs_design
+from agActor.catalog.pfs_design import pfsDesign as pfs_design
 
 
 class telCenter:

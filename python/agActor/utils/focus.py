@@ -1,7 +1,7 @@
 import numpy as np
 
-from kawanomoto import FieldAcquisitionAndFocusing
-from opdb import opDB as opdb
+from agActor.coordinates import FieldAcquisitionAndFocusing
+from agActor.utils.opdb import opDB as opdb
 
 # mapping of keys and value types between focus.py and FieldAcquisitionAndFocusing.py
 _KEYMAP = {

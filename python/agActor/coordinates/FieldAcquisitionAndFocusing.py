@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import numpy as np
 from pfs.utils.coordinates import Subaru_POPT2_PFS
 
