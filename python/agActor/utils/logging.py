@@ -1,7 +1,7 @@
 import logging
 
 
-def log_message(logger: logging.Logger, message: str, level: str | int = "INFO"):
+def log_message(logger: logging.Logger | None, message: str, level: str | int = "INFO"):
     """Log a message at the specified log level if logger is provided.
 
     Args:
