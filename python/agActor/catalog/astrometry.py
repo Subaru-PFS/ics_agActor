@@ -51,7 +51,7 @@ def measure(
         )
     )
 
-    import subaru
+    from agActor.utils import subaru
 
     frame_tc = AltAz(
         obstime=obstime,

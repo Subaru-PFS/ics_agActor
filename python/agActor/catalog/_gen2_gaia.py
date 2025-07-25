@@ -428,7 +428,7 @@ def get_objects(
         )
     )
 
-    import subaru
+    from agActor.utils import subaru
 
     frame_tc = AltAz(
         obstime=obstime,

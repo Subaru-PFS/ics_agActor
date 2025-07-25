@@ -5,8 +5,10 @@ import time
 
 import numpy as np
 
-from agActor import actorCalls, autoguide, data_utils, focus as _focus, pfs_design
-from agActor.telescope_center import telCenter as tel_center
+from agActor import autoguide
+from agActor.catalog import pfs_design
+from agActor.utils import actorCalls, data_utils, focus as _focus
+from agActor.utils.telescope_center import telCenter as tel_center
 
 
 class ag:

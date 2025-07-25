@@ -7,11 +7,11 @@ from astropy.table import Table
 from numpy.lib import recfunctions as rfn
 from pfs.utils.coordinates import coordinates
 
-import _gen2_gaia as gaia
-import to_altaz
+from agActor.catalog import _gen2_gaia as gaia
+from agActor.utils import to_altaz
 from kawanomoto import FieldAcquisitionAndFocusing
-from opdb import opDB as opdb
-from pfs_design import pfsDesign as pfs_design
+from agActor.utils.opdb import opDB as opdb
+from agActor.catalog.pfs_design import pfsDesign as pfs_design
 
 # mapping of keys and value types between field_acquisition.py and FieldAcquisitionAndFocusing.py
 _KEYMAP = {
