@@ -1,6 +1,6 @@
 import numpy as np
 
-from agActor.coordinates import FieldAcquisitionAndFocusing
+from agActor.coordinates.FieldAcquisitionAndFocusing import calculate_focus_errors
 from agActor.utils.logging import log_message
 from agActor.utils.opdb import opDB as opdb
 
@@ -57,8 +57,7 @@ def _focus(detected_objects, logger=None, **kwargs):
     )
     _kwargs = _map_kwargs(kwargs)
     log_message(logger, f"_kwargs={_kwargs}")
-    pfs = FieldAcquisitionAndFocusing.PFS()
-    dzs = pfs.Focus(_detected_objects, **_kwargs)
+    dzs = calculate_focus_errors(_detected_objects, **_kwargs)
     log_message(logger, f"dzs={dzs}")
     dz = np.nanmedian(dzs)
     log_message(logger, f"dz={dz}")

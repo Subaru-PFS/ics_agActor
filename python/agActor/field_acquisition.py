@@ -11,7 +11,7 @@ from pfs.utils.datamodel.ag import AutoGuiderStarMask
 
 from agActor.catalog import gen2_gaia as gaia
 from agActor.catalog.pfs_design import pfsDesign as pfs_design
-from agActor.coordinates import FieldAcquisitionAndFocusing
+from agActor.coordinates.FieldAcquisitionAndFocusing import calculate_acquisition_offsets
 from agActor.utils import to_altaz
 from agActor.utils.logging import log_message
 from agActor.utils.opdb import opDB as opdb
@@ -292,7 +292,22 @@ def calculate_guide_offsets(
     altazimuth: bool = False,
     logger: Logger | None = None,
     **kwargs: Dict[str, Any],
-) -> Tuple[float, float, float, float, Any]:
+) -> Tuple[
+    float,
+    float,
+    float,
+    float,
+    float | None,
+    float | None,
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+]:
     """Calculate guide offsets for the detected objects using the guide objects from the catalog.
 
     This function calculates the guide offsets (right ascension, declination, and rotation)
@@ -328,21 +343,17 @@ def calculate_guide_offsets(
 
     Returns
     -------
-    dra : float
+    ra_offset : float
         Right ascension offset in arcseconds.
-    ddec : float
+    dec_offset : float
         Declination offset in arcseconds.
-    dinr : float
+    inr_offset : float
         Rotation offset in arcseconds.
-    dscale : float
+    scale_offset : float
         Scale change.
     *values : tuple
-        Additional return values depending on the altazimuth parameter:
-        - If altazimuth=True: (dalt, daz, guide_objects, detected_objects, identified_objects, dx, dy, size, peak, flux)
-        - If altazimuth=False: (guide_objects, detected_objects, identified_objects, dx, dy, size, peak, flux)
-
         Where:
-        - dalt, daz: altitude and azimuth offsets in arcseconds
+        - dalt, daz: altitude and azimuth offsets in arcseconds if altazimuth is True, else None.
         - guide_objects: structured array of guide objects with additional calculated fields
         - detected_objects: structured array of detected objects
         - identified_objects: structured array of matched guide and detected objects
@@ -360,6 +371,7 @@ def calculate_guide_offsets(
         b = np.sqrt(p - q)
         return a, b
 
+    # RA, Dec, Magnitude
     _guide_objects = np.array([(x[1], x[2], x[3]) for x in guide_objects])
 
     _detected_objects = np.array(
@@ -376,38 +388,44 @@ def calculate_guide_offsets(
         ]
     )
     _kwargs = _map_kwargs(kwargs)
-    log_message(logger, f"Calling pfs.FAinstpa with {_kwargs=}")
-    pfs = FieldAcquisitionAndFocusing.PFS()
-    dra, ddec, dinr, dscale, *diags = pfs.FAinstpa(
-        _guide_objects,
-        _detected_objects,
-        ra,
-        dec,
-        (
-            taken_at.astimezone(tz=timezone.utc)
-            if isinstance(taken_at, datetime)
-            else (
-                datetime.fromtimestamp(taken_at, tz=timezone.utc)
-                if isinstance(taken_at, Number)
-                else taken_at
-            )
-        ),
-        adc,
-        inst_pa,
-        m2_pos3,
-        obswl,
-        **_kwargs,
-    )
-    dra *= 3600
-    ddec *= 3600
-    dinr *= 3600
-    log_message(logger, f"From FAinstapa {dra=},{ddec=},{dinr=},{dscale=}")
 
-    values = ()
+    # Convert taken_at to a UTC datetime object if it's not already
+    if isinstance(taken_at, datetime):
+        obstime = taken_at.astimezone(tz=timezone.utc)
+    elif isinstance(taken_at, Number):
+        obstime = datetime.fromtimestamp(taken_at, tz=timezone.utc)
+    else:
+        obstime = taken_at
+
+    log_message(logger, f"Calling calculate_acquisition_offsets (old FAinstpa) with {_kwargs=}")
+    ra_offset, dec_offset, inr_offset, scale_offset, match_results, median_distance, valid_sources = (
+        calculate_acquisition_offsets(
+            _guide_objects,
+            _detected_objects,
+            ra,
+            dec,
+            obstime,
+            adc,
+            inst_pa,
+            m2_pos3,
+            obswl,
+            **_kwargs,
+        )
+    )
+    ra_offset *= 3600
+    dec_offset *= 3600
+    inr_offset *= 3600
+    log_message(
+        logger,
+        f"From calculate_acquisition_offsets (old FAinstpa) "
+        f"{ra_offset=},{dec_offset=},{inr_offset=},{scale_offset=}",
+    )
+
+    dalt = None
+    daz = None
     if altazimuth:
-        alt, az, dalt, daz = to_altaz.to_altaz(ra, dec, taken_at, dra=dra, ddec=ddec)
+        alt, az, dalt, daz = to_altaz.to_altaz(ra, dec, taken_at, dra=ra_offset, ddec=dec_offset)
         log_message(logger, f"{alt=},{az=},{dalt=},{daz=}")
-        values = dalt, daz
     guide_objects = np.array(
         [
             (
@@ -456,12 +474,12 @@ def calculate_guide_offsets(
             ("flags", np.uint8),
         ],
     )
-    mr, md, v = diags
-    (index_v,) = np.where(v)
+
+    (index_v,) = np.where(valid_sources)
     identified_objects = np.array(
         [
             (
-                k,  # index of detected object
+                k,  # index of detected objects
                 int(x[0]),  # index of identified guide object
                 float(x[1]),
                 float(x[2]),  # detector plane coordinates of detected object
@@ -473,7 +491,16 @@ def calculate_guide_offsets(
             )
             for k, x in (
                 (int(index_v[i]), x)
-                for i, x in enumerate(zip(mr[:, 9], mr[:, 0], mr[:, 1], mr[:, 2], mr[:, 3], mr[:, 8]))
+                for i, x in enumerate(
+                    zip(
+                        match_results[:, 9],
+                        match_results[:, 0],
+                        match_results[:, 1],
+                        match_results[:, 2],
+                        match_results[:, 3],
+                        match_results[:, 8],
+                    )
+                )
                 if int(x[5])
             )
         ],
@@ -490,9 +517,9 @@ def calculate_guide_offsets(
     )
 
     # convert to arcsec
-    log_message(logger, f"Converting dra, ddec to arcsec: {dra=},{ddec=}")
-    dx = -dra * np.cos(np.deg2rad(dec))  # arcsec
-    dy = ddec  # arcsec (HSC definition)
+    log_message(logger, f"Converting ra_offset, dec_offset to arcsec: {ra_offset=},{dec_offset=}")
+    dx = -ra_offset * np.cos(np.deg2rad(dec))  # arcsec
+    dy = dec_offset  # arcsec (HSC definition)
     log_message(logger, f"{dx=},{dy=}")
     # find "representative" spot size, peak intensity, and flux by "median" of pointing errors
     size = 0  # pix
@@ -513,8 +540,23 @@ def calculate_guide_offsets(
         size = (a * b) ** 0.5
         peak = detected_objects["peak"][k]
         flux = detected_objects["moment_00"][k]
-    values = *values, guide_objects, detected_objects, identified_objects, dx, dy, size, peak, flux
-    return dra, ddec, dinr, dscale, *values
+
+    return (
+        ra_offset,
+        dec_offset,
+        inr_offset,
+        scale_offset,
+        dalt,
+        daz,
+        guide_objects,
+        detected_objects,
+        identified_objects,
+        dx,
+        dy,
+        size,
+        peak,
+        flux,
+    )
 
 
 def filter_guide_objects(guide_objects, logger=None, initial=False):
