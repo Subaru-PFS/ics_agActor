@@ -1,5 +1,5 @@
 from agActor.catalog import gen2_gaia as gaia, astrometry
-from agActor.field_acquisition import filter_guide_objects, calculate_guide_offsets, get_tel_status, filter_kwargs, parse_kwargs
+from agActor import field_acquisition
 from agActor.utils.opdb import opDB as opdb
 from agActor.catalog.pfs_design import pfsDesign as pfs_design
 
@@ -13,7 +13,7 @@ class Field:
 
 def set_design(*, logger=None, **kwargs):
 
-    parse_kwargs(kwargs)
+    field_acquisition.parse_kwargs(kwargs)
     design_id = kwargs.get("design_id")
     design_path = kwargs.get("design_path")
     logger and logger.info(f"{design_id=},{design_path=}")
@@ -48,13 +48,13 @@ def set_design(*, logger=None, **kwargs):
 def set_design_agc(*, frame_id=None, obswl=0.62, logger=None, **kwargs):
 
     logger and logger.info(f"frame_id={frame_id}")
-    parse_kwargs(kwargs)
+    field_acquisition.parse_kwargs(kwargs)
     if frame_id is not None:
         logger and logger.info(f"Setting pfs_design_agc via frame_id={frame_id}")
         # generate guide objects from frame
         ra, dec, inst_pa = Field.center
         logger and logger.info(f"ra={ra},dec={dec},inst_pa={inst_pa}")
-        taken_at, inr, adc, m2_pos3 = get_tel_status(
+        taken_at, inr, adc, m2_pos3 = field_acquisition.get_tel_status(
             frame_id=frame_id, logger=logger, **kwargs
         )
         logger and logger.info(f"taken_at={taken_at},inr={inr},adc={adc},m2_pos3={m2_pos3}")
@@ -118,7 +118,7 @@ def set_design_agc(*, frame_id=None, obswl=0.62, logger=None, **kwargs):
             )
 
     logger and logger.info(f"Got {len(guide_objects)} guide objects before filtering.")
-    guide_objects = filter_guide_objects(guide_objects, logger)
+    guide_objects = field_acquisition.filter_guide_objects(guide_objects, logger)
 
     logger and logger.info("Setting Field.guide_objects to")
     Field.guide_objects = guide_objects
@@ -127,13 +127,13 @@ def set_design_agc(*, frame_id=None, obswl=0.62, logger=None, **kwargs):
 def autoguide(*, frame_id, obswl=0.62, logger=None, **kwargs):
 
     logger and logger.info("Calling autoguide.autoguide with frame_id={}".format(frame_id))
-    parse_kwargs(kwargs)
+    field_acquisition.parse_kwargs(kwargs)
     guide_objects = Field.guide_objects
 
     ra, dec, inst_pa = Field.center
     logger and logger.info("ra={},dec={}".format(ra, dec))
     logger and logger.info("Getting telescope status")
-    taken_at, inr, adc, m2_pos3 = get_tel_status(
+    taken_at, inr, adc, m2_pos3 = field_acquisition.get_tel_status(
         frame_id=frame_id, logger=logger, **kwargs
     )
     logger and logger.info("Getting agc_data for frame_id={}".format(frame_id))
@@ -148,14 +148,14 @@ def autoguide(*, frame_id, obswl=0.62, logger=None, **kwargs):
     if "dinr" in kwargs:
         inr += kwargs.get("dinr") / 3600
     logger and logger.info("ra={},dec={},inst_pa={},inr={}".format(ra, dec, inst_pa, inr))
-    _kwargs = filter_kwargs(kwargs)
+    _kwargs = field_acquisition.filter_kwargs(kwargs)
     logger and logger.info("_kwargs={}".format(_kwargs))
     logger and logger.info("Calling field_acquisition._acquire_field from autoguide.autoguide")
     return (
         ra,
         dec,
         inst_pa,
-        *calculate_guide_offsets(
+        *field_acquisition.calculate_guide_offsets(
             guide_objects=guide_objects,
             detected_objects=detected_objects,
             ra=ra,
