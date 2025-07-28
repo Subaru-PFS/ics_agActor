@@ -40,8 +40,8 @@ def semi_axes(xy: float, x2: float, y2: float) -> Tuple[float, float]:
                                   [xy, y2]])
 
     # eigh returns (eigenvalues, eigenvectors)
-    # Eigenvalues are guaranteed to be real and sorted in ascending order
-    eigenvalues = np.linalg.eigh(covariance_matrix)[0]
+    # Eigenvalues are guaranteed to be real. We explicitly sort them in ascending order
+    eigenvalues = np.sort(np.linalg.eigh(covariance_matrix)[0])
 
     # The semi-axes are the square roots of the eigenvalues.
     # Since they are sorted, eigenvalues[1] will be the larger one (semi-major)
