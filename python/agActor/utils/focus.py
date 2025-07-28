@@ -2,6 +2,7 @@ import numpy as np
 
 from agActor.coordinates.FieldAcquisitionAndFocusing import calculate_focus_errors
 from agActor.utils.logging import log_message
+from agActor.utils.math import semi_axes
 from agActor.utils.opdb import opDB as opdb
 
 # mapping of keys and value types between focus.py and FieldAcquisitionAndFocusing.py
@@ -32,14 +33,6 @@ def focus(*, frame_id, logger=None, **kwargs):
 
 
 def _focus(detected_objects, logger=None, **kwargs):
-
-    def semi_axes(xy, x2, y2):
-
-        p = (x2 + y2) / 2
-        q = np.sqrt(np.square((x2 - y2) / 2) + np.square(xy))
-        a = np.sqrt(p + q)
-        b = np.sqrt(p - q)
-        return a, b
 
     _detected_objects = np.array(
         [
