@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
   - Format with black
   - Use pfs_utils for AutoGuiderStarMask
 - INSTRM-2615 - Use ics-utils DB for opdb.
+- INSTRM-2613 - Created GAIA DR3 connection helper class. Connection variables are documented in the README.
 
 ## [1.1.33] - 2025-07-09
 - INSTRM-2607 - Moving `coordinates.py` to `pfs_utils`.
