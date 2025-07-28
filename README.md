@@ -59,6 +59,19 @@ Alternatively, you can install the package using pip:
 
 The actor is typically started as a service in the PFS ICS environment using the `sdss-actorcore` tools.
 
+## Environment Variables
+
+The following environment variables can be set to configure the connection to the Gaia star catalog database:
+
+| Variable | Description | Default Value |
+|----------|-------------|---------------|
+| `GAIA_DB_HOST` | Database host | `g2db.sum.subaru.nao.ac.jp` |
+| `GAIA_DB_PORT` | Database port | `5438` |
+| `GAIA_DB_USER` | Database user | `obsuser` |
+| `GAIA_DB_NAME` | Database name | `star_catalog` |
+
+These variables are used by the `GaiaDB` class in `agActor.catalog.gen2_gaia` to establish a connection to the Gaia DR3 catalog database for guide star selection.
+
 ## Project Structure
 
 - `python/agActor/`: Main source code
