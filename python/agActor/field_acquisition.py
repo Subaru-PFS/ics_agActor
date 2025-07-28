@@ -5,6 +5,7 @@ from typing import Any, Dict, Sequence, Tuple
 
 import numpy as np
 from astropy.table import Table
+from numpy import dtype, ndarray
 from numpy.lib import recfunctions as rfn
 from pfs.utils.coordinates import coordinates
 from pfs.utils.datamodel.ag import AutoGuiderStarMask
@@ -14,6 +15,7 @@ from agActor.catalog.pfs_design import pfsDesign as pfs_design
 from agActor.coordinates.FieldAcquisitionAndFocusing import calculate_acquisition_offsets
 from agActor.utils import to_altaz
 from agActor.utils.logging import log_message
+from agActor.utils.math import semi_axes
 from agActor.utils.opdb import opDB as opdb
 
 # mapping of keys and value types between field_acquisition.py and FieldAcquisitionAndFocusing.py
@@ -132,7 +134,25 @@ def acquire_field(
     altazimuth: bool = False,
     logger: Logger | None = None,
     **kwargs: Any,
-) -> tuple[float, float, float, float, float, float, float, Any]:
+) -> tuple[
+    Any | None,
+    Any | None,
+    Any | None,
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+    Any,
+    Any,
+    Any,
+    float,
+    float,
+    float,
+    float,
+    float,
+]:
     """Perform the necessary steps for field acquisition, including which guide stars are used.
 
     The guide stars are looked up in three different ways:
@@ -140,6 +160,8 @@ def acquire_field(
     1. If the `design_path` is provided, the PfsDesign file is used. This is the preferred method.
     2. If the `design_path` is not provided, the `design_id` is used to query the opdb.
     3. If neither the `design_id` nor `design_path` are provided, the gaia database is queried using the RA/Dec.
+
+    TODO: Replace return values with a dataclass.
 
     Parameters
     ----------
@@ -168,23 +190,41 @@ def acquire_field(
     Returns
     -------
     tuple
-        A tuple containing:
-
-        - ra : float
-            Right ascension in degrees
-        - dec : float
-            Declination in degrees
-        - inst_pa : float
+        A tuple containing (in order):
+        ra : float
+            Right ascension of field center in degrees
+        dec : float
+            Declination of field center in degrees
+        inst_pa : float
             Instrument position angle in degrees
-        - dra : float
+        ra_offset : float
             Right ascension offset in arcseconds
-        - ddec : float
+        dec_offset : float
             Declination offset in arcseconds
-        - dinr : float
-            Instrument rotator angle offset in arcseconds
-        - dscale : float
-            Scale factor
-        - Additional values if altazimuth=True
+        inr_offset : float
+            Instrument rotator offset in arcseconds
+        scale_offset : float
+            Scale change factor
+        dalt : float or None
+            Altitude offset in arcseconds if altazimuth=True, else None
+        daz : float or None
+            Azimuth offset in arcseconds if altazimuth=True, else None
+        guide_objects : ndarray
+            Structured array of guide objects with calculated fields
+        detected_objects : ndarray
+            Structured array of detected objects
+        identified_objects : ndarray
+            Structured array of matched guide and detected objects
+        dx : float
+            Offset in x direction in arcseconds
+        dy : float
+            Offset in y direction in arcseconds
+        size : float
+            Representative spot size in pixels
+        peak : float
+            Representative peak intensity
+        flux : float
+            Representative flux
 
     Notes
     -----
@@ -258,24 +298,54 @@ def acquire_field(
 
     log_message(logger, f"Calling calculate_guide_offsets with {_kwargs=}")
 
+    (
+        ra_offset,
+        dec_offset,
+        inr_offset,
+        scale_offset,
+        dalt,
+        daz,
+        guide_objects,
+        detected_objects,
+        identified_objects,
+        dx,
+        dy,
+        size,
+        peak,
+        flux,
+    ) = calculate_guide_offsets(
+        guide_objects,
+        valid_detected_objects,
+        ra,
+        dec,
+        taken_at,
+        adc,
+        inst_pa,
+        m2_pos3=m2_pos3,
+        obswl=obswl,
+        altazimuth=altazimuth,
+        logger=logger,
+        **_kwargs,
+    )
+
     return (
         ra,
         dec,
         inst_pa,
-        *calculate_guide_offsets(
-            guide_objects,
-            valid_detected_objects,
-            ra,
-            dec,
-            taken_at,
-            adc,
-            inst_pa,
-            m2_pos3=m2_pos3,
-            obswl=obswl,
-            altazimuth=altazimuth,
-            logger=logger,
-            **_kwargs,
-        ),
+        ra_offset,
+        dec_offset,
+        inr_offset,
+        scale_offset,
+        dalt,
+        daz,
+        guide_objects,
+        detected_objects,
+        identified_objects,
+        dx,
+        dy,
+        size,
+        peak,
+        flux,
     )
 
 
@@ -292,27 +362,29 @@ def calculate_guide_offsets(
     altazimuth: bool = False,
     logger: Logger | None = None,
     **kwargs: Dict[str, Any],
-) -> Tuple[
-    float,
-    float,
-    float,
-    float,
-    float | None,
-    float | None,
-    float,
-    float,
-    float,
-    float,
-    float,
-    float,
-    float,
-    float,
+) -> tuple[
+    Any,
+    Any,
+    Any,
+    Any,
+    Any | None,
+    Any | None,
+    ndarray[Any, dtype[Any]],
+    ndarray[Any, dtype[Any]],
+    ndarray[Any, dtype[Any]],
+    Any,
+    Any,
+    int | float | complex | Any,
+    int | ndarray[Any, dtype[Any]],
+    int | ndarray[Any, dtype[Any]],
 ]:
     """Calculate guide offsets for the detected objects using the guide objects from the catalog.
 
     This function calculates the guide offsets (right ascension, declination, and rotation)
     by matching detected objects with guide objects from the catalog. It also calculates
     scale changes and converts coordinates between different reference frames.
+
+    TODO: Replace return values with a dataclass.
 
     Parameters
     ----------
@@ -351,25 +423,27 @@ def calculate_guide_offsets(
         Rotation offset in arcseconds.
     scale_offset : float
         Scale change.
-    *values : tuple
-        Where:
-        - dalt, daz: altitude and azimuth offsets in arcseconds if altazimuth is True, else None.
-        - guide_objects: structured array of guide objects with additional calculated fields
-        - detected_objects: structured array of detected objects
-        - identified_objects: structured array of matched guide and detected objects
-        - dx, dy: offsets in x and y directions in arcseconds
-        - size: representative spot size in pixels
-        - peak: representative peak intensity
-        - flux: representative flux
+    dalt: float
+        altitude offset in arcseconds if altazimuth is True, else None.
+    daz: float
+        azimuth offset in arcseconds if altazimuth is True, else None.
+    guide_objects:
+        structured array of guide objects with additional calculated fields
+    detected_objects:
+        structured array of detected objects
+    identified_objects:
+        structured array of matched guide and detected objects
+    dx: float
+        offset in x direction in arcseconds.
+    dy: float
+        offsets in y directions in arcseconds.
+    size: float
+        representative spot size in pixels.
+    peak: float
+        representative peak intensity.
+    flux: float
+        representative flux.
     """
-
-    def semi_axes(xy, x2, y2):
-
-        p = (x2 + y2) / 2
-        q = np.sqrt(np.square((x2 - y2) / 2) + np.square(xy))
-        a = np.sqrt(p + q)
-        b = np.sqrt(p - q)
-        return a, b
 
     # RA, Dec, Magnitude
     _guide_objects = np.array([(x[1], x[2], x[3]) for x in guide_objects])
@@ -521,25 +595,8 @@ def calculate_guide_offsets(
     dx = -ra_offset * np.cos(np.deg2rad(dec))  # arcsec
     dy = dec_offset  # arcsec (HSC definition)
     log_message(logger, f"{dx=},{dy=}")
-    # find "representative" spot size, peak intensity, and flux by "median" of pointing errors
-    size = 0  # pix
-    peak = 0  # pix
-    flux = 0  # pix
-    esq = (identified_objects["detected_object_x"] - identified_objects["guide_object_x"]) ** 2 + (
-        identified_objects["detected_object_y"] - identified_objects["guide_object_y"]
-    ) ** 2  # squares of pointing errors in detector plane coordinates
-    n = len(esq) - np.isnan(esq).sum()
-    if n > 0:
-        i = np.argpartition(esq, n // 2)[n // 2]  # index of "median" of identified objects
-        k = identified_objects["detected_object_id"][i]  # index of "median" of detected objects
-        a, b = semi_axes(
-            detected_objects["central_moment_11"][k],
-            detected_objects["central_moment_20"][k],
-            detected_objects["central_moment_02"][k],
-        )
-        size = (a * b) ** 0.5
-        peak = detected_objects["peak"][k]
-        flux = detected_objects["moment_00"][k]
+
+    flux, peak, size = find_representative_spot(detected_objects, identified_objects)
 
     return (
         ra_offset,
@@ -559,12 +616,145 @@ def calculate_guide_offsets(
     )
 
 
+def find_representative_spot(
+    detected_objects: np.ndarray,
+    identified_objects: np.ndarray,
+) -> tuple[float, float, float]:
+    """Find representative flux, peak intensity, and spot size by median of pointing errors.
+
+    Parameters
+    ----------
+    detected_objects : np.ndarray
+        Structured array containing detected star data including:
+        - central_moment_11 : float
+            Cross moment of detected object
+        - central_moment_20 : float
+            Second moment in x direction
+        - central_moment_02 : float
+            Second moment in y direction
+        - peak : float
+            Peak intensity value
+        - moment_00 : float
+            Total flux
+    identified_objects : np.ndarray
+        Structured array containing matched guide and detected object data with:
+        - detected_object_x : float
+            X coordinate of detected object
+        - detected_object_y : float
+            Y coordinate of detected object
+        - guide_object_x : float
+            X coordinate of guide object
+        - guide_object_y : float
+            Y coordinate of guide object
+        - detected_object_id : int
+            Index linking to detected_objects array
+
+    Returns
+    -------
+    tuple[float, float, float]
+        flux : float
+            Representative flux.
+        peak : float
+            Representative peak intensity in pixels.
+        size : float
+            Representative spot size in pixels, calculated as sqrt(a*b) where
+            a,b are the semi-major and semi-minor axes.
+
+    Notes
+    -----
+    Representative values are taken from the detected object with median pointing error.
+    If no valid objects are found, return (0,0,0).
+
+    Also note that this doesn't appear to be working correctly as we were seeing
+    strange values during observations. This function and its intent should be revisited.
+    """
+    flux = 0.0
+    peak = 0.0  # pix
+    size = 0.0  # pix
+
+    # squares of pointing errors in detector plane coordinates.
+    pointing_error_x = identified_objects["detected_object_x"] - identified_objects["guide_object_x"]
+    pointing_error_y = identified_objects["detected_object_y"] - identified_objects["guide_object_y"]
+    pointing_errors_squared = pointing_error_x**2 + pointing_error_y**2
+
+    # Identify valid (non-NaN) pointing errors
+    # Create a boolean mask for non-NaN values
+    valid_mask = ~np.isnan(pointing_errors_squared)
+
+    # Filter for only valid pointing errors
+    valid_pointing_errors_squared = pointing_errors_squared[valid_mask]
+
+    num_valid = len(valid_pointing_errors_squared)
+
+    if num_valid == 0:
+        # No valid objects found, return default zeros
+        return flux, peak, size
+
+    # Find the index of the median pointing error within the *valid* errors
+    median_idx_in_valid = np.argpartition(valid_pointing_errors_squared, num_valid // 2)[num_valid // 2]
+
+    # Get the actual index in the *original* identified_objects array
+    # This involves mapping back from the valid_mask
+    original_indices_of_valid = np.where(valid_mask)[0]
+    median_original_idx = original_indices_of_valid[median_idx_in_valid]
+
+    # Get the detected_object_id corresponding to the median pointing error
+    k = identified_objects["detected_object_id"][median_original_idx]
+
+    median_detected_object = detected_objects[k]
+
+    cm_11 = median_detected_object["central_moment_11"]
+    cm_20 = median_detected_object["central_moment_20"]
+    cm_02 = median_detected_object["central_moment_02"]
+
+    # Calculate spot size using semi_axes helper function.
+    a, b = semi_axes(cm_11, cm_20, cm_02)
+    size = (a * b) ** 0.5
+
+    # Extract peak intensity and flux
+    peak = median_detected_object["peak"]
+    flux = median_detected_object["moment_00"]
+
+    return float(flux), float(peak), float(size)
+
+
 def filter_guide_objects(guide_objects, logger=None, initial=False):
-    """Apply filtering to the guide objects based on their flags."""
+    """Apply filtering to the guide objects based on their flags.
+
+    This function filters guide objects based on various quality flags. For initial
+    coarse guiding, it only filters out galaxies. For fine guiding (initial=False),
+    it applies additional filters to ensure high quality guide stars from GAIA.
+
+    Parameters
+    ----------
+    guide_objects : numpy.ndarray
+        Structured array containing guide object data including flags.
+        Must have fields for basic star data (objId, ra, dec, mag, etc.)
+        and optionally a 'flag' field for filtering.
+    logger : logging.Logger, optional
+        Logger instance for debug messages. If None, no logging occurs.
+    initial : bool, optional
+        If True, only filter galaxies. If False (default), apply all quality filters
+        including GAIA star requirements.
+
+    Returns
+    -------
+    numpy.ndarray
+        Filtered guide objects array with additional columns:
+        - guideStarFlag: int32 flag for guide star status
+        - filterFlag: int32 indicating which filters were applied
+
+    Notes
+    -----
+    The filtering adds two columns to track which objects were filtered and why:
+    - guideStarFlag: Legacy column, currently always 0
+    - filterFlag: Bitwise combination of AutoGuiderStarMask values indicating
+      which filters removed the object. 0 means the object passed all filters.
+    """
     # Apply filtering if we have a flag column.
     have_flags = "flag" in guide_objects.dtype.names
     guide_objects_df = None
-    if have_flags is True:
+    if have_flags:
         log_message(logger, "Applying filters to guide objects")
         try:
             # Use Table to convert, which handles big-endian and little-endian issues.
@@ -631,4 +821,5 @@ def filter_guide_objects(guide_objects, logger=None, initial=False):
 
         filterFlag_column = np.zeros(len(guide_objects), dtype=[("filterFlag", "<i4")])
         guide_objects = rfn.merge_arrays((guide_objects, filterFlag_column), asrecarray=True, flatten=True)
+
     return guide_objects
