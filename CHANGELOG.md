@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+- INSTRM-2625 - Fix a logical error in conditional check for spots
+- INSTRM-2469 - Repository cleanup:
+  - Reorganize code structure
+  - Rename functions and directories (including `kawanomoto` to `coordinates`)
+  - Standardize imports
+  - Remove unused code
+  - Format with black
+  - Use pfs_utils for AutoGuiderStarMask
+- INSTRM-2615 - Use ics-utils DB for opdb.
+
 ## [1.1.33] - 2025-07-09
 - INSTRM-2607 - Moving `coordinates.py` to `pfs_utils`.
 
