@@ -4,15 +4,11 @@ from numbers import Number
 
 import numpy as np
 from astropy import units as u
-from astropy.coordinates import AltAz, Angle, SkyCoord, solar_system_ephemeris
+from astropy.coordinates import AltAz, Angle, SkyCoord
 from astropy.time import Time
-from astropy.utils import iers
 from pfs.utils.coordinates import Subaru_POPT2_PFS, coordinates
 
 from agActor.utils.logging import log_message
-
-iers.conf.auto_download = True
-solar_system_ephemeris.set("de440")
 
 _subaru = Subaru_POPT2_PFS.Subaru()
 popt2 = Subaru_POPT2_PFS.POPT2()
