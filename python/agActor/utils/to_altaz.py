@@ -5,6 +5,8 @@ from astropy import units as u
 from astropy.coordinates import AltAz, Angle, SkyCoord
 from astropy.time import Time
 
+from pfs.utils.location import SUBARU
+
 
 def to_altaz(
     ra, dec, obstime=None, temperature=0, relative_humidity=0, pressure=620, obswl=0.62, dra=0, ddec=0
@@ -30,11 +32,9 @@ def to_altaz(
     dra *= u.arcsec
     ddec *= u.arcsec
 
-    import subaru
-
     frame = AltAz(
         obstime=obstime,
-        location=subaru.location,
+        location=SUBARU.location,
         temperature=temperature,
         relative_humidity=relative_humidity,
         pressure=pressure,
