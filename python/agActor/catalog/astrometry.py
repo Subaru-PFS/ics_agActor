@@ -7,6 +7,7 @@ from astropy import units as u
 from astropy.coordinates import AltAz, Angle, SkyCoord
 from astropy.time import Time
 from pfs.utils.coordinates import Subaru_POPT2_PFS, coordinates
+from pfs.utils.location import SUBARU
 
 from agActor.utils.logging import log_message
 
@@ -49,11 +50,9 @@ def measure(
         )
     )
 
-    from agActor.utils import subaru
-
     frame_tc = AltAz(
         obstime=obstime,
-        location=subaru.location,
+        location=SUBARU.location,
         temperature=temperature * u.deg_C,
         relative_humidity=relative_humidity / 100,
         pressure=pressure * u.hPa,
