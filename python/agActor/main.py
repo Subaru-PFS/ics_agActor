@@ -4,7 +4,7 @@ import argparse
 import queue
 
 from actorcore.ICC import ICC
-from ics.utils import pfsIERS
+from ics.utils import pfsIERS  # noqa: F401
 
 from agActor.models.agcc import Agcc
 from agActor.models.gen2 import Gen2
@@ -79,7 +79,7 @@ class AgActor(ICC):
     def queueCommand(self, actor=None, cmdStr=None, timeLim=0, **kwargs):
 
         params = {k: v for k, v in locals().items() if k not in ("self",)}
-        result = self.cmdr.cmdq(actor=actor, cmdStr=cmdStr, timeLim=timeLim, **kwargs)
+        queue_result = self.cmdr.cmdq(actor=actor, cmdStr=cmdStr, timeLim=timeLim, **kwargs)
 
         class _Result:
 
@@ -88,7 +88,7 @@ class AgActor(ICC):
                 self.connector = cmdr.connector
                 self.logger = logger
                 self.params = params
-                self.result = result
+                self.result = queue_result
 
             def __del__(self):
 
@@ -98,17 +98,22 @@ class AgActor(ICC):
 
                 while True:
                     try:
-                        result = self.result.get(timeout=0.1)
+                        cmd_result = self.result.get(timeout=0.1)
                         break
                     except queue.Empty:
                         if not self.connector.isConnected():
-                            raise Exception("connection lost: params={}".format(self.params))
-                for reply in result.replyList:
-                    self.logger.info("reply={}".format(reply.canonical()))
-                self.logger.info("didFail={}".format(result.didFail))
-                if result.didFail:
-                    raise Exception("command failed: params={}".format(self.params))
-                return result
+                            raise Exception(f"connection lost: params={self.params}")
+
+                # Log out the command result.
+                for reply in cmd_result.replyList:
+                    self.logger.info(f"reply={reply.canonical()}")
+
+                # Log out whether the command failed.
+                self.logger.info(f"didFail={cmd_result.didFail}")
+                if cmd_result.didFail:
+                    raise Exception(f"command failed: params={self.params}")
+
+                return cmd_result
 
         return _Result(self.cmdr, self.logger)
 
