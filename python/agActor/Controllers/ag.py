@@ -279,6 +279,7 @@ class AgThread(threading.Thread):
 
             if self.__stop.is_set():
                 self.__stop.clear()
+                self.logger.info("AgThread.run: stop has been set, breaking from loop")
                 break
             start = time.time()
             mode, design, visit_id, exposure_time, cadence, center, options = self._get_params()
@@ -563,7 +564,10 @@ class AgThread(threading.Thread):
                     cmd.inform("guideReady=0")
                     self._set_params(mode=ag.Mode.OFF)
             except Exception as e:
-                self.logger.error(f"AgThread.run: {e}")
+                self.logger.error(f"AgThread.run error: {e}")
+                self.logger.error("AgThread.run: stopping run loop due to error")
+                self.stop()
+
             end = time.time()
             timeout = max(0, cadence / 1000 - (end - start)) if mode == ag.Mode.ON else 0.5
             self.__abort.wait(timeout)

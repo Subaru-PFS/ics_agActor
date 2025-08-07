@@ -461,11 +461,11 @@ class AgCmd:
                 cmdStr += f" threadDelay={exposure_delay}"
             if tec_off:
                 cmdStr += " tecOFF"
-            result = self.actor.queueCommand(
+            agcc_result = self.actor.queueCommand(
                 actor="agcc", cmdStr=cmdStr, timeLim=((exposure_time + 6 * exposure_delay) // 1000 + 15)
             )
             # wait for an exposure to complete
-            result.get()
+            agcc_result.get()
             frame_id = self.actor.agcc.frameId
             self.actor.logger.info(f"AgCmd.focus: frameId={frame_id}")
             # retrieve detected objects from agcc (or opdb)
