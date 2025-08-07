@@ -1,5 +1,4 @@
 import numpy as np
-
 from pfs.utils.coordinates import Subaru_POPT2_PFS as pfs
 
 ### perturbation

@@ -2,204 +2,15 @@ from datetime import datetime, timezone
 from numbers import Number
 
 import numpy as np
+import psycopg2
 from astropy import units as u
-from astropy.coordinates import AltAz, Angle, Distance, SkyCoord
+from astropy.coordinates import AltAz, Angle, Distance, EarthLocation, SkyCoord
+from astropy.table import Table
 from astropy.time import Time
 from pfs.utils.coordinates import Subaru_POPT2_PFS, coordinates
-from pfs.utils.location import SUBARU
 
 _popt2 = Subaru_POPT2_PFS.POPT2()
 _pfs = Subaru_POPT2_PFS.PFS()
-
-
-def sky2fp(separation, position_angle, adc, inr, alt, m2pos3=6.0, obswl=0.62, flag=0):
-    """
-    Convert angular offsets to focal plane coordinates.
-
-    Convert angular separations and position angles of points from the field
-    center on the celestial sphere to Cartesian coordinates on the focal plane
-    in the focal plane coordinate system (which is affixed to the telescope).
-
-    Parameters
-    ----------
-    separation : array_like
-        The angular separations of points from the field center (deg)
-    position_angle : array_like
-        The position angles, west of north, of points relative to the field
-        center (deg)
-    adc : scalar
-        The position of the atmospheric dispersion compensator (mm)
-    m2pos3 : scalar
-        The z position of the hexapod (mm)
-    obswl : scalar
-        The wavelength of the observation (um)
-    flag : array_like
-        The flags indicating whether points are on the far focus side (false)
-        or on the near focus side (true) of the detector
-
-    Returns
-    -------
-    2-tuple of array_likes
-        The Cartesian coordinates x's and y's of points on the focal plane
-        in the focal plane coordinate system (mm)
-    """
-
-    return _popt2.celestial2focalplane(separation, position_angle, adc, inr, alt, m2pos3, obswl, flag)
-
-
-def fp2sky(x_fp, y_fp, adc, inr, alt, m2pos3=6.0, obswl=0.62, flag=0):
-    """
-    Convert focal plane coordinates to angular offsets.
-
-    Convert Cartesian coordinates of points on the focal plane in the focal
-    plane coordinate system (which is affixed to the telescope) to angular
-    separations and position angles from the field center on the celestial
-    sphere.
-
-    Parameters
-    ----------
-    x_fp : array_like
-        The Cartesian coordinates x's of points on the focal plane in the
-        focal plane coordinate system (mm)
-    y_fp : array_like
-        The Cartesian coordinates y's of points on the focal plane in the
-        focal plane coordinate system (mm)
-    adc : scalar
-        The position of the atmospheric dispersion compensator (mm)
-    m2pos3 : scalar
-        The z position of the hexapod (mm)
-    obswl : scalar
-        The wavelength of the observation (um)
-    flag : array_like
-        The flags indicating whether points are on the far focus side (false)
-        or on the near focus side (true) of the detector
-
-    Returns
-    -------
-    2-tuple of array_likes
-        The angular separations and position angles, west of north, of points
-        from the field center on the celestial sphere (deg)
-    """
-
-    return _popt2.focalplane2celestial(x_fp, y_fp, adc, inr, alt, m2pos3, obswl, flag)
-
-
-def fp2dp(x_fp, y_fp, inr):
-    """
-    Convert focal plane coordinates to detector plane coordinates.
-
-    Convert Cartesian coordinates of points on the focal plane in the focal
-    plane coordinate system (which is affixed to the telescope) to those in the
-    detector plane coordinate system (which corotates with the instrument
-    rotator).
-
-    Parameters
-    ----------
-    x_fp : array_like
-        The Cartesian coordinates x's of points on the focal plane in the
-        focal plane coordinate system (mm)
-    y_fp : array_like
-        The Cartesian coordinates y's of points on the focal plane in the
-        focal plane coordinate system (mm)
-    inr : scalar
-        The instrument rotator angle, east of north (deg)
-
-    Returns
-    -------
-    2-tuple of array_likes
-        The Cartesian coordinates x's and y's of points on the focal plane in
-        the detector plane coordinate system (mm)
-    """
-
-    return _pfs.fp2dp(x_fp, y_fp, inr)
-
-
-def dp2fp(x_dp, y_dp, inr):
-    """
-    Convert detector plane coordinates to focal plane coordinates.
-
-    Convert Cartesian coordinates of points on the focal plane in the detector
-    plane coordinate system (which corotates with the instrument rotator) to
-    those in the focal plane coordinate system (which is affixed to the
-    telescope).
-
-    Parameters
-    ----------
-    x_dp : array_like
-        The Cartesian coordinates x's of points on the focal plane in the
-        detector plane coordinate system (mm)
-    y_dp : array_like
-        The Cartesian coordinates y's of points on the focal plane in the
-        detector plane coordinate system (mm)
-    inr : scalar
-        The instrument rotator angle, east of north (deg)
-
-    Returns
-    -------
-    2-tuple of array_likes
-        The Cartesian coordinates x's and y's of points on the focal plane in
-        the focal plane coordinate system (mm)
-    """
-
-    return _pfs.dp2fp(x_dp, y_dp, inr)
-
-
-def dp2det(icam, x_dp, y_dp):
-    """
-    Convert detector plane coordinates to detector coordinates.
-
-    Convert Cartesian coordinates of points on the focal plane in the detector
-    plane coordinate system to those on one of the detectors in the detector
-    coordinate system.
-
-    Parameters
-    ----------
-    icam : array_like
-        The detector identifiers ([0, 5])
-    x_dp : array_like
-        The Cartesian coordinates x's of points on the focal plane in the
-        detector plane coordinate system (mm)
-    y_dp : array_like
-        The Cartesian coordinates y's of points on the focal plane in the
-        detector plane coordinate system (mm)
-
-    Returns
-    -------
-    2-tuple of array_likes
-        The Cartesian coordinates x's and y's of points on the specified
-        detector in the detector coordinate system (pix)
-    """
-
-    return coordinates.dp2det(icam, x_dp, y_dp)
-
-
-def det2dp(icam, x_det, y_det):
-    """
-    Convert detector coordinates to detector plane coordinates.
-
-    Convert Cartesian coordinates of points on one of the detectors in the
-    detector coordinate system to those on the focal plane in the detector
-    plane coordinate system.
-
-    Parameters
-    ----------
-    icam : array_like
-        The detector identifiers ([0, 5])
-    x_det : array_like
-        The Cartesian coordinates x's of points on the specified detector in
-        the detector coordinate system (pix)
-    y_det : array_like
-        The Cartesian coordinates y's of points on the specified detector in
-        the detector coordinate system (pix)
-
-    Returns
-    -------
-    2-tuple of array_likes
-        The Cartesian coordinates x's and y's of points on the focal plane in
-        the detector plane coordinate system (mm)
-    """
-
-    return coordinates.det2dp(icam, x_det, y_det)
 
 
 def dp2idet(x_dp, y_dp):
@@ -229,7 +40,7 @@ def dp2idet(x_dp, y_dp):
 
     # determine the detector id from the position angle of the detector plane coordinates
     icam = np.mod(np.rint(np.arctan2(y_dp, x_dp) * 3 / np.pi), 6).astype(np.intc)
-    x_det, y_det = dp2det(icam, x_dp, y_dp)
+    x_det, y_det = coordinates.dp2det(icam, x_dp, y_dp)
     return icam, x_det, y_det
 
 
@@ -292,77 +103,173 @@ def search(ra, dec, radius=0.027 + 0.003):
         The table of the Gaia DR3 sources inside the search areas
     """
 
-    def _search(ra, dec, radius):
-        """Perform search of Gaia DR3."""
+    # Ensure inputs are iterable
+    if np.isscalar(ra):
+        ra = (ra,)
+    if np.isscalar(dec):
+        dec = (dec,)
 
-        if np.isscalar(ra):
-            ra = (ra,)
-        if np.isscalar(dec):
-            dec = (dec,)
+    # Define columns and their units
+    columns = (
+        "source_id",
+        "ref_epoch",
+        "ra",
+        "ra_error",
+        "dec",
+        "dec_error",
+        "parallax",
+        "parallax_error",
+        "pmra",
+        "pmra_error",
+        "pmdec",
+        "pmdec_error",
+        "phot_g_mean_mag",
+    )
 
-        import psycopg2
-        from astropy.table import Table
+    units = (
+        u.dimensionless_unscaled,
+        u.yr,
+        u.deg,
+        u.mas,
+        u.deg,
+        u.mas,
+        u.mas,
+        u.mas,
+        u.mas / u.yr,
+        u.mas / u.yr,
+        u.mas / u.yr,
+        u.mas / u.yr,
+        u.mag,
+    )
 
-        columns = (
-            "source_id",
-            "ref_epoch",
-            "ra",
-            "ra_error",
-            "dec",
-            "dec_error",
-            "parallax",
-            "parallax_error",
-            "pmra",
-            "pmra_error",
-            "pmdec",
-            "pmdec_error",
-            "phot_g_mean_mag",
-        )
-        _units = (
-            u.dimensionless_unscaled,
-            u.yr,
-            u.deg,
-            u.mas,
-            u.deg,
-            u.mas,
-            u.mas,
-            u.mas,
-            u.mas / u.yr,
-            u.mas / u.yr,
-            u.mas / u.yr,
-            u.mas / u.yr,
-            u.mag,
-        )
+    # Database connection parameters
+    db_params = {
+        "host": "133.40.167.46",  # 'g2db' for production use
+        "port": 5438,
+        "user": "gen2",  # 'obsuser' for production use
+        "dbname": "star_catalog",
+    }
 
-        host = "133.40.167.46"  # 'g2db' for production use
-        port = 5438
-        user = "gen2"  # 'obsuser' for production use
+    # Construct DSN string
+    dsn = "host={host} port={port} user={user} dbname={dbname}".format(**db_params)
 
-        dsn = "host={} port={} user={} dbname=star_catalog".format(host, port, user)
-        with psycopg2.connect(dsn) as connection:
-            with connection.cursor() as cursor:
-                query = (
-                    "SELECT {} FROM gaia3 WHERE (".format(",".join(columns))
-                    + " OR ".join(
-                        [
-                            "q3c_radial_query(ra,dec,{},{},{})".format(_ra, _dec, radius)
-                            for _ra, _dec in zip(ra, dec)
-                        ]
-                    )
-                    + ") AND pmra IS NOT NULL AND pmdec IS NOT NULL AND parallax IS NOT NULL ORDER BY phot_g_mean_mag"
-                )
-                cursor.execute(query)
-                objects = cursor.fetchall()
-                return Table(rows=objects, names=columns, units=_units)
+    # Connect to database and execute query
+    with psycopg2.connect(dsn) as connection:
+        with connection.cursor() as cursor:
+            # Build query for all search centers
+            radial_queries = [f"q3c_radial_query(ra,dec,{_ra},{_dec},{radius})" for _ra, _dec in zip(ra, dec)]
 
-    return _search(ra, dec, radius)
+            # Construct full SQL query
+            query = (
+                f"SELECT {','.join(columns)} FROM gaia3 WHERE "
+                f"({' OR '.join(radial_queries)}) "
+                f"AND pmra IS NOT NULL AND pmdec IS NOT NULL AND parallax IS NOT NULL "
+                f"ORDER BY phot_g_mean_mag"
+            )
+
+            # Execute query and fetch results
+            cursor.execute(query)
+            objects = cursor.fetchall()
+
+            # Return results as an astropy Table
+            return Table(rows=objects, names=columns, units=units)
 
 
-def get_objects(
+def process_search_results(objects, obstime, altaz_c, frame_tc, adc, inr, m2pos3=6.0, obswl=0.62):
+    """
+    Process search results to apply space motion and convert coordinates.
+
+    Parameters
+    ----------
+    objects : astropy.table.Table
+        The table of Gaia DR3 sources from search
+    obstime : astropy.time.Time
+        The time of the observation
+    altaz_c : astropy.coordinates.SkyCoord
+        The field center in AltAz frame
+    frame_tc : astropy.coordinates.AltAz
+        The AltAz frame for the observation
+    adc : scalar
+        The position of the atmospheric dispersion compensator (mm)
+    inr : scalar
+        The instrument rotator angle, east of north (deg)
+    m2pos3 : scalar
+        The z position of the hexapod (mm)
+    obswl : scalar
+        The wavelength of the observation (um)
+
+    Returns
+    -------
+    numpy.ndarray
+        A structured array containing guide objects with fields:
+        - source_id: Gaia source identifier
+        - ra, dec: coordinates in degrees
+        - mag: magnitude
+        - camera_id: camera identifier
+        - x, y: detector coordinates
+        - x_dp, y_dp: detector plane coordinates
+        - x_fp, y_fp: focal plane coordinates
+    """
+    objects["parallax"][np.where(objects["parallax"] < 1e-6)] = 1e-6
+    _icrs = SkyCoord(
+        ra=objects["ra"],
+        dec=objects["dec"],
+        frame="icrs",
+        distance=Distance(parallax=Angle(objects["parallax"])),
+        pm_ra_cosdec=objects["pmra"],
+        pm_dec=objects["pmdec"],
+        obstime=Time(objects["ref_epoch"], format="jyear", scale="tcb"),
+    )
+    _icrs_d = _icrs.apply_space_motion(new_obstime=obstime)  # of date
+    _altaz = _icrs_d.transform_to(frame_tc)
+    separation = altaz_c.separation(_altaz).to(u.deg).value
+    position_angle = altaz_c.position_angle(_altaz).to(u.deg).value
+    x_fp, y_fp = _popt2.celestial2focalplane(
+        separation, -position_angle, adc, inr, altaz_c.alt.to(u.deg).value, m2pos3, obswl
+    )
+    x_dp, y_dp = _pfs.fp2dp(x_fp, y_fp, inr)
+    icam, x_det, y_det = dp2idet(x_dp, y_dp)
+
+    # Create structured array directly from the data
+    n_objects = len(objects)
+    guide_objects = np.empty(
+        n_objects,
+        dtype=[
+            ("source_id", np.int64),  # u8 (80) not supported by FITSIO
+            ("ra", np.float64),
+            ("dec", np.float64),
+            ("mag", np.float32),
+            ("camera_id", np.int16),
+            ("x", np.float32),
+            ("y", np.float32),
+            ("x_dp", np.float32),
+            ("y_dp", np.float32),
+            ("x_fp", np.float32),
+            ("y_fp", np.float32),
+        ],
+    )
+
+    # Fill the array with data
+    guide_objects["source_id"] = objects["source_id"]
+    guide_objects["ra"] = np.array([coord.ra.to(u.deg).value for coord in _icrs_d])
+    guide_objects["dec"] = np.array([coord.dec.to(u.deg).value for coord in _icrs_d])
+    guide_objects["mag"] = objects["phot_g_mean_mag"]
+    guide_objects["camera_id"] = icam
+    guide_objects["x"] = x_det
+    guide_objects["y"] = y_det
+    guide_objects["x_dp"] = x_dp
+    guide_objects["y_dp"] = y_dp
+    guide_objects["x_fp"] = x_fp
+    guide_objects["y_fp"] = y_fp
+
+    return guide_objects
+
+
+def setup_search_coordinates(
     ra,
     dec,
     obstime=None,
-    cameras=[0, 1, 2, 3, 4, 5],
+    cameras=None,
     inst_pa=0,
     inr=None,
     adc=None,
@@ -374,16 +281,16 @@ def get_objects(
     m2pos3=6.0,
 ):
     """
-    Get list of guide stellar objects.
+    Set up proper search coordinates for guide stellar objects.
 
     Parameters
     ----------
-    ra : astropy.coordinates.Angle
+    ra : astropy.coordinates.Angle or float
         The right ascension (ICRS) of the field center (deg)
-    dec : astropy.coordinates.Angle
+    dec : astropy.coordinates.Angle or float
         The declination (ICRS) of the field center (deg)
-    obstime : astropy.time.Time
-        The time of the observation (datetime)
+    obstime : astropy.time.Time, datetime, or float
+        The time of the observation
     cameras : sequence
         The sequence of the camera identifiers (0-5)
     inst_pa : scalar
@@ -407,11 +314,16 @@ def get_objects(
 
     Returns
     -------
-    list of 5-tuples
-        The list of the tuples of camera identifier, object identifier,
-        detector coordinate x, detector coordinate y, and mean magnitude of the
-        guide stellar objects
+    tuple
+        A tuple containing:
+        - icrs: SkyCoord object with search coordinates
+        - altaz_c: SkyCoord object with field center in AltAz frame
+        - frame_tc: AltAz frame for the observation
+        - inr: instrument rotator angle
+        - adc: atmospheric dispersion compensator position
     """
+    if cameras is None:
+        cameras = [0, 1, 2, 3, 4, 5]
 
     ra = Angle(ra, unit=u.deg)
     dec = Angle(dec, unit=u.deg)
@@ -425,9 +337,14 @@ def get_objects(
         )
     )
 
+    # Get Subaru location
+    subaru_location = EarthLocation.from_geodetic(
+        lon=-155.476111 * u.deg, lat=19.825556 * u.deg, height=4139 * u.m
+    )
+
     frame_tc = AltAz(
         obstime=obstime,
-        location=SUBARU.location,
+        location=subaru_location,
         temperature=temperature * u.deg_C,
         relative_humidity=relative_humidity / 100,
         pressure=pressure * u.hPa,
@@ -446,80 +363,20 @@ def get_objects(
         inr = (parallactic_angle + inst_pa + 180) % 360 - 180
 
     # centers of the detectors in the detector plane coordinates
-    x_dp, y_dp = det2dp(np.asarray(cameras), (511.5 + 24), (511.5 + 9))
+    x_dp, y_dp = coordinates.det2dp(np.asarray(cameras), (511.5 + 24), (511.5 + 9))
 
     # centers of the detectors in the focal plane coordinates
-    x_fp, y_fp = dp2fp(x_dp, y_dp, inr)
+    x_fp, y_fp = _pfs.dp2fp(x_dp, y_dp, inr)
 
     if adc is None:
         if filter_id is None:
             filter_id = 107  # wideband, uniform weighting
         adc = z2adc(altaz_c.zen.to(u.deg).value, filter_id=filter_id)  # mm
 
-    separation, position_angle = fp2sky(x_fp, y_fp, adc, inr, altaz_c.alt.to(u.deg).value, m2pos3, obswl)
+    separation, position_angle = _popt2.focalplane2celestial(
+        x_fp, y_fp, adc, inr, altaz_c.alt.to(u.deg).value, m2pos3, obswl
+    )
     altaz = altaz_c.directional_offset_by(-position_angle * u.deg, separation * u.deg)
     icrs = altaz.transform_to("icrs")
 
-    _objects = search(icrs.ra.deg, icrs.dec.deg)
-    _objects["parallax"][np.where(_objects["parallax"] < 1e-6)] = 1e-6
-    _icrs = SkyCoord(
-        ra=_objects["ra"],
-        dec=_objects["dec"],
-        frame="icrs",
-        distance=Distance(parallax=Angle(_objects["parallax"])),
-        pm_ra_cosdec=_objects["pmra"],
-        pm_dec=_objects["pmdec"],
-        obstime=Time(_objects["ref_epoch"], format="jyear", scale="tcb"),
-    )
-    _icrs_d = _icrs.apply_space_motion(new_obstime=obstime)  # of date
-    _altaz = _icrs_d.transform_to(frame_tc)
-    separation = altaz_c.separation(_altaz).to(u.deg).value
-    position_angle = altaz_c.position_angle(_altaz).to(u.deg).value
-    x_fp, y_fp = sky2fp(separation, -position_angle, adc, inr, altaz_c.alt.to(u.deg).value, m2pos3, obswl)
-    x_dp, y_dp = fp2dp(x_fp, y_fp, inr)
-    icam, x_det, y_det = dp2idet(x_dp, y_dp)
-
-    objects = np.array(
-        [
-            (
-                _source_id,
-                _skycoord.ra.to(u.deg).value,
-                _skycoord.dec.to(u.deg).value,
-                _mag,
-                _camera_id,
-                _x_det,
-                _y_det,
-                _x_dp,
-                _y_dp,
-                _x_fp,
-                _y_fp,
-            )
-            for _source_id, _skycoord, _mag, _camera_id, _x_det, _y_det, _x_dp, _y_dp, _x_fp, _y_fp in zip(
-                _objects["source_id"],
-                _icrs_d,
-                _objects["phot_g_mean_mag"],
-                icam,
-                x_det,
-                y_det,
-                x_dp,
-                y_dp,
-                x_fp,
-                y_fp,
-            )
-        ],
-        dtype=[
-            ("source_id", np.int64),  # u8 (80) not supported by FITSIO
-            ("ra", np.float64),
-            ("dec", np.float64),
-            ("mag", np.float32),
-            ("camera_id", np.int16),
-            ("x", np.float32),
-            ("y", np.float32),
-            ("x_dp", np.float32),
-            ("y_dp", np.float32),
-            ("x_fp", np.float32),
-            ("y_fp", np.float32),
-        ],
-    )
-
-    return objects, altaz_c.az.to(u.deg).value, altaz_c.alt.to(u.deg).value, inr, adc
+    return icrs, altaz_c, frame_tc, inr, adc

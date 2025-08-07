@@ -7,7 +7,9 @@ import numpy as np
 
 from agActor import autoguide
 from agActor.catalog import pfs_design
-from agActor.utils import actorCalls, data_utils, focus as _focus
+from agActor.utils import actorCalls
+from agActor.utils import data as data_utils
+from agActor.utils import focus as _focus
 from agActor.utils.telescope_center import telCenter as tel_center
 
 
@@ -353,7 +355,7 @@ class AgThread(threading.Thread):
                         cmdStr += " tecOFF"
 
                     self.logger.info("Taking AG exposure with: cmdStr={}".format(cmdStr))
-                    result = self.actor.queueCommand(
+                    agcc_exposure_result = self.actor.queueCommand(
                         actor="agcc",
                         cmdStr=cmdStr,
                         timeLim=((exposure_time + 6 * exposure_delay) // 1000 + 15),
@@ -389,7 +391,7 @@ class AgThread(threading.Thread):
                             self.logger.info(f"AgThread.run: status_id={status_id}")
                             kwargs["status_id"] = status_id
                     # wait for an exposure to complete
-                    result.get()
+                    agcc_exposure_result.get()
                     frame_id = self.actor.agcc.frameId
                     self.logger.info(f"AgThread.run: frameId={frame_id}")
                     data_time = self.actor.agcc.dataTime
@@ -445,29 +447,47 @@ class AgThread(threading.Thread):
                         cmd.inform("detectionState=1")
                         # compute guide errors
                         self.logger.info(f"AgThread.run: autoguide.autoguide for frame_id={frame_id}")
-                        ra, dec, inst_pa, dra, ddec, dinr, dscale, dalt, daz, *values = autoguide.autoguide(
-                            frame_id=frame_id, logger=self.logger, **kwargs
-                        )
+                        guide_offsets = autoguide.autoguide(frame_id=frame_id, logger=self.logger, **kwargs)
+                        # Extract values from the AutoguideResult dataclass
+                        ra = guide_offsets.ra
+                        dec = guide_offsets.dec
+                        inst_pa = guide_offsets.inst_pa
+                        dra = guide_offsets.ra_offset
+                        ddec = guide_offsets.dec_offset
+                        dinr = guide_offsets.inr_offset
+                        dscale = guide_offsets.scale_offset
+                        dalt = guide_offsets.dalt
+                        daz = guide_offsets.daz
                         cmd.inform(
                             'text="ra={},dec={},inst_pa={},dra={},ddec={},dinr={},dscale={},dalt={},daz={}"'.format(
                                 ra, dec, inst_pa, dra, ddec, dinr, dscale, dalt, daz
                             )
                         )
+                        # Get arrays from the result object
+                        guide_objects = guide_offsets.guide_objects
+                        detected_objects = guide_offsets.detected_objects
+                        identified_objects = guide_offsets.identified_objects
+
                         filenames = (
                             "/dev/shm/guide_objects.npy",
                             "/dev/shm/detected_objects.npy",
                             "/dev/shm/identified_objects.npy",
                         )
-                        for filename, value in zip(filenames, values):
+                        values_to_save = [guide_objects, detected_objects, identified_objects]
+                        for filename, value in zip(filenames, values_to_save):
                             self.logger.info(f"AgThread.run: Saving {filename}")
                             np.save(filename, value)
                         cmd.inform('data={},{},{},"{}","{}","{}"'.format(ra, dec, inst_pa, *filenames))
                         cmd.inform("detectionState=0")
-                        dx, dy, size, peak, flux = values[3], values[4], values[5], values[6], values[7]
+                        dx = guide_offsets.dx
+                        dy = guide_offsets.dy
+                        size = guide_offsets.size
+                        peak = guide_offsets.peak
+                        flux = guide_offsets.flux
                         self.logger.info(
                             f"AgThread.run: Sending mlp1 command {dx=},{dy=},{size=},{peak=},{flux=}"
                         )
-                        result = self.actor.queueCommand(
+                        queue_result = self.actor.queueCommand(
                             actor="mlp1",
                             # daz, dalt: arcsec, positive feedback; dx, dy: mas, HSC -> PFS; size: mas; peak, flux: adu
                             cmdStr="guide azel={},{} ready={} time={} delay=0 xy={},{} size={} intensity={} flux={}".format(
@@ -483,7 +503,7 @@ class AgThread(threading.Thread):
                             ),
                             timeLim=5,
                         )
-                        result.get()
+                        queue_result.get()
 
                         kwargs = {
                             key: kwargs.get(key)
@@ -492,7 +512,9 @@ class AgThread(threading.Thread):
                         }
                         # always compute focus offset and tilt
                         self.logger.info(f"AgThread.run: focus._focus for frame_id={frame_id}")
-                        dz, dzs = _focus._focus(detected_objects=values[1], logger=self.logger, **kwargs)
+                        dz, dzs = _focus._focus(
+                            detected_objects=detected_objects, logger=self.logger, **kwargs
+                        )
                         # send corrections to gen2 (or iic)
                         cmd.inform(
                             "guideErrors={},{},{},{},{},{},{},{}".format(
@@ -529,9 +551,9 @@ class AgThread(threading.Thread):
                                     )
                                 ),
                                 frame_id=frame_id,
-                                guide_objects=values[0],
-                                detected_objects=values[1],
-                                identified_objects=values[2],
+                                guide_objects=guide_objects,
+                                detected_objects=detected_objects,
+                                identified_objects=identified_objects,
                             )
                 if mode & ag.Mode.ONCE:
                     self.logger.info("AgThread.run: ONCE")

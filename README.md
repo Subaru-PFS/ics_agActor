@@ -65,14 +65,31 @@ The actor is typically started as a service in the PFS ICS environment using the
   - `main.py`: Actor entry point and core functionality
   - `autoguide.py`: Auto-guiding implementation
   - `field_acquisition.py`: Field acquisition functionality
-  - `astrometry.py`: Astrometric calculations
-  - `Commands/`: Command handlers
+  - `Commands/`: Command handlers for actor commands
   - `Controllers/`: Hardware controllers
+  - `catalog/`: Star catalog integration
+    - `astrometry.py`: Astrometric calculations
+    - `gen2_gaia.py`: GAIA catalog interface
+    - `pfs_design.py`: PFS design file handling
+  - `coordinates/`: Coordinate transformations
+    - `FieldAcquisitionAndFocusing.py`: Field acquisition and focusing utilities
+    - `Subaru_POPT2_PFS_AG.py`: Subaru telescope coordinate transformations
+  - `models/`: System component models
+    - `agcc.py`: AG Camera Controller model
+    - `gen2.py`: Gen2 system model
+    - `mlp1.py`: MLP1 model
+  - `utils/`: Utility functions
+    - `actorCalls.py`: Actor communication utilities
+    - `data.py`: Data handling utilities
+    - `focus.py`: Focus-related utilities
+    - `logging.py`: Logging utilities
+    - `math.py`: Mathematical utilities
+    - `opdb.py`: Operational database interface
+    - `telescope_center.py`: Telescope centering utilities
 
 ## Dependencies
 
 - **astropy**: Astronomical calculations
-- **jplephem**: JPL ephemerides for high-precision coordinates
 - **fitsio**: FITS file handling
 - **numpy**: Numerical computations
 - **psycopg2-binary**: PostgreSQL database connector

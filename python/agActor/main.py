@@ -4,7 +4,6 @@ import argparse
 import queue
 
 from actorcore.ICC import ICC
-
 from ics.utils import pfsIERS
 
 from agActor.models.agcc import Agcc

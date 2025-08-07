@@ -4,7 +4,6 @@ from numbers import Number
 from astropy import units as u
 from astropy.coordinates import AltAz, Angle, SkyCoord
 from astropy.time import Time
-
 from pfs.utils.location import SUBARU
 
 
