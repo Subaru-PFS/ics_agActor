@@ -46,7 +46,7 @@ def set_design(*, logger=None, **kwargs):
     Field.guide_objects = []  # delay loading of guide objects
 
 
-def set_design_agc(*, frame_id=None, obswl=0.62, logger=None, **kwargs):
+def set_design_agc(*, frame_id=None, db_params: dict | None = None, obswl=0.62, logger=None, **kwargs):
     """Set up guide objects for the current field for autoguiding.
 
     This function retrieves guide objects from various sources and stores them in Field.guide_objects.
@@ -64,6 +64,8 @@ def set_design_agc(*, frame_id=None, obswl=0.62, logger=None, **kwargs):
     Parameters:
         frame_id (int, optional): Frame ID to use for retrieving guide objects from the
             operational database. If provided, detected objects will be queried.
+        db_params (dict, optional): Dictionary of database parameters to use. This includes the
+            `opdb` and `gaia`, each of which contain connection parameters.
         obswl (float): Observation wavelength in microns. Used for atmospheric refraction
             calculations when retrieving guide objects, by default 0.62 microns.
         logger: Logger object for logging messages during execution.
@@ -108,7 +110,9 @@ def set_design_agc(*, frame_id=None, obswl=0.62, logger=None, **kwargs):
         kwargs["detected_objects"] = detected_objects
 
     # Get guide objects using the enhanced get_guide_objects function
-    guide_object_results = get_guide_objects(frame_id=frame_id, obswl=obswl, logger=logger, **kwargs)
+    guide_object_results = get_guide_objects(
+        frame_id=frame_id, db_params=db_params, obswl=obswl, logger=logger, **kwargs
+    )
 
     guide_objects = guide_object_results.guide_objects
     log_message(logger, f"Got {len(guide_objects)} guide objects before filtering.")

@@ -2,15 +2,17 @@ from datetime import datetime, timezone
 from numbers import Number
 
 import numpy as np
-import psycopg2
 from astropy import units as u
 from astropy.coordinates import AltAz, Angle, Distance, EarthLocation, SkyCoord
 from astropy.table import Table
 from astropy.time import Time
+from ics.utils.database.gaia import GaiaDB
 from pfs.utils.coordinates import Subaru_POPT2_PFS, coordinates
 
 _popt2 = Subaru_POPT2_PFS.POPT2()
 _pfs = Subaru_POPT2_PFS.PFS()
+
+_GAIADB = None
 
 
 def dp2idet(x_dp, y_dp):
@@ -84,7 +86,7 @@ def z2adc(z, filter_id):
     return np.clip(y_adc, 0, 22)
 
 
-def search(ra, dec, radius=0.027 + 0.003):
+def search(ra, dec, radius=0.027 + 0.003, db_params: dict | None = None):
     """
     Search guide stellar objects from Gaia DR3 sources.
 
@@ -96,6 +98,9 @@ def search(ra, dec, radius=0.027 + 0.003):
         The declinations (ICRS) of the search centers (deg)
     radius : scalar
         The radius of the cones (deg)
+    db_params (dict, optional): Dictionary of database parameters to use for the
+        gaia catalog. Default is None, which will use the default accessor connections
+        (i.e. *not* the production values).
 
     Returns
     -------
@@ -142,37 +147,31 @@ def search(ra, dec, radius=0.027 + 0.003):
         u.mag,
     )
 
-    # Database connection parameters
-    db_params = {
-        "host": "133.40.167.46",  # 'g2db' for production use
-        "port": 5438,
-        "user": "gen2",  # 'obsuser' for production use
-        "dbname": "star_catalog",
-    }
+    global _GAIADB
+    if _GAIADB is None:
+        if db_params is None:
+            _GAIADB = GaiaDB()
+        else:
+            _GAIADB = GaiaDB(**db_params)
 
-    # Construct DSN string
-    dsn = "host={host} port={port} user={user} dbname={dbname}".format(**db_params)
+    # Build query for all search centers
+    radial_queries = [f"q3c_radial_query(ra,dec,{_ra},{_dec},{radius})" for _ra, _dec in zip(ra, dec)]
 
-    # Connect to database and execute query
-    with psycopg2.connect(dsn) as connection:
-        with connection.cursor() as cursor:
-            # Build query for all search centers
-            radial_queries = [f"q3c_radial_query(ra,dec,{_ra},{_dec},{radius})" for _ra, _dec in zip(ra, dec)]
+    # Construct full SQL query
+    query = (
+        f"SELECT {','.join(columns)} FROM gaia3 WHERE "
+        f"({' OR '.join(radial_queries)}) "
+        f"AND pmra IS NOT NULL AND pmdec IS NOT NULL AND parallax IS NOT NULL "
+        f"ORDER BY phot_g_mean_mag"
+    )
 
-            # Construct full SQL query
-            query = (
-                f"SELECT {','.join(columns)} FROM gaia3 WHERE "
-                f"({' OR '.join(radial_queries)}) "
-                f"AND pmra IS NOT NULL AND pmdec IS NOT NULL AND parallax IS NOT NULL "
-                f"ORDER BY phot_g_mean_mag"
-            )
+    try:
+        objects = _GAIADB.fetchall(query)
+    except Exception as e:
+        raise RuntimeError(f"Failed to query Gaia DR3 sources: {e:r}")
 
-            # Execute query and fetch results
-            cursor.execute(query)
-            objects = cursor.fetchall()
-
-            # Return results as an astropy Table
-            return Table(rows=objects, names=columns, units=units)
+    # Return results as an astropy Table
+    return Table(rows=objects, names=columns, units=units)
 
 
 def process_search_results(objects, obstime, altaz_c, frame_tc, adc, inr, m2pos3=6.0, obswl=0.62):
