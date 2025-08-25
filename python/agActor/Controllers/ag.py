@@ -219,6 +219,7 @@ class AgThread(threading.Thread):
         self.__abort = threading.Event()
         self.__stop = threading.Event()
 
+        self.db_params = actor.actorConfig.get("db", {})
         self.with_opdb_agc_guide_offset = actor.actorConfig.get("agc_guide_offset", False)
         self.with_opdb_agc_match = actor.actorConfig.get("agc_match", False)
         self.with_agcc_timestamp = actor.actorConfig.get("agcc_timestamp", False)
@@ -327,7 +328,7 @@ class AgThread(threading.Thread):
 
                         self.logger.info("AgThread.run: REF_OTF set_design and set_design_ac")
                         autoguide.set_design(logger=self.logger, **kwargs)
-                        autoguide.set_design_agc(logger=self.logger, **kwargs)
+                        autoguide.set_design_agc(db_params=self.db_params, logger=self.logger, **kwargs)
                         mode &= ~ag.Mode.REF_OTF
                         self._set_params(mode=mode)
                 if mode & ag.Mode.REF_DB:
@@ -338,7 +339,9 @@ class AgThread(threading.Thread):
                         kwargs["magnitude"] = options.get("magnitude")
 
                     self.logger.info("AgThread.run: REF_DB set_design and set_design_ac")
-                    autoguide.set_design_agc(logger=self.logger, **kwargs)  # obstime=<current time>
+                    autoguide.set_design_agc(
+                        db_params=self.db_params, logger=self.logger, **kwargs
+                    )  # obstime=<current time>
                     mode &= ~ag.Mode.REF_DB
                     self._set_params(mode=mode)
                 if mode & (ag.Mode.ON | ag.Mode.ONCE | ag.Mode.REF_SKY):
@@ -417,7 +420,7 @@ class AgThread(threading.Thread):
                     if mode & ag.Mode.REF_OTF:
                         self.logger.info("AgThread.run: REF_OTF set_design and set_design_ac")
                         autoguide.set_design(logger=self.logger, **kwargs)
-                        autoguide.set_design_agc(logger=self.logger, **kwargs)
+                        autoguide.set_design_agc(db_params=self.db_params, logger=self.logger, **kwargs)
                         mode &= ~ag.Mode.REF_OTF
                         self._set_params(mode=mode)
                     # retrieve detected objects from opdb
@@ -427,7 +430,9 @@ class AgThread(threading.Thread):
                         autoguide.set_design(
                             design=design, logger=self.logger, **kwargs
                         )  # center takes precedence over design
-                        autoguide.set_design_agc(frame_id=frame_id, logger=self.logger, **kwargs)
+                        autoguide.set_design_agc(
+                            frame_id=frame_id, db_params=self.db_params, logger=self.logger, **kwargs
+                        )
                         mode &= ~ag.Mode.REF_SKY
                         self._set_params(mode=mode)
                     else:  # mode & (ag.Mode.ON | ag.Mode.ONCE)

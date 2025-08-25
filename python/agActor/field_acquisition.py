@@ -70,6 +70,7 @@ def parse_kwargs(kwargs):
 def acquire_field(
     *,
     frame_id: int,
+    db_params: dict | None = None,
     obswl: float = 0.62,
     altazimuth: bool = False,
     logger: Logger | None = None,
@@ -87,6 +88,8 @@ def acquire_field(
     ----------
     frame_id : int
         The frame ID to retrieve telescope status for.
+    db_params (dict, optional): Dictionary of database parameters to use. This includes the
+            `opdb` and `gaia`, each of which contain connection parameters.
     obswl : float, optional
         Observation wavelength in nm, defaults to 0.62.
     altazimuth : bool, optional
@@ -139,7 +142,9 @@ def acquire_field(
     parse_kwargs(kwargs)
 
     log_message(logger, f"Calling acquire_field with {frame_id=}, {obswl=}, {altazimuth=}")
-    guide_object_results = get_guide_objects(frame_id, obswl, logger=logger, **kwargs)
+    guide_object_results = get_guide_objects(
+        frame_id, db_params=db_params, obswl=obswl, logger=logger, **kwargs
+    )
     guide_objects = guide_object_results.guide_objects
     ra = guide_object_results.ra
     dec = guide_object_results.dec

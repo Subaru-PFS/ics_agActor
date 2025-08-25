@@ -8,11 +8,9 @@ import opscore.protocols.types as types
 from pfs.utils.coordinates import Subaru_POPT2_PFS
 
 from agActor import field_acquisition
-from agActor.catalog import pfs_design
 from agActor.Controllers.ag import ag
-from agActor.utils import actorCalls
-from agActor.utils import data as data_utils
-from agActor.utils import focus as _focus
+from agActor.catalog import pfs_design
+from agActor.utils import actorCalls, data as data_utils, focus as _focus
 from agActor.utils.telescope_center import telCenter as tel_center
 
 
@@ -98,6 +96,10 @@ class AgCmd:
             keys.Key("exposure_delay", types.Int(), help=""),
             keys.Key("tec_off", types.Bool("no", "yes"), help=""),
         )
+
+        self.db_params = actor.actorConfig.get("db", {})
+        self.actor.logger.info(f"Database connection parameters: {self.db_params}")
+
         self.with_opdb_agc_guide_offset = actor.actorConfig.get("agc_guide_offset", False)
         self.with_opdb_agc_match = actor.actorConfig.get("agc_match", False)
         self.with_agcc_timestamp = actor.actorConfig.get("agcc_timestamp", False)
@@ -286,7 +288,12 @@ class AgCmd:
                     "AgCmd.acquire_field: Calling field_acquisition.acquire_field for guiding"
                 )
                 guide_offsets = field_acquisition.acquire_field(
-                    design=design, frame_id=frame_id, altazimuth=True, logger=self.actor.logger, **kwargs
+                    design=design,
+                    frame_id=frame_id,
+                    db_params=self.db_params,
+                    altazimuth=True,
+                    logger=self.actor.logger,
+                    **kwargs,
                 )  # design takes precedence over center
                 ra = guide_offsets.ra
                 dec = guide_offsets.dec
@@ -345,7 +352,11 @@ class AgCmd:
                     "AgCmd.acquire_field: Calling field_acquisition.acquire_field not guiding"
                 )
                 guide_offsets = field_acquisition.acquire_field(
-                    design=design, frame_id=frame_id, logger=self.actor.logger, **kwargs
+                    design=design,
+                    frame_id=frame_id,
+                    db_params=self.db_params,
+                    logger=self.actor.logger,
+                    **kwargs,
                 )  # design takes precedence over center
                 ra = guide_offsets.ra
                 dec = guide_offsets.dec

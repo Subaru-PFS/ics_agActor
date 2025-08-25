@@ -159,7 +159,9 @@ def get_telescope_status(*, frame_id, **kwargs):
     return taken_at, inr, adc, m2_pos3
 
 
-def get_guide_objects(frame_id=None, obswl: float = 0.62, logger=None, **kwargs):
+def get_guide_objects(
+    frame_id=None, db_params: dict | None = None, obswl: float = 0.62, logger=None, **kwargs
+):
     """Get the guide objects for a given frame or from other sources.
 
     The guide objects can come from four separate sources:
@@ -170,6 +172,8 @@ def get_guide_objects(frame_id=None, obswl: float = 0.62, logger=None, **kwargs)
 
     Parameters:
         frame_id (int, optional): The frame id of the frame. If None, telescope status is taken from kwargs.
+        db_params (dict, optional): Dictionary of database parameters to use. This includes the
+            `opdb` and `gaia`, each of which contain connection parameters.
         obswl (float): The observation wavelength in microns, by default 0.62.
         logger (Logger, optional): Logger for logging messages.
         **kwargs: Additional keyword arguments including:
@@ -241,8 +245,10 @@ def get_guide_objects(frame_id=None, obswl: float = 0.62, logger=None, **kwargs)
         icrs, altaz_c, frame_tc, inr, adc = gaia.setup_search_coordinates(
             ra=ra, dec=dec, obstime=taken_at, inst_pa=inst_pa, adc=adc, m2pos3=m2_pos3, obswl=obswl
         )
+
         # Search for objects
-        _objects = gaia.search(icrs.ra.deg, icrs.dec.deg)
+        gaiadb_params = db_params.get("gaia", None)
+        _objects = gaia.search(icrs.ra.deg, icrs.dec.deg, db_params=gaiadb_params)
 
         # Process search results and get structured array directly
         guide_objects = gaia.process_search_results(
