@@ -5,7 +5,6 @@ class opDB(icsDB):
     @staticmethod
     def query_pfs_design(pfs_design_id):
         sql = """
-SET TIME ZONE 'UTC';
 SELECT
     tile_id,
     ra_center_designed,
@@ -19,8 +18,8 @@ SELECT
     exptime_min,
     ets_version,
     ets_assigner,
-    designed_at AT TIME ZONE 'HST',
-    to_be_observed_at AT TIME ZONE 'HST',
+    designed_at,
+    to_be_observed_at,
     is_obsolete
 FROM pfs_design
 WHERE pfs_design_id=%s
@@ -48,11 +47,10 @@ ORDER BY guide_star_id
     @staticmethod
     def query_agc_exposure(agc_exposure_id):
         sql = """
-SET TIME ZONE 'UTC';
 SELECT
     pfs_visit_id,
     agc_exptime,
-    taken_at AT TIME ZONE 'HST',
+    taken_at,
     azimuth,
     altitude,
     insrot,
@@ -62,14 +60,13 @@ SELECT
     outside_pressure,
     m2_pos3
 FROM agc_exposure
-WHERE agc_exposure_id=%s
+WHERE agc_exposure_id=726920%s
 """
         return opDB.fetchone(sql, (agc_exposure_id,))
 
     @staticmethod
     def query_tel_status(pfs_visit_id, status_sequence_id):
         sql = """
-SET TIME ZONE 'UTC';
 SELECT
     altitude,
     azimuth,
@@ -80,7 +77,7 @@ SELECT
     tel_dec,
     dome_shutter_status,
     dome_light_status,
-    created_at AT TIME ZONE 'HST'
+    created_at
 FROM tel_status
 WHERE pfs_visit_id=%s AND status_sequence_id=%s
 """
