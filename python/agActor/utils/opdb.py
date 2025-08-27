@@ -11,10 +11,7 @@ class opDB(icsDB):
             (pfs_design_id,),
         )
 
-    @staticmethod
-    def query_tile(tile_id):
 
-        return opDB.fetchone("SELECT ra_center,dec_center,pa FROM tile WHERE tile_id=%s", (tile_id,))
 
     @staticmethod
     def query_pfs_design_agc(pfs_design_id):
@@ -52,86 +49,6 @@ class opDB(icsDB):
         )
 
     @staticmethod
-    def query_agc_guide_offset(agc_exposure_id):
-
-        return opDB.fetchone(
-            "SELECT guide_ra,guide_dec,guide_pa,guide_delta_ra,guide_delta_dec,guide_delta_insrot,guide_delta_az,guide_delta_el,guide_delta_z,guide_delta_z1,guide_delta_z2,guide_delta_z3,guide_delta_z4,guide_delta_z5,guide_delta_z6 FROM agc_guide_offset WHERE agc_exposure_id=%s",
-            (agc_exposure_id,),
-        )
-
-    @staticmethod
-    def query_agc_match(agc_exposure_id):
-
-        return opDB.fetchall(
-            "SELECT agc_camera_id,spot_id,pfs_design_id,guide_star_id,agc_nominal_x_mm,agc_nominal_y_mm,agc_center_x_mm,agc_center_y_mm,flags FROM agc_match WHERE agc_exposure_id=%s ORDER BY agc_camera_id,spot_id",
-            (agc_exposure_id,),
-        )
-
-    @staticmethod
-    def insert_pfs_design(pfs_design_id, tile_id, **params):
-
-        params.update(pfs_design_id=pfs_design_id, tile_id=tile_id)
-        opDB.insert("pfs_design", **params)
-
-    @staticmethod
-    def insert_tile(**params):
-
-        columns = ",".join(params)
-        values = ",".join(["%({})s".format(x) for x in params])
-        statement = "INSERT INTO tile ({}) VALUES ({}) RETURNING tile_id".format(columns, values)
-        return opDB.fetchone(statement, params)[0]
-
-    @staticmethod
-    def insert_pfs_design_agc(pfs_design_id, data):
-
-        for x in data:
-            params = dict(
-                pfs_design_id=pfs_design_id,
-                guide_star_id=int(x[0]),
-                guide_star_ra=float(x[1]),
-                guide_star_dec=float(x[2]),
-                guide_star_magnitude=float(x[3]),
-                agc_camera_id=int(x[4]),
-                agc_target_x_pix=float(x[5]),
-                agc_target_y_pix=float(x[6]),
-            )
-            opDB.insert("pfs_design_agc", **params)
-
-    @staticmethod
-    def insert_agc_exposure(agc_exposure_id, **params):
-
-        params.update(agc_exposure_id=agc_exposure_id)
-        opDB.insert("agc_exposure", **params)
-
-    @staticmethod
-    def insert_tel_status(pfs_visit_id, status_sequence_id, **params):
-
-        params.update(pfs_visit_id=pfs_visit_id, status_sequence_id=status_sequence_id)
-        opDB.insert("tel_status", **params)
-
-    @staticmethod
-    def insert_agc_data(agc_exposure_id, data):
-
-        for x in data:
-            params = dict(
-                agc_exposure_id=agc_exposure_id,
-                agc_camera_id=int(x[0]),
-                spot_id=int(x[1]),
-                image_moment_00_pix=float(x[2]),
-                centroid_x_pix=float(x[3]),
-                centroid_y_pix=float(x[4]),
-                central_image_moment_11_pix=float(x[5]),
-                central_image_moment_20_pix=float(x[6]),
-                central_image_moment_02_pix=float(x[7]),
-                peak_pixel_x_pix=int(x[8]),
-                peak_pixel_y_pix=int(x[9]),
-                peak_intensity=float(x[10]),
-                background=float(x[11]),
-                flags=int(x[12]),
-            )
-            opDB.insert("agc_data", **params)
-
-    @staticmethod
     def insert_agc_guide_offset(agc_exposure_id, **params):
 
         params.update(agc_exposure_id=agc_exposure_id)
@@ -154,79 +71,3 @@ class opDB(icsDB):
                 flags=int(x[7]),
             )
             opDB.insert("agc_match", **params)
-
-    @staticmethod
-    def update_pfs_design(pfs_design_id, **params):
-
-        column_values = ",".join(["{}=%({})s".format(x, x) for x in params])
-        statement = "UPDATE pfs_design SET {} WHERE pfs_design_id=%(pfs_design_id)s".format(column_values)
-        params.update(pfs_design_id=pfs_design_id)
-        opDB.commit(statement, params)
-
-    @staticmethod
-    def update_tile(tile_id, **params):
-
-        column_values = ",".join(["{}=%({})s".format(x, x) for x in params])
-        statement = "UPDATE tile SET {} WHERE tile_id=%(tile_id)s".format(column_values)
-        params.update(tile_id=tile_id)
-        opDB.commit(statement, params)
-
-    @staticmethod
-    def update_pfs_design_agc(pfs_design_id, guide_star_id, **params):
-
-        column_values = ",".join(["{}=%({})s".format(x, x) for x in params])
-        statement = "UPDATE pfs_design_agc SET {} WHERE pfs_design_id=%(pfs_design_id)s AND guide_star_id=%(guide_star_id)s".format(
-            column_values
-        )
-        params.update(pfs_design_id=pfs_design_id, guide_star_id=guide_star_id)
-        opDB.commit(statement, params)
-
-    @staticmethod
-    def update_agc_exposure(agc_exposure_id, **params):
-
-        column_values = ",".join(["{}=%({})s".format(x, x) for x in params])
-        statement = "UPDATE agc_exposure SET {} WHERE agc_exposure_id=%(agc_exposure_id)s".format(
-            column_values
-        )
-        params.update(agc_exposure_id=agc_exposure_id)
-        opDB.commit(statement, params)
-
-    @staticmethod
-    def update_tel_status(pfs_visit_id, status_sequence_id, **params):
-
-        column_values = ",".join(["{}=%({})s".format(x, x) for x in params])
-        statement = "UPDATE tel_status SET {} WHERE pfs_visit_id=%(pfs_visit_id)s AND status_sequence_id=%(status_sequence_id)s".format(
-            column_values
-        )
-        params.update(pfs_visit_id=pfs_visit_id, status_sequence_id=status_sequence_id)
-        opDB.commit(statement, params)
-
-    @staticmethod
-    def update_agc_data(agc_exposure_id, agc_camera_id, spot_id, **params):
-
-        column_values = ",".join(["{}=%({})s".format(x, x) for x in params])
-        statement = "UPDATE agc_data SET {} WHERE agc_exposure_id=%(agc_exposure_id)s AND agc_camera_id=%(agc_camera_id)s AND spot_id=%(spot_id)s".format(
-            column_values
-        )
-        params.update(agc_exposure_id=agc_exposure_id, agc_camera_id=agc_camera_id, spot_id=spot_id)
-        opDB.commit(statement, params)
-
-    @staticmethod
-    def update_agc_guide_offset(agc_exposure_id, **params):
-
-        column_values = ",".join(["{}=%({})s".format(x, x) for x in params])
-        statement = "UPDATE agc_guide_offset SET {} WHERE agc_exposure_id=%(agc_exposure_id)s".format(
-            column_values
-        )
-        params.update(agc_exposure_id=agc_exposure_id)
-        opDB.commit(statement, params)
-
-    @staticmethod
-    def update_agc_match(agc_exposure_id, agc_camera_id, spot_id, **params):
-
-        column_values = ",".join(["{}=%({})s".format(x, x) for x in params])
-        statement = "UPDATE agc_match SET {} WHERE agc_exposure_id=%(agc_exposure_id)s AND agc_camera_id=%(agc_camera_id)s AND spot_id=%(spot_id)s".format(
-            column_values
-        )
-        params.update(agc_exposure_id=agc_exposure_id, agc_camera_id=agc_camera_id, spot_id=spot_id)
-        opDB.commit(statement, params)
