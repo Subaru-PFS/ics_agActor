@@ -8,6 +8,8 @@ import numpy as np
 from astropy import units as u
 from astropy.table import Table
 from ics.utils.database.db import DB
+from ics.utils.database.gaia import GaiaDB
+from ics.utils.database.opdb import OpDB
 
 from agActor.catalog import astrometry, gen2_gaia as gaia
 from agActor.catalog.pfs_design import pfsDesign as pfs_design
@@ -16,11 +18,13 @@ from agActor.utils.logging import log_message
 logger = logging.getLogger(__name__)
 
 
+DB_CLASSES = {'opdb': OpDB, 'gaia': GaiaDB}
+
 class Database:
     def __init__(self):
         self.dbs: dict[str, DB | None] = {"opdb": None, "gaia": None}
 
-    def setup_db(self, dbname: str, dsn: str | dict, **kwargs):
+    def setup_db(self, dbname: str, dsn: str | dict | None = None, **kwargs) -> DB:
         """Sets up the database.
 
         Parameters
@@ -35,10 +39,12 @@ class Database:
             Additional keyword arguments to pass to OpDB constructor
         """
         if self.dbs[dbname] is None:
-            self.dbs[dbname] = DB(dsn=dsn, **kwargs)
+            self.dbs[dbname] = DB_CLASSES[dbname](dsn=dsn, **kwargs)
             logger.info(f"Created database {dbname} with {dsn=}")
         else:
-            logger.info(f"Database {dbname} already exists: {self.dbs[dbname].dsn}")
+            logger.debug(f"Database {dbname} already setup: {self.dbs[dbname].dsn}")
+
+        return self.dbs[dbname]
 
     def get_db(self, dbname: str) -> DB | None:
         """Returns the database object for the given database name.
@@ -54,7 +60,7 @@ class Database:
             Database object for the given database name otherwise None.
         """
         try:
-            db = self.dbs[dbname]
+            db = self.setup_db(dbname=dbname)
             logger.debug(f"Returning database {dbname}: {db.dsn}")
             return db
         except KeyError:
