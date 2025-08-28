@@ -4,15 +4,11 @@ from numbers import Number
 import numpy as np
 from astropy import units as u
 from astropy.coordinates import AltAz, Angle, Distance, EarthLocation, SkyCoord
-from astropy.table import Table
 from astropy.time import Time
-from ics.utils.database.gaia import GaiaDB
 from pfs.utils.coordinates import Subaru_POPT2_PFS, coordinates
 
 _popt2 = Subaru_POPT2_PFS.POPT2()
 _pfs = Subaru_POPT2_PFS.PFS()
-
-_GAIADB = None
 
 
 def dp2idet(x_dp, y_dp):
@@ -86,95 +82,9 @@ def z2adc(z, filter_id):
     return np.clip(y_adc, 0, 22)
 
 
-def search(ra, dec, radius=0.027 + 0.003, db_params: dict | None = None):
-    """
-    Search guide stellar objects from Gaia DR3 sources.
-
-    Parameters
-    ----------
-    ra : array_like
-        The right ascensions (ICRS) of the search centers (deg)
-    dec : array_like
-        The declinations (ICRS) of the search centers (deg)
-    radius : scalar
-        The radius of the cones (deg)
-    db_params (dict, optional): Dictionary of database parameters to use for the
-        gaia catalog. Default is None, which will use the default accessor connections
-        (i.e. *not* the production values).
-
-    Returns
-    -------
-    astropy.table.Table
-        The table of the Gaia DR3 sources inside the search areas
-    """
-
-    # Ensure inputs are iterable
-    if np.isscalar(ra):
-        ra = (ra,)
-    if np.isscalar(dec):
-        dec = (dec,)
-
-    # Define columns and their units
-    columns = (
-        "source_id",
-        "ref_epoch",
-        "ra",
-        "ra_error",
-        "dec",
-        "dec_error",
-        "parallax",
-        "parallax_error",
-        "pmra",
-        "pmra_error",
-        "pmdec",
-        "pmdec_error",
-        "phot_g_mean_mag",
-    )
-
-    units = (
-        u.dimensionless_unscaled,
-        u.yr,
-        u.deg,
-        u.mas,
-        u.deg,
-        u.mas,
-        u.mas,
-        u.mas,
-        u.mas / u.yr,
-        u.mas / u.yr,
-        u.mas / u.yr,
-        u.mas / u.yr,
-        u.mag,
-    )
-
-    global _GAIADB
-    if _GAIADB is None:
-        if db_params is None:
-            _GAIADB = GaiaDB()
-        else:
-            _GAIADB = GaiaDB(**db_params)
-
-    # Build query for all search centers
-    radial_queries = [f"q3c_radial_query(ra,dec,{_ra},{_dec},{radius})" for _ra, _dec in zip(ra, dec)]
-
-    # Construct full SQL query
-    query = (
-        f"SELECT {','.join(columns)} FROM gaia3 WHERE "
-        f"({' OR '.join(radial_queries)}) "
-        f"AND pmra IS NOT NULL AND pmdec IS NOT NULL AND parallax IS NOT NULL "
-        f"ORDER BY phot_g_mean_mag"
-    )
-
-    try:
-        objects = _GAIADB.fetchall(query)
-    except Exception as e:
-        raise RuntimeError(f"Failed to query Gaia DR3 sources: {e:r}")
-
-    # Return results as an astropy Table
-    return Table(rows=objects, names=columns, units=units)
-
-
-def process_search_results(objects, obstime, altaz_c, frame_tc, adc, inr, m2pos3=6.0, obswl=0.62):
+def process_search_results(
+    objects, obstime, altaz_c, frame_tc, adc, inr, m2pos3=6.0, obswl=0.62
+):
     """
     Process search results to apply space motion and convert coordinates.
 
@@ -223,8 +133,16 @@ def process_search_results(objects, obstime, altaz_c, frame_tc, adc, inr, m2pos3
     _altaz = _icrs_d.transform_to(frame_tc)
     separation = altaz_c.separation(_altaz).to(u.deg).value
     position_angle = altaz_c.position_angle(_altaz).to(u.deg).value
+    flags = 0  # Generic search, so no flags.
     x_fp, y_fp = _popt2.celestial2focalplane(
-        separation, -position_angle, adc, inr, altaz_c.alt.to(u.deg).value, m2pos3, obswl
+        separation,
+        -position_angle,
+        adc,
+        inr,
+        altaz_c.alt.to(u.deg).value,
+        m2pos3,
+        obswl,
+        flags,
     )
     x_dp, y_dp = _pfs.fp2dp(x_fp, y_fp, inr)
     icam, x_det, y_det = dp2idet(x_dp, y_dp)
@@ -332,7 +250,9 @@ def setup_search_coordinates(
         else (
             Time(obstime, format="unix")
             if isinstance(obstime, Number)
-            else Time(obstime) if obstime is not None else Time.now()
+            else Time(obstime)
+            if obstime is not None
+            else Time.now()
         )
     )
 
@@ -372,8 +292,9 @@ def setup_search_coordinates(
             filter_id = 107  # wideband, uniform weighting
         adc = z2adc(altaz_c.zen.to(u.deg).value, filter_id=filter_id)  # mm
 
+    flags = 0  # Generic search, so no flags.
     separation, position_angle = _popt2.focalplane2celestial(
-        x_fp, y_fp, adc, inr, altaz_c.alt.to(u.deg).value, m2pos3, obswl
+        x_fp, y_fp, adc, inr, altaz_c.alt.to(u.deg).value, m2pos3, obswl, flags
     )
     altaz = altaz_c.directional_offset_by(-position_angle * u.deg, separation * u.deg)
     icrs = altaz.transform_to("icrs")

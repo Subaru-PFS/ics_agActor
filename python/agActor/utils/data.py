@@ -5,12 +5,103 @@ from enum import IntFlag
 from typing import Optional
 
 import numpy as np
+from astropy import units as u
+from astropy.table import Table
+from ics.utils.database.db import DB
 
-from agActor.catalog import astrometry
-from agActor.catalog import gen2_gaia as gaia
+from agActor.catalog import astrometry, gen2_gaia as gaia
 from agActor.catalog.pfs_design import pfsDesign as pfs_design
 from agActor.utils.logging import log_message
-from agActor.utils.opdb import opDB as opdb
+
+logger = logging.getLogger(__name__)
+
+
+class Database:
+    def __init__(self):
+        self.dbs: dict[str, DB | None] = {"opdb": None, "gaia": None}
+
+    def setup_db(self, dbname: str, dsn: str | dict, **kwargs):
+        """Sets up the database.
+
+        Parameters
+        ----------
+        dbname : str
+            Database name, either "opdb" or "gaia".
+        dsn : str or dict
+            Database connection parameters. Can be anything accepted by
+            `ics.utils.database.opdb.DB`, namely a string or dict of
+            connection parameters.
+        **kwargs : dict
+            Additional keyword arguments to pass to OpDB constructor
+        """
+        if self.dbs[dbname] is None:
+            self.dbs[dbname] = DB(dsn=dsn, **kwargs)
+            logger.info(f"Created database {dbname} with {dsn=}")
+        else:
+            logger.info(f"Database {dbname} already exists: {self.dbs[dbname].dsn}")
+
+    def get_db(self, dbname: str) -> DB | None:
+        """Returns the database object for the given database name.
+
+        Parameters
+        ----------
+        dbname : str
+            Database name, either "opdb" or "gaia".
+
+        Returns
+        -------
+        DB | None
+            Database object for the given database name otherwise None.
+        """
+        try:
+            db = self.dbs[dbname]
+            logger.debug(f"Returning database {dbname}: {db.dsn}")
+            return db
+        except KeyError:
+            logger.warning(f"Database {dbname} not found.")
+            return None
+
+
+# Create the global database holder.
+_DATABASE = Database()
+
+
+def setup_db(dbname: str, dsn: str | dict, **kwargs):
+    """Sets up the specific database using the global Database instance.
+
+    Parameters
+    ----------
+    dbname : str
+        Database name, either "opdb" or "gaia".
+    dsn : str or dict
+        Database connection parameters. Can be anything accepted by
+        `ics.utils.database.opdb.DB`, namely a string or dict of
+        connection parameters.
+    **kwargs : dict
+        Additional keyword arguments to pass to OpDB constructor
+    """
+    _DATABASE.setup_db(dbname=dbname, dsn=dsn, **kwargs)
+
+
+def get_db(dbname: str) -> DB | None:
+    """Returns the database object for the given database name.
+
+    Parameters
+    ----------
+    dbname : str
+        Database name, either "opdb" or "gaia".
+
+    Returns
+    -------
+    db : DB | None
+        Database object for the given database name otherwise None.
+    """
+    db = _DATABASE.get_db(dbname=dbname)
+    if db is None:
+        logger.warning(f"Database {dbname} not found.")
+        return None
+
+    return db
 
 
 @dataclass
@@ -137,16 +228,18 @@ def get_telescope_status(*, frame_id, **kwargs):
     if any(value is None for value in (taken_at, inr, adc, m2_pos3)):
         # First, query the agc_exposure table to get basic information, including visit_id.
         logging.debug(f"Getting agc_exposure from opdb for frame_id={frame_id}")
-        visit_id, _, db_taken_at, _, _, db_inr, db_adc, _, _, _, db_m2_pos3 = opdb.query_agc_exposure(
-            frame_id
+        visit_id, _, db_taken_at, _, _, db_inr, db_adc, _, _, _, db_m2_pos3 = (
+            query_agc_exposure(frame_id)
         )
 
         # If sequence_id is provided, get more accurate information from tel_status table
         sequence_id = kwargs.get("sequence_id")
         if sequence_id is not None:
-            logging.debug(f"Getting telescope status from opdb for {visit_id=},{sequence_id=}")
-            _, _, db_inr, db_adc, db_m2_pos3, _, _, _, _, db_taken_at = opdb.query_tel_status(
-                visit_id, sequence_id
+            logging.debug(
+                f"Getting telescope status from opdb for {visit_id=},{sequence_id=}"
+            )
+            _, _, db_inr, db_adc, db_m2_pos3, _, _, _, _, db_taken_at = (
+                query_tel_status(visit_id, sequence_id)
             )
 
         # Use database values for any missing parameters
@@ -160,7 +253,10 @@ def get_telescope_status(*, frame_id, **kwargs):
 
 
 def get_guide_objects(
-    frame_id=None, db_params: dict | None = None, obswl: float = 0.62, logger=None, **kwargs
+    frame_id=None,
+    obswl: float = 0.62,
+    logger=None,
+    **kwargs,
 ):
     """Get the guide objects for a given frame or from other sources.
 
@@ -172,8 +268,6 @@ def get_guide_objects(
 
     Parameters:
         frame_id (int, optional): The frame id of the frame. If None, telescope status is taken from kwargs.
-        db_params (dict, optional): Dictionary of database parameters to use. This includes the
-            `opdb` and `gaia`, each of which contain connection parameters.
         obswl (float): The observation wavelength in microns, by default 0.62.
         logger (Logger, optional): Logger for logging messages.
         **kwargs: Additional keyword arguments including:
@@ -199,7 +293,9 @@ def get_guide_objects(
 
     # Get telescope status if frame_id is provided
     if frame_id is not None:
-        taken_at, inr, adc, m2_pos3 = get_telescope_status(frame_id=frame_id, logger=logger, **kwargs)
+        taken_at, inr, adc, m2_pos3 = get_telescope_status(
+            frame_id=frame_id, logger=logger, **kwargs
+        )
     else:
         # Extract telescope status from kwargs
         taken_at = kwargs.get("taken_at")
@@ -240,19 +336,33 @@ def get_guide_objects(
         )
         log_fn(f"Got {len(guide_objects)=} guide objects")
     elif design_path is None and design_id is None:
-        log_fn("No design_id or design_path provided, getting guide objects from gaia db.")
+        log_fn(
+            "No design_id or design_path provided, getting guide objects from gaia db."
+        )
         # Set up search coordinates first
         icrs, altaz_c, frame_tc, inr, adc = gaia.setup_search_coordinates(
-            ra=ra, dec=dec, obstime=taken_at, inst_pa=inst_pa, adc=adc, m2pos3=m2_pos3, obswl=obswl
+            ra=ra,
+            dec=dec,
+            obstime=taken_at,
+            inst_pa=inst_pa,
+            adc=adc,
+            m2pos3=m2_pos3,
+            obswl=obswl,
         )
 
         # Search for objects
-        gaiadb_params = db_params.get("gaia", None)
-        _objects = gaia.search(icrs.ra.deg, icrs.dec.deg, db_params=gaiadb_params)
+        _objects = search_gaia(icrs.ra.deg, icrs.dec.deg)
 
         # Process search results and get structured array directly
         guide_objects = gaia.process_search_results(
-            _objects, frame_tc.obstime, altaz_c, frame_tc, adc, inr, m2pos3=m2_pos3, obswl=obswl
+            _objects,
+            frame_tc.obstime,
+            altaz_c,
+            frame_tc,
+            adc,
+            inr,
+            m2pos3=m2_pos3,
+            obswl=obswl,
         )
     else:
         if design_path is not None:
@@ -262,8 +372,8 @@ def get_guide_objects(
             ).guide_objects(obstime=taken_at)
         else:
             log_fn(f"Getting guide_objects from opdb via {design_id}")
-            _, _ra, _dec, _inst_pa, *_ = opdb.query_pfs_design(design_id)
-            guide_objects = opdb.query_pfs_design_agc(design_id)
+            _, _ra, _dec, _inst_pa, *_ = query_pfs_design(design_id)
+            guide_objects = query_pfs_design_agc(design_id)
 
         ra = ra or _ra
         dec = dec or _dec
@@ -281,7 +391,9 @@ def get_guide_objects(
     )
 
 
-def get_detected_objects(frame_id: int, filter_flag: int = SourceDetectionFlag.EDGE) -> np.ndarray:
+def get_detected_objects(
+    frame_id: int, filter_flag: int = SourceDetectionFlag.EDGE
+) -> np.ndarray:
     """Get the detected objects from opdb.agc_data.
 
     Parameters:
@@ -293,7 +405,7 @@ def get_detected_objects(frame_id: int, filter_flag: int = SourceDetectionFlag.E
 
     """
     logging.debug("Getting detected objects from opdb.agc_data")
-    detected_objects_rows = opdb.query_agc_data(frame_id)
+    detected_objects_rows = query_agc_data(frame_id)
 
     detected_objects_dtype = [
         ("camera_id", np.int16),
@@ -319,8 +431,12 @@ def get_detected_objects(frame_id: int, filter_flag: int = SourceDetectionFlag.E
     logging.debug(f"Detected objects: {len(detected_objects)=}")
 
     if filter_flag:
-        detected_objects = detected_objects[detected_objects["flags"] <= SourceDetectionFlag.RIGHT]
-        logging.debug(f"Detected objects after source filtering: {len(detected_objects)=}")
+        detected_objects = detected_objects[
+            detected_objects["flags"] <= SourceDetectionFlag.RIGHT
+        ]
+        logging.debug(
+            f"Detected objects after source filtering: {len(detected_objects)=}"
+        )
 
     if len(detected_objects) == 0:
         raise RuntimeError("No valid spots detected, can't compute offsets")
@@ -343,7 +459,6 @@ def write_agc_guide_offset(
     delta_z=None,
     delta_zs=None,
 ):
-
     params = dict(
         guide_ra=ra,
         guide_dec=dec,
@@ -363,11 +478,12 @@ def write_agc_guide_offset(
         params.update(guide_delta_z4=delta_zs[3])
         params.update(guide_delta_z5=delta_zs[4])
         params.update(guide_delta_z6=delta_zs[5])
-    opdb.insert_agc_guide_offset(frame_id, **params)
+    insert_agc_guide_offset(frame_id, **params)
 
 
-def write_agc_match(*, design_id, frame_id, guide_objects, detected_objects, identified_objects):
-
+def write_agc_match(
+    *, design_id, frame_id, guide_objects, detected_objects, identified_objects
+):
     data = np.array(
         [
             (
@@ -394,4 +510,215 @@ def write_agc_match(*, design_id, frame_id, guide_objects, detected_objects, ide
         ],
     )
     # print(data)
-    opdb.insert_agc_match(frame_id, design_id, data)
+    insert_agc_match(frame_id, design_id, data)
+
+
+def search_gaia(ra, dec, radius=0.027 + 0.003):
+    """
+    Search guide stellar objects from Gaia DR3 sources.
+
+    Parameters
+    ----------
+    ra : array_like
+        The right ascensions (ICRS) of the search centers (deg)
+    dec : array_like
+        The declinations (ICRS) of the search centers (deg)
+    radius : scalar
+        The radius of the cones (deg)
+
+    Returns
+    -------
+    astropy.table.Table
+        The table of the Gaia DR3 sources inside the search areas
+    """
+
+    # Ensure inputs are iterable
+    if np.isscalar(ra):
+        ra = (ra,)
+    if np.isscalar(dec):
+        dec = (dec,)
+
+    # Define columns and their units
+    columns = (
+        "source_id",
+        "ref_epoch",
+        "ra",
+        "ra_error",
+        "dec",
+        "dec_error",
+        "parallax",
+        "parallax_error",
+        "pmra",
+        "pmra_error",
+        "pmdec",
+        "pmdec_error",
+        "phot_g_mean_mag",
+    )
+
+    units = (
+        u.dimensionless_unscaled,
+        u.yr,
+        u.deg,
+        u.mas,
+        u.deg,
+        u.mas,
+        u.mas,
+        u.mas,
+        u.mas / u.yr,
+        u.mas / u.yr,
+        u.mas / u.yr,
+        u.mas / u.yr,
+        u.mag,
+    )
+
+    # Build query for all search centers
+    radial_queries = [
+        f"q3c_radial_query(ra,dec,{_ra},{_dec},{radius})" for _ra, _dec in zip(ra, dec)
+    ]
+
+    # Construct full SQL query
+    query = (
+        f"SELECT {','.join(columns)} FROM gaia3 WHERE "
+        f"({' OR '.join(radial_queries)}) "
+        f"AND pmra IS NOT NULL AND pmdec IS NOT NULL AND parallax IS NOT NULL "
+        f"ORDER BY phot_g_mean_mag"
+    )
+
+    try:
+        objects = get_db("gaia").fetchall(query)
+    except Exception as e:
+        raise RuntimeError(f"Failed to query Gaia DR3 sources: {e:r}")
+
+    # Return results as an astropy Table
+    return Table(rows=objects, names=columns, units=units)
+
+
+def insert_agc_match(agc_exposure_id, pfs_design_id, data):
+    for x in data:
+        params = dict(
+            agc_exposure_id=agc_exposure_id,
+            agc_camera_id=int(x[0]),
+            spot_id=int(x[1]),
+            pfs_design_id=pfs_design_id,
+            guide_star_id=int(x[2]),
+            agc_nominal_x_mm=float(x[3]),
+            agc_nominal_y_mm=float(x[4]),
+            agc_center_x_mm=float(x[5]),
+            agc_center_y_mm=float(x[6]),
+            flags=int(x[7]),
+        )
+        get_db("opdb").insert("agc_match", **params)
+
+
+def insert_agc_guide_offset(agc_exposure_id, **params):
+    params.update(agc_exposure_id=agc_exposure_id)
+    get_db("opdb").insert("agc_guide_offset", **params)
+
+
+def query_agc_data(agc_exposure_id):
+    sql = """
+SELECT agc_camera_id,
+ spot_id,
+ image_moment_00_pix,
+ centroid_x_pix,
+ centroid_y_pix,
+ central_image_moment_11_pix,
+ central_image_moment_20_pix,
+ central_image_moment_02_pix,
+ peak_pixel_x_pix,
+ peak_pixel_y_pix,
+ peak_intensity,
+ background,
+ COALESCE(flags, CAST(centroid_x_pix >= 511.5 + 24 AS INTEGER)) AS flags
+FROM agc_data
+WHERE agc_exposure_id = %s
+ORDER BY agc_camera_id, spot_id
+"""
+    return get_db("opdb").fetchall(sql, (agc_exposure_id,))
+
+
+def query_tel_status(pfs_visit_id, status_sequence_id):
+    sql = """
+SELECT
+altitude,
+azimuth,
+insrot,
+adc_pa,
+m2_pos3,
+tel_ra,
+tel_dec,
+dome_shutter_status,
+dome_light_status,
+created_at
+FROM tel_status
+WHERE pfs_visit_id=%s AND status_sequence_id=%s
+"""
+    return get_db("opdb").fetchone(
+        sql,
+        (
+            pfs_visit_id,
+            status_sequence_id,
+        ),
+    )
+
+
+def query_agc_exposure(agc_exposure_id):
+    sql = """
+SELECT
+pfs_visit_id,
+agc_exptime,
+taken_at,
+azimuth,
+altitude,
+insrot,
+adc_pa,
+outside_temperature,
+outside_humidity,
+outside_pressure,
+m2_pos3
+FROM agc_exposure
+WHERE agc_exposure_id=%s
+"""
+    return get_db("opdb").fetchone(sql, (agc_exposure_id,))
+
+
+def query_pfs_design_agc(pfs_design_id):
+    sql = """
+SELECT
+guide_star_id,
+guide_star_ra,
+guide_star_dec,
+guide_star_magnitude,
+agc_camera_id,
+agc_target_x_pix,
+agc_target_y_pix,
+guide_star_flag
+FROM pfs_design_agc
+WHERE pfs_design_id=%s
+ORDER BY guide_star_id
+"""
+    return get_db("opdb").fetchall(sql, (pfs_design_id,))
+
+
+def query_pfs_design(pfs_design_id):
+    sql = """
+SELECT
+tile_id,
+ra_center_designed,
+dec_center_designed,
+pa_designed,
+num_sci_designed,
+num_cal_designed,
+num_sky_designed,
+num_guide_stars,
+exptime_tot,
+exptime_min,
+ets_version,
+ets_assigner,
+designed_at,
+to_be_observed_at,
+is_obsolete
+FROM pfs_design
+WHERE pfs_design_id=%s
+"""
+    return get_db("opdb").fetchone(sql, (pfs_design_id,))
