@@ -31,7 +31,6 @@ def measure(
     obswl=0.62,
     logger=None,
 ):
-
     log_message(
         logger,
         f"{ra=},{dec=},{obstime=},{inst_pa=},{inr=},{adc=},"
@@ -46,7 +45,9 @@ def measure(
         else (
             Time(obstime, format="unix")
             if isinstance(obstime, Number)
-            else Time(obstime) if obstime is not None else Time.now()
+            else Time(obstime)
+            if obstime is not None
+            else Time.now()
         )
     )
 
@@ -68,14 +69,22 @@ def measure(
         altaz_p = icrs_p.transform_to(frame_tc)
         parallactic_angle = altaz_c.position_angle(altaz_p).to(u.deg).value
         inr = (parallactic_angle + inst_pa + 180) % 360 - 180
-        log_message(logger, f"parallactic_angle={parallactic_angle},inst_pa={inst_pa},inr={inr}")
+        log_message(
+            logger, f"parallactic_angle={parallactic_angle},inst_pa={inst_pa},inr={inr}"
+        )
 
     # detected stellar objects in the equatorial coordinates
-    icam, x_det, y_det, flags = np.array(detected_objects)[:, (0, 3, 4, -1)].T
+    icam = detected_objects["camera_id"]
+    x_det = detected_objects["centroid_x"]
+    y_det = detected_objects["centroid_y"]
+    flags = detected_objects["flags"]
+
     x_dp, y_dp = coordinates.det2dp(np.rint(icam), x_det, y_det)
     x_fp, y_fp = pfs.dp2fp(x_dp, y_dp, inr)
     _, alt = _subaru.radec2azel(ra, dec, obswl, obstime)
-    separation, position_angle = popt2.focalplane2celestial(x_fp, y_fp, adc, inr, alt, m2_pos3, obswl, flags)
+    separation, position_angle = popt2.focalplane2celestial(
+        x_fp, y_fp, adc, inr, alt, m2_pos3, obswl, flags
+    )
     altaz = altaz_c.directional_offset_by(-position_angle * u.deg, separation * u.deg)
     icrs = altaz.transform_to("icrs")
 
@@ -83,7 +92,10 @@ def measure(
     counter = itertools.count()
     mag = 0
     objects = np.array(
-        [(next(counter), x.ra.to(u.deg).value, x.dec.to(u.deg).value, mag) for x in icrs],
+        [
+            (next(counter), x.ra.to(u.deg).value, x.dec.to(u.deg).value, mag)
+            for x in icrs
+        ],
         dtype=[
             ("source_id", np.int64),  # u8 (80) not supported by FITSIO
             ("ra", np.float64),

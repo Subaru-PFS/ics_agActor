@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 import time
 
 import numpy as np
@@ -11,6 +10,7 @@ from agActor import field_acquisition
 from agActor.Controllers.ag import ag
 from agActor.catalog import pfs_design
 from agActor.utils import actorCalls, data as data_utils, focus as _focus
+from agActor.utils.data import setup_db
 from agActor.utils.telescope_center import telCenter as tel_center
 
 
@@ -97,8 +97,10 @@ class AgCmd:
             keys.Key("tec_off", types.Bool("no", "yes"), help=""),
         )
 
+        # Set up the database connections.
         self.db_params = actor.actorConfig.get("db", {})
-        self.actor.logger.info(f"Database connection parameters: {self.db_params}")
+        setup_db(dbname='opdb', dsn=self.db_params.get('opdb', None))
+        setup_db(dbname='gaia', dsn=self.db_params.get('gaia', None))
 
         self.with_opdb_agc_guide_offset = actor.actorConfig.get("agc_guide_offset", False)
         self.with_opdb_agc_match = actor.actorConfig.get("agc_match", False)
@@ -290,7 +292,6 @@ class AgCmd:
                 guide_offsets = field_acquisition.acquire_field(
                     design=design,
                     frame_id=frame_id,
-                    db_params=self.db_params,
                     altazimuth=True,
                     logger=self.actor.logger,
                     **kwargs,
@@ -354,7 +355,6 @@ class AgCmd:
                 guide_offsets = field_acquisition.acquire_field(
                     design=design,
                     frame_id=frame_id,
-                    db_params=self.db_params,
                     logger=self.actor.logger,
                     **kwargs,
                 )  # design takes precedence over center

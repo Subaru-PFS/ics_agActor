@@ -3,7 +3,7 @@ import numpy as np
 from agActor.coordinates.FieldAcquisitionAndFocusing import calculate_focus_errors
 from agActor.utils.logging import log_message
 from agActor.utils.math import semi_axes
-from agActor.utils.opdb import opDB as opdb
+from agActor.utils.data import query_agc_data
 
 # mapping of keys and value types between focus.py and FieldAcquisitionAndFocusing.py
 _KEYMAP = {
@@ -26,7 +26,7 @@ def _map_kwargs(kwargs):
 def focus(*, frame_id, logger=None, **kwargs):
 
     log_message(logger, f"frame_id={frame_id}")
-    detected_objects = opdb.query_agc_data(frame_id)
+    detected_objects = query_agc_data(frame_id)
     _kwargs = _filter_kwargs(kwargs)
     log_message(logger, f"_kwargs={_kwargs}")
     return _focus(detected_objects, logger=logger, **_kwargs)

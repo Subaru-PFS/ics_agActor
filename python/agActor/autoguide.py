@@ -1,8 +1,14 @@
 from agActor import field_acquisition
 from agActor.catalog.pfs_design import pfsDesign as pfs_design
-from agActor.utils.data import GuideOffsets, get_detected_objects, get_guide_objects, get_telescope_status
+from agActor.utils.data import (
+    GuideOffsets,
+    get_detected_objects,
+    get_guide_objects,
+    get_telescope_status,
+    query_agc_data,
+    query_pfs_design,
+)
 from agActor.utils.logging import log_message
-from agActor.utils.opdb import opDB as opdb
 
 
 class Field:
@@ -29,7 +35,7 @@ def set_design(*, logger=None, **kwargs):
                 log_message(logger, f"ra={_ra},dec={_dec},inst_pa={_inst_pa}")
             else:
                 log_message(logger, f"Setting psf_design via {design_id=}")
-                _, _ra, _dec, _inst_pa, *_ = opdb.query_pfs_design(design_id)
+                _, _ra, _dec, _inst_pa, *_ = query_pfs_design(design_id)
                 log_message(logger, f"ra={_ra},dec={_dec},inst_pa={_inst_pa}")
             if ra is None:
                 ra = _ra
@@ -46,7 +52,7 @@ def set_design(*, logger=None, **kwargs):
     Field.guide_objects = []  # delay loading of guide objects
 
 
-def set_design_agc(*, frame_id=None, db_params: dict | None = None, obswl=0.62, logger=None, **kwargs):
+def set_design_agc(*, frame_id=None, obswl=0.62, logger=None, **kwargs):
     """Set up guide objects for the current field for autoguiding.
 
     This function retrieves guide objects from various sources and stores them in Field.guide_objects.
@@ -64,8 +70,6 @@ def set_design_agc(*, frame_id=None, db_params: dict | None = None, obswl=0.62, 
     Parameters:
         frame_id (int, optional): Frame ID to use for retrieving guide objects from the
             operational database. If provided, detected objects will be queried.
-        db_params (dict, optional): Dictionary of database parameters to use. This includes the
-            `opdb` and `gaia`, each of which contain connection parameters.
         obswl (float): Observation wavelength in microns. Used for atmospheric refraction
             calculations when retrieving guide objects, by default 0.62 microns.
         logger: Logger object for logging messages during execution.
@@ -105,13 +109,13 @@ def set_design_agc(*, frame_id=None, db_params: dict | None = None, obswl=0.62, 
     if frame_id is not None:
         log_message(logger, f"Setting pfs_design_agc via frame_id={frame_id}")
         log_message(logger, f"Getting agc_data from opdb for frame_id={frame_id}")
-        detected_objects = opdb.query_agc_data(frame_id)
+        detected_objects = query_agc_data(frame_id)
         log_message(logger, f"Got {len(detected_objects)=} detected objects")
         kwargs["detected_objects"] = detected_objects
 
     # Get guide objects using the enhanced get_guide_objects function
     guide_object_results = get_guide_objects(
-        frame_id=frame_id, db_params=db_params, obswl=obswl, logger=logger, **kwargs
+        frame_id=frame_id, obswl=obswl, logger=logger, **kwargs
     )
 
     guide_objects = guide_object_results.guide_objects
