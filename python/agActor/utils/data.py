@@ -5,11 +5,13 @@ from enum import IntFlag
 from typing import Optional
 
 import numpy as np
+import pandas as pd
 from astropy import units as u
 from astropy.table import Table
 from ics.utils.database.db import DB
 from ics.utils.database.gaia import GaiaDB
 from ics.utils.database.opdb import OpDB
+from numpy.typing import NDArray
 
 from agActor.catalog import astrometry, gen2_gaia as gaia
 from agActor.catalog.pfs_design import pfsDesign as pfs_design
@@ -168,9 +170,9 @@ class GuideOffsets:
     scale_offset: float
     dalt: Optional[float]
     daz: Optional[float]
-    guide_objects: np.ndarray
-    detected_objects: np.ndarray
-    identified_objects: np.ndarray
+    guide_objects: NDArray
+    detected_objects: NDArray
+    identified_objects: NDArray
     dx: float
     dy: float
     size: float
@@ -466,6 +468,7 @@ def write_agc_guide_offset(
     delta_zs=None,
 ):
     params = dict(
+        agc_exposure_id=frame_id,
         guide_ra=ra,
         guide_dec=dec,
         guide_pa=pa,
@@ -484,39 +487,67 @@ def write_agc_guide_offset(
         params.update(guide_delta_z4=delta_zs[3])
         params.update(guide_delta_z5=delta_zs[4])
         params.update(guide_delta_z6=delta_zs[5])
-    insert_agc_guide_offset(frame_id, **params)
 
+    get_db("opdb").insert("agc_guide_offset", **params)
 
 def write_agc_match(
-    *, design_id, frame_id, guide_objects, detected_objects, identified_objects
-):
-    data = np.array(
-        [
-            (
-                detected_objects["camera_id"][x[0]],
-                detected_objects["spot_id"][x[0]],
-                guide_objects["source_id"][x[1]],
-                x[4],
-                -x[5],  # hsc -> pfs focal plane coordinate system
-                x[2],
-                -x[3],  # hsc -> pfs focal plane coordinate system
-                guide_objects["filter_flag"][x[1]],  # flags
-            )
-            for x in identified_objects
-        ],
-        dtype=[
-            ("agc_camera_id", np.int32),
-            ("spot_id", np.int32),
-            ("guide_star_id", np.int64),
-            ("agc_nominal_x_mm", np.float32),
-            ("agc_nominal_y_mm", np.float32),
-            ("agc_center_x_mm", np.float32),
-            ("agc_center_y_mm", np.float32),
-            ("flags", np.int32),
-        ],
-    )
-    # print(data)
-    insert_agc_match(frame_id, design_id, data)
+    *,
+    design_id: int,
+    frame_id: int,
+    guide_objects: NDArray,
+    detected_objects: NDArray,
+    identified_objects: NDArray,
+) -> int | None:
+    """Insert AG identified objects into opdb.agc_match.
+
+    Parameters:
+    -----------
+    design_id (int): The PFS design ID.
+    frame_id (int): The exposure ID for the AGC frame.
+    guide_objects (NDArray): Dictionary or structured array containing guide star data.
+    detected_objects (NDArray): Dictionary or structured array containing detected object data.
+    identified_objects (NDArray): An iterable of tuples, where each tuple contains
+                                   indices and coordinate data for a matched object.
+                                   Expected format: (detected_idx, guide_idx,
+                                   center_x, center_y, nominal_x, nominal_y, ...)
+
+    Returns:
+    --------
+    int | None
+        The number of identified objects inserted or None if no matches.
+    """
+    rows_to_insert = []
+    for match in identified_objects:
+        detected_idx = match[0]
+        guide_idx = match[1]
+        center_x_mm = match[2]
+        center_y_mm = match[3] * -1  # TODO: move negative, see INSTRM-2654
+        nominal_x_mm = match[4]
+        nominal_y_mm = match[5] * -1  # TODO: move negative, see INSTRM-2654
+
+        row = {
+            "pfs_design_id": design_id,
+            "agc_exposure_id": frame_id,
+            "agc_camera_id": int(detected_objects["camera_id"][detected_idx]),
+            "spot_id": int(detected_objects["spot_id"][detected_idx]),
+            "guide_star_id": int(guide_objects["source_id"][guide_idx]),
+            "agc_nominal_x_mm": float(nominal_x_mm),
+            "agc_nominal_y_mm": float(nominal_y_mm),
+            "agc_center_x_mm": float(center_x_mm),
+            "agc_center_y_mm": float(center_y_mm),
+            "flags": int(guide_objects["filter_flag"][guide_idx]),
+        }
+        rows_to_insert.append(row)
+
+    if rows_to_insert:
+        df = pd.DataFrame(rows_to_insert)
+        logger.debug("Inserting data into database")
+        n_rows = get_db("opdb").insert_dataframe(df=df, table="agc_match")
+        logger.info(f"Finished inserting agc_match data: {n_rows} rows inserted")
+
+        return n_rows
+
+    return None
 
 
 def search_gaia(ra, dec, radius=0.027 + 0.003):
@@ -597,28 +628,6 @@ def search_gaia(ra, dec, radius=0.027 + 0.003):
 
     # Return results as an astropy Table
     return Table(rows=objects, names=columns, units=units)
-
-
-def insert_agc_match(agc_exposure_id, pfs_design_id, data):
-    for x in data:
-        params = dict(
-            agc_exposure_id=agc_exposure_id,
-            agc_camera_id=int(x[0]),
-            spot_id=int(x[1]),
-            pfs_design_id=pfs_design_id,
-            guide_star_id=int(x[2]),
-            agc_nominal_x_mm=float(x[3]),
-            agc_nominal_y_mm=float(x[4]),
-            agc_center_x_mm=float(x[5]),
-            agc_center_y_mm=float(x[6]),
-            flags=int(x[7]),
-        )
-        get_db("opdb").insert("agc_match", **params)
-
-
-def insert_agc_guide_offset(agc_exposure_id, **params):
-    params.update(agc_exposure_id=agc_exposure_id)
-    get_db("opdb").insert("agc_guide_offset", **params)
 
 
 def query_agc_data(agc_exposure_id):
