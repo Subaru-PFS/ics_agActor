@@ -37,7 +37,9 @@ def calculate_focus_errors(
     pfs = Subaru_POPT2_PFS_AG.PFS()
 
     # TODO there is assumption that six AG cameras are always present (and in for loop below).
-    moment_differences = pfs.agarray2momentdifference(agarray, maxellip, maxsize, minsize)
+    moment_differences = pfs.agarray2momentdifference(
+        agarray, maxellip, maxsize, minsize
+    )
 
     focus_errors = np.full(6, np.nan)
     for idx in range(6):
@@ -134,7 +136,9 @@ def calculate_acquisition_offsets(
 
     # Source filtering
     # TODO we should not actually be performing filtering here but just marking what would get filtered.
-    filtered_detected_array, valid_sources = pfs.sourceFilter(detected_array, maxellip, maxsize, minsize)
+    filtered_detected_array, valid_sources = pfs.sourceFilter(
+        detected_array, maxellip, maxsize, minsize
+    )
 
     ra_offset, de_offset, inr_offset, scale_offset, match_results = pfs.RADECInRShiftA(
         filtered_detected_array[:, 2],
@@ -152,4 +156,12 @@ def calculate_acquisition_offsets(
     residual_squares[match_results[:, 8] == 0.0] = np.nan
     median_distance = np.nanmedian(np.sqrt(residual_squares))
 
-    return ra_offset, de_offset, inr_offset, scale_offset, match_results, median_distance, valid_sources
+    return (
+        ra_offset,
+        de_offset,
+        inr_offset,
+        scale_offset,
+        match_results,
+        median_distance,
+        valid_sources,
+    )

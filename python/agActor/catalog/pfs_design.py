@@ -12,26 +12,29 @@ from agActor.utils.logging import log_message
 
 
 class pfsDesign:
-
     def __init__(self, design_id=None, design_path=None, logger=None):
-
         if design_id is None:
             if design_path is None:
-                raise TypeError('__init__() missing argument(s): "design_id" and/or "design_path"')
+                raise TypeError(
+                    '__init__() missing argument(s): "design_id" and/or "design_path"'
+                )
             elif not os.path.isfile(design_path):
-                raise ValueError(f'__init__() "design_path" not an existing regular file: "{design_path}"')
+                raise ValueError(
+                    f'__init__() "design_path" not an existing regular file: "{design_path}"'
+                )
         else:
             if design_path is None:
                 design_path = "/data/pfsDesign"
             elif not os.path.isdir(design_path):
-                raise ValueError(f'__init__() "design_path" not an existing directory: "{design_path}"')
+                raise ValueError(
+                    f'__init__() "design_path" not an existing directory: "{design_path}"'
+                )
             design_path = self.to_design_path(design_id, design_path)
         self.design_path = design_path
         self.logger = logger
 
     @property
     def center(self):
-
         with fitsio.FITS(self.design_path) as fits:
             header = fits[0].read_header()
             ra = header["RA"]
@@ -40,14 +43,15 @@ class pfsDesign:
         return ra, dec, inst_pa
 
     def guide_objects(self, obstime=None):
-
         _obstime = (
             Time(obstime.astimezone(tz=timezone.utc))
             if isinstance(obstime, datetime)
             else (
                 Time(obstime, format="unix")
                 if isinstance(obstime, Number)
-                else Time(obstime) if obstime is not None else Time.now()
+                else Time(obstime)
+                if obstime is not None
+                else Time.now()
             )
         )
         log_message(self.logger, f"obstime={obstime},_obstime={_obstime}")
@@ -84,11 +88,9 @@ class pfsDesign:
 
     @staticmethod
     def to_design_id(design_path):
-
         filename = os.path.splitext(os.path.basename(design_path))[0]
         return int(filename[10:], 0) if filename.startswith("pfsDesign-") else 0
 
     @staticmethod
     def to_design_path(design_id, design_path=""):
-
         return os.path.join(design_path, f"pfsDesign-0x{design_id:016x}.fits")

@@ -3,18 +3,22 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
-- INSTRM-2625 - Fix a logical error in conditional check for spots
-- INSTRM-2469 - Repository cleanup:
-  - Reorganize code structure
-  - Rename functions and directories (including `kawanomoto` to `coordinates`)
-  - Standardize imports
-  - Remove unused code
-  - Format with black
-  - Use pfs_utils for AutoGuiderStarMask
-- INSTRM-2615 - Use ics-utils DB for opdb.
 - INSTRM-1057 - Replace IERS handling with tools from `ics_utils`.
-- INSTRM-2630 - Large refactor of AG code. See commit message for details.
+- INSTRM-2469 - Repository cleanup:
+    - Reorganize code structure
+    - Rename functions and directories (including `kawanomoto` to `coordinates`)
+    - Standardize imports
+    - Remove unused code
+    - Format with black
+    - Use pfs_utils for AutoGuiderStarMask
 - INSTRM-2573 - Stop run loop whenever an exception is raised.
+- INSTRM-2598 - Improve agc_match insertion.
+- INSTRM-2613 - Don't hard-code gaia dsn string.
+- INSTRM-2615 - Use ics-utils DB for opdb.
+- INSTRM-2625 - Fix a logical error in conditional check for spots
+- INSTRM-2630 - Large refactor of AG code. See commit message for details.
+- INSTRM-2642 - Clean up build tools.
+- INSTRM-2650 - Clean up database interaction.
 
 ## [1.1.33] - 2025-07-09
 - INSTRM-2607 - Moving `coordinates.py` to `pfs_utils`.

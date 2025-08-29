@@ -12,12 +12,10 @@ from agActor.models.mlp1 import Mlp1
 
 
 class AgActor(ICC):
-
     # Keyword arguments for this class
     _kwargs = {}
 
     def __init__(self, name, **kwargs):
-
         # Consume keyword arguments for this class
         for k in AgActor._kwargs:
             if k in kwargs:
@@ -32,19 +30,15 @@ class AgActor(ICC):
 
     # override
     def shutdown(self):
-
         self.stopAllControllers()
         super()._shutdown()
 
     def reloadConfiguration(self, cmd):
-
         pass
 
     # override
     def connectionMade(self):
-
         if not self._everConnected:
-
             self._everConnected = True
 
             self.allControllers = [
@@ -68,34 +62,29 @@ class AgActor(ICC):
 
     # override
     def connectionLost(self, reason):
-
         pass
 
     # override
     def commandFailed(self, cmd):
-
         pass
 
     def queueCommand(self, actor=None, cmdStr=None, timeLim=0, **kwargs):
-
         params = {k: v for k, v in locals().items() if k not in ("self",)}
-        queue_result = self.cmdr.cmdq(actor=actor, cmdStr=cmdStr, timeLim=timeLim, **kwargs)
+        queue_result = self.cmdr.cmdq(
+            actor=actor, cmdStr=cmdStr, timeLim=timeLim, **kwargs
+        )
 
         class _Result:
-
             def __init__(self, cmdr, logger):
-
                 self.connector = cmdr.connector
                 self.logger = logger
                 self.params = params
                 self.result = queue_result
 
             def __del__(self):
-
                 del self.connector
 
             def get(self):
-
                 while True:
                     try:
                         cmd_result = self.result.get(timeout=0.1)
@@ -119,7 +108,6 @@ class AgActor(ICC):
 
 
 def main():
-
     parser = argparse.ArgumentParser()
     parser.add_argument("--configFile", default=None)
     args = parser.parse_args()
@@ -134,5 +122,4 @@ def main():
 
 
 if __name__ == "__main__":
-
     main()

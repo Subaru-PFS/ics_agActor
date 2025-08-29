@@ -21,10 +21,14 @@ def updateTelStatus(actor, logger, visit_id=None):
     else:
         visitStr = ""
 
-    logger.info(f"Calling gen2.updateTelStatus with caller={actor.name} and {visitStr=}")
+    logger.info(
+        f"Calling gen2.updateTelStatus with caller={actor.name} and {visitStr=}"
+    )
 
     actor.queueCommand(
-        actor="gen2", cmdStr=f"updateTelStatus caller={actor.name} {visitStr}", timeLim=5
+        actor="gen2",
+        cmdStr=f"updateTelStatus caller={actor.name} {visitStr}",
+        timeLim=5,
     ).get()
     tel_status = actor.gen2.tel_status
 

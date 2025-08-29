@@ -12,14 +12,12 @@ from agActor.utils.logging import log_message
 
 
 class Field:
-
     design = None
     center = None
     guide_objects = None
 
 
 def set_design(*, logger=None, **kwargs):
-
     field_acquisition.parse_kwargs(kwargs)
     design_id = kwargs.get("design_id")
     design_path = kwargs.get("design_path")
@@ -31,7 +29,9 @@ def set_design(*, logger=None, **kwargs):
         if any(x is not None for x in (design_id, design_path)):
             if design_path is not None:
                 log_message(logger, f"Setting psf_design via {design_path=}")
-                _ra, _dec, _inst_pa = pfs_design(design_id, design_path, logger=logger).center
+                _ra, _dec, _inst_pa = pfs_design(
+                    design_id, design_path, logger=logger
+                ).center
                 log_message(logger, f"ra={_ra},dec={_dec},inst_pa={_inst_pa}")
             else:
                 log_message(logger, f"Setting psf_design via {design_id=}")
@@ -184,7 +184,9 @@ def autoguide(*, frame_id, obswl=0.62, logger=None, **kwargs):
     ra, dec, inst_pa = Field.center
     log_message(logger, f"ra={ra},dec={dec}")
     log_message(logger, "Getting telescope status")
-    taken_at, inr, adc, m2_pos3 = get_telescope_status(frame_id=frame_id, logger=logger, **kwargs)
+    taken_at, inr, adc, m2_pos3 = get_telescope_status(
+        frame_id=frame_id, logger=logger, **kwargs
+    )
 
     # Get the detected_objects, which will raise an exception if no valid spots are detected.
     detected_objects = get_detected_objects(frame_id)
@@ -201,7 +203,10 @@ def autoguide(*, frame_id, obswl=0.62, logger=None, **kwargs):
     _kwargs = field_acquisition.filter_kwargs(kwargs)
     log_message(logger, f"_kwargs={_kwargs}")
 
-    log_message(logger, "Calling field_acquisition.calculate_guide_offsets from autoguide.autoguide")
+    log_message(
+        logger,
+        "Calling field_acquisition.calculate_guide_offsets from autoguide.autoguide",
+    )
     guide_offsets = field_acquisition.calculate_guide_offsets(
         guide_objects,
         detected_objects,
