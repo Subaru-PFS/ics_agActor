@@ -14,17 +14,14 @@ _KEYMAP = {
 
 
 def _filter_kwargs(kwargs):
-
     return {k: v for k, v in kwargs.items() if k in _KEYMAP}
 
 
 def _map_kwargs(kwargs):
-
     return {_KEYMAP[k][0]: _KEYMAP[k][1](v) for k, v in kwargs.items() if k in _KEYMAP}
 
 
 def focus(*, frame_id, logger=None, **kwargs):
-
     log_message(logger, f"frame_id={frame_id}")
     detected_objects = query_agc_data(frame_id)
     _kwargs = _filter_kwargs(kwargs)
@@ -33,7 +30,6 @@ def focus(*, frame_id, logger=None, **kwargs):
 
 
 def _focus(detected_objects, logger=None, **kwargs):
-
     _detected_objects = np.array(
         [
             (

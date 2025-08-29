@@ -8,9 +8,16 @@ from pfs.utils.location import SUBARU
 
 
 def to_altaz(
-    ra, dec, obstime=None, temperature=0, relative_humidity=0, pressure=620, obswl=0.62, dra=0, ddec=0
+    ra,
+    dec,
+    obstime=None,
+    temperature=0,
+    relative_humidity=0,
+    pressure=620,
+    obswl=0.62,
+    dra=0,
+    ddec=0,
 ):
-
     ra = Angle(ra, unit=u.deg)
     dec = Angle(dec, unit=u.deg)
     obstime = (
@@ -19,7 +26,9 @@ def to_altaz(
         else (
             Time(obstime, format="unix")
             if isinstance(obstime, Number)
-            else Time(obstime) if obstime is not None else Time.now()
+            else Time(obstime)
+            if obstime is not None
+            else Time.now()
         )
     )
 

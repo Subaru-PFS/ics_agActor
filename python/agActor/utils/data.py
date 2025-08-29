@@ -20,7 +20,8 @@ from agActor.utils.logging import log_message
 logger = logging.getLogger(__name__)
 
 
-DB_CLASSES = {'opdb': OpDB, 'gaia': GaiaDB}
+DB_CLASSES = {"opdb": OpDB, "gaia": GaiaDB}
+
 
 class Database:
     def __init__(self):
@@ -224,7 +225,7 @@ def get_telescope_status(*, frame_id, **kwargs):
     If any of the optional values are not provided in kwargs, they will be retrieved
     from the opdb database using the frame_id and sequence_id (if provided).
     """
-    logging.debug(f"Getting telescope status for {frame_id=}")
+    logger.debug(f"Getting telescope status for {frame_id=}")
 
     # Extract values from kwargs if provided
     taken_at = kwargs.get("taken_at")
@@ -235,7 +236,7 @@ def get_telescope_status(*, frame_id, **kwargs):
     # Check if we need to fetch any missing values from the database
     if any(value is None for value in (taken_at, inr, adc, m2_pos3)):
         # First, query the agc_exposure table to get basic information, including visit_id.
-        logging.debug(f"Getting agc_exposure from opdb for frame_id={frame_id}")
+        logger.debug(f"Getting agc_exposure from opdb for frame_id={frame_id}")
         visit_id, _, db_taken_at, _, _, db_inr, db_adc, _, _, _, db_m2_pos3 = (
             query_agc_exposure(frame_id)
         )
@@ -243,7 +244,7 @@ def get_telescope_status(*, frame_id, **kwargs):
         # If sequence_id is provided, get more accurate information from tel_status table
         sequence_id = kwargs.get("sequence_id")
         if sequence_id is not None:
-            logging.debug(
+            logger.debug(
                 f"Getting telescope status from opdb for {visit_id=},{sequence_id=}"
             )
             _, _, db_inr, db_adc, db_m2_pos3, _, _, _, _, db_taken_at = (
@@ -256,7 +257,7 @@ def get_telescope_status(*, frame_id, **kwargs):
         adc = adc or db_adc
         m2_pos3 = m2_pos3 or db_m2_pos3
 
-    logging.debug(f"{taken_at=},{inr=},{adc=},{m2_pos3=}")
+    logger.debug(f"{taken_at=},{inr=},{adc=},{m2_pos3=}")
     return taken_at, inr, adc, m2_pos3
 
 
@@ -296,7 +297,7 @@ def get_guide_objects(
             adc (float): The ADC setting.
             taken_at (datetime): The time the frame was taken.
     """
-    # Use logging.debug if logger is None, otherwise use log_message
+    # Use logger.debug if logger is None, otherwise use log_message
     log_fn = lambda msg: log_message(logger, msg)
 
     # Get telescope status if frame_id is provided
@@ -374,7 +375,9 @@ def get_guide_objects(
         )
     else:
         if design_path is not None:
-            log_fn(f"Getting guide_objects via {design_path}")
+            log_fn(
+                f"Getting guide_objects via pfsDesign file at '{design_path}{design_id}'"
+            )
             guide_objects, _ra, _dec, _inst_pa = pfs_design(
                 design_id, design_path, logger=logger
             ).guide_objects(obstime=taken_at)
@@ -412,7 +415,7 @@ def get_detected_objects(
         np.ndarray: The detected objects.
 
     """
-    logging.debug("Getting detected objects from opdb.agc_data")
+    logger.debug("Getting detected objects from opdb.agc_data")
     detected_objects_rows = query_agc_data(frame_id)
 
     detected_objects_dtype = [
@@ -436,13 +439,13 @@ def get_detected_objects(
         dtype=detected_objects_dtype,
     )
 
-    logging.debug(f"Detected objects: {len(detected_objects)=}")
+    logger.debug(f"Detected objects: {len(detected_objects)=}")
 
     if filter_flag:
         detected_objects = detected_objects[
             detected_objects["flags"] <= SourceDetectionFlag.RIGHT
         ]
-        logging.debug(
+        logger.debug(
             f"Detected objects after source filtering: {len(detected_objects)=}"
         )
 

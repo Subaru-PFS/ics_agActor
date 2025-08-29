@@ -9,7 +9,9 @@ from numpy.lib import recfunctions as rfn
 from pfs.utils.coordinates import coordinates
 from pfs.utils.datamodel.ag import AutoGuiderStarMask
 
-from agActor.coordinates.FieldAcquisitionAndFocusing import calculate_acquisition_offsets
+from agActor.coordinates.FieldAcquisitionAndFocusing import (
+    calculate_acquisition_offsets,
+)
 from agActor.utils import to_altaz
 from agActor.utils.data import GuideOffsets, get_detected_objects, get_guide_objects
 from agActor.utils.logging import log_message
@@ -27,17 +29,14 @@ _KEYMAP = {
 
 
 def filter_kwargs(kwargs):
-
     return {k: v for k, v in kwargs.items() if k in _KEYMAP}
 
 
 def _map_kwargs(kwargs):
-
     return {_KEYMAP[k][0]: _KEYMAP[k][1](v) for k, v in kwargs.items() if k in _KEYMAP}
 
 
 def parse_kwargs(kwargs):
-
     if (center := kwargs.pop("center", None)) is not None:
         ra, dec, *optional = center
         kwargs.setdefault("ra", ra)
@@ -47,9 +46,16 @@ def parse_kwargs(kwargs):
         dra, ddec, *optional = offset
         kwargs.setdefault("dra", dra)
         kwargs.setdefault("ddec", ddec)
-        kwargs.setdefault("dpa", optional[0] if len(optional) > 0 else kwargs.get("dinr", 0))
         kwargs.setdefault(
-            "dinr", optional[1] if len(optional) > 1 else optional[0] if len(optional) > 0 else 0
+            "dpa", optional[0] if len(optional) > 0 else kwargs.get("dinr", 0)
+        )
+        kwargs.setdefault(
+            "dinr",
+            optional[1]
+            if len(optional) > 1
+            else optional[0]
+            if len(optional) > 0
+            else 0,
         )
     if (design := kwargs.pop("design", None)) is not None:
         design_id, design_path = design
@@ -133,12 +139,17 @@ def acquire_field(
     -----
     If kwargs is missing any values, they will be provided by a lookup in the `get_telescope_status` function.
     """
+    log_message(
+        logger,
+        f"Calling acquire_field with {frame_id=}, {obswl=}, {altazimuth=} {kwargs=}",
+    )
+
     # Get the detected_objects, which will raise an exception if no valid spots are detected.
     detected_objects = get_detected_objects(frame_id)
+    log_message(logger, f"Detected objects: {len(detected_objects)=}")
 
     parse_kwargs(kwargs)
 
-    log_message(logger, f"Calling acquire_field with {frame_id=}, {obswl=}, {altazimuth=}")
     guide_object_results = get_guide_objects(
         frame_id, obswl=obswl, logger=logger, **kwargs
     )
@@ -151,7 +162,9 @@ def acquire_field(
     adc = guide_object_results.adc
     taken_at = guide_object_results.taken_at
     log_message(logger, f"Using {ra=},{dec=},{inst_pa=}")
-    log_message(logger, f"Got {len(guide_objects)} guide objects before guide filtering.")
+    log_message(
+        logger, f"Got {len(guide_objects)} guide objects before guide filtering."
+    )
     guide_objects = filter_guide_objects(guide_objects, logger)
 
     if "dra" in kwargs:
@@ -167,7 +180,9 @@ def acquire_field(
         inr += kwargs.get("dinr") / 3600
         log_message(logger, f"inr modified by dinr: {inr=}")
 
-    log_message(logger, f"Final values for calculating offsets: {ra=},{dec=},{inst_pa=},{inr=}")
+    log_message(
+        logger, f"Final values for calculating offsets: {ra=},{dec=},{inst_pa=},{inr=}"
+    )
 
     _kwargs = filter_kwargs(kwargs)
 
@@ -251,9 +266,9 @@ def calculate_guide_offsets(
         - scale_offset (float): Scale change
         - dalt (float): Altitude offset in arcseconds if altazimuth is True, else None
         - daz (float): Azimuth offset in arcseconds if altazimuth is True, else None
-        - guide_objects (np.ndarray): Guide objects with additional calculated fields
-        - detected_objects (np.ndarray): Detected objects from the frame
-        - identified_objects (np.ndarray): Matched guide and detected objects
+        - guide_objects (NDArray): Guide objects with additional calculated fields
+        - detected_objects (NDArray): Detected objects from the frame
+        - identified_objects (NDArray): Matched guide and detected objects
         - dx (float): X offset in arcseconds
         - dy (float): Y offset in arcseconds
         - size (float): Representative spot size in pixels
@@ -266,7 +281,9 @@ def calculate_guide_offsets(
 
     # Get the RA/Dec in the detector plane from the centroid XY values for guide objects.
     dp_ra, dp_dec = coordinates.det2dp(
-        detected_objects["camera_id"], detected_objects["centroid_x"], detected_objects["centroid_y"]
+        detected_objects["camera_id"],
+        detected_objects["centroid_x"],
+        detected_objects["centroid_y"],
     )
 
     # Get the semi-major and semi-minor axes for the guide objects.
@@ -300,20 +317,28 @@ def calculate_guide_offsets(
     else:
         obstime = taken_at
 
-    log_message(logger, f"Calling calculate_acquisition_offsets (old FAinstpa) with {_kwargs=}")
-    ra_offset, dec_offset, inr_offset, scale_offset, match_results, median_distance, valid_sources = (
-        calculate_acquisition_offsets(
-            _guide_objects,
-            _detected_objects,
-            ra,
-            dec,
-            obstime,
-            adc,
-            inst_pa,
-            m2_pos3,
-            obswl,
-            **_kwargs,
-        )
+    log_message(
+        logger, f"Calling calculate_acquisition_offsets (old FAinstpa) with {_kwargs=}"
+    )
+    (
+        ra_offset,
+        dec_offset,
+        inr_offset,
+        scale_offset,
+        match_results,
+        median_distance,
+        valid_sources,
+    ) = calculate_acquisition_offsets(
+        _guide_objects,
+        _detected_objects,
+        ra,
+        dec,
+        obstime,
+        adc,
+        inst_pa,
+        m2_pos3,
+        obswl,
+        **_kwargs,
     )
     ra_offset *= 3600
     dec_offset *= 3600
@@ -327,7 +352,9 @@ def calculate_guide_offsets(
     dalt = None
     daz = None
     if altazimuth:
-        alt, az, dalt, daz = to_altaz.to_altaz(ra, dec, taken_at, dra=ra_offset, ddec=dec_offset)
+        alt, az, dalt, daz = to_altaz.to_altaz(
+            ra, dec, taken_at, dra=ra_offset, ddec=dec_offset
+        )
         log_message(logger, f"{alt=},{az=},{dalt=},{daz=}")
 
     guide_objects = np.array(
@@ -403,7 +430,10 @@ def calculate_guide_offsets(
     )
 
     # convert to arcsec
-    log_message(logger, f"Converting ra_offset, dec_offset to arcsec: {ra_offset=},{dec_offset=}")
+    log_message(
+        logger,
+        f"Converting ra_offset, dec_offset to arcsec: {ra_offset=},{dec_offset=}",
+    )
     dx = -ra_offset * np.cos(np.deg2rad(dec))  # arcsec
     dy = dec_offset  # arcsec (HSC definition)
     log_message(logger, f"{dx=},{dy=}")
@@ -486,13 +516,19 @@ def find_representative_spot(
     size = 0  # pix
     peak = 0  # pix
     flux = 0  # pix
-    esq = (identified_objects["detected_object_x"] - identified_objects["guide_object_x"]) ** 2 + (
+    esq = (
+        identified_objects["detected_object_x"] - identified_objects["guide_object_x"]
+    ) ** 2 + (
         identified_objects["detected_object_y"] - identified_objects["guide_object_y"]
     ) ** 2  # squares of pointing errors in detector plane coordinates
     n = len(esq) - np.isnan(esq).sum()
     if n > 0:
-        i = np.argpartition(esq, n // 2)[n // 2]  # index of "median" of identified objects
-        k = identified_objects["detected_object_id"][i]  # index of "median" of detected objects
+        i = np.argpartition(esq, n // 2)[
+            n // 2
+        ]  # index of "median" of identified objects
+        k = identified_objects["detected_object_id"][
+            i
+        ]  # index of "median" of detected objects
         a, b = semi_axes(
             detected_objects["central_moment_11"][k],
             detected_objects["central_moment_20"][k],
@@ -557,7 +593,9 @@ def filter_guide_objects(guide_objects, logger=None, initial=False):
             # Filter the guide objects to only include the ones that are not flagged as galaxies.
             log_message(logger, "Filtering guide objects to remove galaxies.")
             galaxy_idx = (guide_objects_df.flag.values & AutoGuiderStarMask.GALAXY) != 0
-            guide_objects_df.loc[galaxy_idx, "filtered_by"] = AutoGuiderStarMask.GALAXY.value
+            guide_objects_df.loc[galaxy_idx, "filtered_by"] = (
+                AutoGuiderStarMask.GALAXY.value
+            )
             log_message(
                 logger,
                 f"Filtering by {AutoGuiderStarMask.GALAXY.name}, removes {galaxy_idx.sum()} guide objects.",
@@ -577,17 +615,20 @@ def filter_guide_objects(guide_objects, logger=None, initial=False):
 
                 # Go through the filters and mark which stars would be flagged as NOT meeting the mask requirement.
                 for f in filters_for_inclusion:
-                    not_filtered = guide_objects_df.filtered_by != AutoGuiderStarMask.GALAXY
+                    not_filtered = (
+                        guide_objects_df.filtered_by != AutoGuiderStarMask.GALAXY
+                    )
                     include_filter = (guide_objects_df.flag.values & f) == 0
                     to_be_filtered = (include_filter & not_filtered) != 0
                     guide_objects_df.loc[to_be_filtered, "filtered_by"] |= f.value
                     log_message(
-                        logger, f"Filtering by {f.name}, removes {to_be_filtered.sum()} guide objects."
+                        logger,
+                        f"Filtering by {f.name}, removes {to_be_filtered.sum()} guide objects.",
                     )
 
                 log_message(
                     logger,
-                    f'After filtering, {len(guide_objects_df.query("filtered_by == 0"))} guide objects remain.',
+                    f"After filtering, {len(guide_objects_df.query('filtered_by == 0'))} guide objects remain.",
                 )
         except Exception as e:
             log_message(logger, f"Error filtering guide objects: {e}", level="WARNING")
@@ -599,14 +640,22 @@ def filter_guide_objects(guide_objects, logger=None, initial=False):
         log_message(logger, "Adding filter flag column to guide objects.")
         filterFlag_column = guide_objects_df.filtered_by.to_numpy("<i4")
         filterFlag_column = np.array(filterFlag_column, dtype=[("filterFlag", "<i4")])
-        guide_objects = rfn.merge_arrays((guide_objects, filterFlag_column), asrecarray=True, flatten=True)
+        guide_objects = rfn.merge_arrays(
+            (guide_objects, filterFlag_column), asrecarray=True, flatten=True
+        )
     else:
         log_message(logger, "No filtering applied, using all guide objects.")
         # If not present, we need to add zero entries for the guide_star_flag and filter_flag.
-        guideStarFlag_column = np.zeros(len(guide_objects), dtype=[("guideStarFlag", "<i4")])
-        guide_objects = rfn.merge_arrays((guide_objects, guideStarFlag_column), asrecarray=True, flatten=True)
+        guideStarFlag_column = np.zeros(
+            len(guide_objects), dtype=[("guideStarFlag", "<i4")]
+        )
+        guide_objects = rfn.merge_arrays(
+            (guide_objects, guideStarFlag_column), asrecarray=True, flatten=True
+        )
 
         filterFlag_column = np.zeros(len(guide_objects), dtype=[("filterFlag", "<i4")])
-        guide_objects = rfn.merge_arrays((guide_objects, filterFlag_column), asrecarray=True, flatten=True)
+        guide_objects = rfn.merge_arrays(
+            (guide_objects, filterFlag_column), asrecarray=True, flatten=True
+        )
 
     return guide_objects
