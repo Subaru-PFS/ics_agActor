@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
     - Remove unused code
     - Format with black
     - Use pfs_utils for AutoGuiderStarMask
+- INSTRM-2567 - Implement `MAX_CORRECTION` to control if offsets are used or not.
 - INSTRM-2573 - Stop run loop whenever an exception is raised.
 - INSTRM-2598 - Improve agc_match insertion.
 - INSTRM-2613 - Don't hard-code gaia dsn string.
