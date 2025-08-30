@@ -9,9 +9,7 @@ from numpy.lib import recfunctions as rfn
 from pfs.utils.coordinates import coordinates
 from pfs.utils.datamodel.ag import AutoGuiderStarMask
 
-from agActor.coordinates.FieldAcquisitionAndFocusing import (
-    calculate_acquisition_offsets,
-)
+from agActor.coordinates.FieldAcquisitionAndFocusing import calculate_acquisition_offsets
 from agActor.utils import to_altaz
 from agActor.utils.data import GuideOffsets, get_detected_objects, get_guide_objects
 from agActor.utils.logging import log_message
@@ -25,6 +23,7 @@ _KEYMAP = {
     "max_size": ("maxsize", float),
     "min_size": ("minsize", float),
     "max_residual": ("maxresid", float),
+    "max_correction": ("max_correction", float),
 }
 
 

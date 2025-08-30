@@ -10,7 +10,7 @@ from agActor import field_acquisition
 from agActor.Controllers.ag import ag
 from agActor.catalog import pfs_design
 from agActor.utils import actorCalls, data as data_utils, focus as _focus
-from agActor.utils.data import setup_db
+from agActor.utils.data import GuideOffsetFlag, setup_db
 from agActor.utils.telescope_center import telCenter as tel_center
 
 
@@ -40,29 +40,29 @@ class AgCmd:
             ),
             (
                 "autoguide",
-                "@start [<design_id>] [<design_path>] [<visit_id>|<visit>] [<from_sky>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]",
+                "@start [<design_id>] [<design_path>] [<visit_id>|<visit>] [<from_sky>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<max_correction>] [<exposure_delay>] [<tec_off>]",
                 self.start_autoguide,
             ),
             (
                 "autoguide",
-                "@start @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]",
+                "@start @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<max_correction>] [<exposure_delay>] [<tec_off>]",
                 self.start_autoguide,
             ),
             (
                 "autoguide",
-                "@initialize [<design_id>] [<design_path>] [<visit_id>|<visit>] [<from_sky>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]",
+                "@initialize [<design_id>] [<design_path>] [<visit_id>|<visit>] [<from_sky>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<max_correction>] [<exposure_delay>] [<tec_off>]",
                 self.initialize_autoguide,
             ),
             (
                 "autoguide",
-                "@initialize @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]",
+                "@initialize @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<max_correction>] [<exposure_delay>] [<tec_off>]",
                 self.initialize_autoguide,
             ),
             ("autoguide", "@restart", self.restart_autoguide),
             ("autoguide", "@stop", self.stop_autoguide),
             (
                 "autoguide",
-                "@reconfigure [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]",
+                "@reconfigure [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<max_correction>] [<exposure_delay>] [<tec_off>]",
                 self.reconfigure_autoguide,
             ),
             ("offset", "[@(absolute|relative)] [<dx>] [<dy>] [<dinr>] [<dscale>]", self.offset),
@@ -70,7 +70,7 @@ class AgCmd:
         ]
         self.keys = keys.KeysDictionary(
             "ag_ag",
-            (1, 15),
+            (1, 16),
             keys.Key("exposure_time", types.Int(), help=""),
             keys.Key("cadence", types.Int(), help=""),
             keys.Key("guide", types.Bool("no", "yes"), help=""),
@@ -93,6 +93,7 @@ class AgCmd:
             keys.Key("max_size", types.Float(), help=""),
             keys.Key("min_size", types.Float(), help=""),
             keys.Key("max_residual", types.Float(), help=""),
+            keys.Key("max_correction", types.Float(), help=""),
             keys.Key("exposure_delay", types.Int(), help=""),
             keys.Key("tec_off", types.Bool("no", "yes"), help=""),
         )
@@ -276,6 +277,7 @@ class AgCmd:
                 kwargs["offset"] = offset
             if dinr is not None:
                 kwargs["dinr"] = dinr
+
             # retrieve field center coordinates from opdb
             # retrieve exposure information from opdb
             # retrieve guide star coordinates from opdb
@@ -328,8 +330,9 @@ class AgCmd:
                     guide_offsets.peak,
                     guide_offsets.flux,
                 )
+
                 # send corrections to mlp1 and gen2 (or iic)
-                mlp_result = self.actor.queueCommand(
+                mlp1_result = self.actor.queueCommand(
                     actor="mlp1",
                     # daz, dalt: arcsec, positive feedback; dx, dy: mas, HSC -> PFS; size: mas; peak, flux: adu
                     cmdStr="guide azel={},{} ready={} time={} delay=0 xy={},{} size={} intensity={} flux={}".format(
@@ -345,7 +348,7 @@ class AgCmd:
                     ),
                     timeLim=5,
                 )
-                mlp_result.get()
+                mlp1_result.get()
             else:
                 self.actor.logger.info("AgCmd.acquire_field: guide=False")
                 cmd.inform("detectionState=1")
@@ -566,6 +569,9 @@ class AgCmd:
         if "tec_off" in cmd.cmd.keywords:
             tec_off = bool(cmd.cmd.keywords["tec_off"].values[0])
             kwargs["tec_off"] = tec_off
+        if "max_correction" in cmd.cmd.keywords:
+            max_correction = float(cmd.cmd.keywords["max_correction"].values[0])
+            kwargs["max_correction"] = max_correction
 
         try:
             self.actor.logger.info(f"AgCmd.start_autoguide: kwargs={kwargs}")
@@ -648,6 +654,9 @@ class AgCmd:
         if "tec_off" in cmd.cmd.keywords:
             tec_off = bool(cmd.cmd.keywords["tec_off"].values[0])
             kwargs["tec_off"] = tec_off
+        if "max_correction" in cmd.cmd.keywords:
+            max_correction = float(cmd.cmd.keywords["max_correction"].values[0])
+            kwargs["max_correction"] = max_correction
 
         try:
             self.actor.logger.info(f"AgCmd.initialize_autoguide: kwargs={kwargs}")
@@ -739,6 +748,9 @@ class AgCmd:
         if "tec_off" in cmd.cmd.keywords:
             tec_off = bool(cmd.cmd.keywords["tec_off"].values[0])
             kwargs["tec_off"] = tec_off
+        if "max_correction" in cmd.cmd.keywords:
+            max_correction = float(cmd.cmd.keywords["max_correction"].values[0])
+            kwargs["max_correction"] = max_correction
 
         try:
             controller.reconfigure_autoguide(cmd=cmd, **kwargs)

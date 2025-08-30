@@ -10,6 +10,7 @@ from agActor.catalog import pfs_design
 from agActor.utils import actorCalls
 from agActor.utils import data as data_utils
 from agActor.utils import focus as _focus
+from agActor.utils.data import GuideOffsetFlag
 from agActor.utils.telescope_center import telCenter as tel_center
 
 
@@ -46,6 +47,7 @@ class ag:
     MAX_SIZE = 20.0  # pix
     MIN_SIZE = 0.92  # pix
     MAX_RESIDUAL = 0.2  # mm
+    MAX_CORRECTION = 1.0  # arcsec
     EXPOSURE_DELAY = 100  # ms
     TEC_OFF = False
 
@@ -62,6 +64,7 @@ class ag:
             "max_size",
             "min_size",
             "max_residual",
+            "max_correction",
             "exposure_delay",
             "tec_off",
         )
@@ -449,6 +452,8 @@ class AgThread(threading.Thread):
                             kwargs["min_size"] = options.get("min_size")
                         if "max_residual" in options:
                             kwargs["max_residual"] = options.get("max_residual")
+                        max_correction = options.get('max_correction', ag.MAX_CORRECTION)
+
                         cmd.inform("detectionState=1")
                         # compute guide errors
                         self.logger.info(f"AgThread.run: autoguide.autoguide for frame_id={frame_id}")
@@ -492,23 +497,30 @@ class AgThread(threading.Thread):
                         self.logger.info(
                             f"AgThread.run: Sending mlp1 command {dx=},{dy=},{size=},{peak=},{flux=}"
                         )
-                        queue_result = self.actor.queueCommand(
-                            actor="mlp1",
-                            # daz, dalt: arcsec, positive feedback; dx, dy: mas, HSC -> PFS; size: mas; peak, flux: adu
-                            cmdStr="guide azel={},{} ready={} time={} delay=0 xy={},{} size={} intensity={} flux={}".format(
-                                -daz,
-                                -dalt,
-                                int(not dry_run),
-                                taken_at,
-                                dx * 1e3,
-                                -dy * 1e3,
-                                size * 13 / 98e-3,
-                                peak,
-                                flux,
-                            ),
-                            timeLim=5,
-                        )
-                        queue_result.get()
+
+                        offset_in_range = abs(dra) < max_correction and abs(ddec) < max_correction
+                        offset_flags = GuideOffsetFlag.OK if offset_in_range else GuideOffsetFlag.INVALID_OFFSET
+                        if offset_flags == GuideOffsetFlag.OK:
+                            # send corrections to mlp1 and gen2 (or iic)
+                            mlp1_result = self.actor.queueCommand(
+                                actor="mlp1",
+                                # daz, dalt: arcsec, positive feedback; dx, dy: mas, HSC -> PFS; size: mas; peak, flux: adu
+                                cmdStr="guide azel={},{} ready={} time={} delay=0 xy={},{} size={} intensity={} flux={}".format(
+                                    -daz,
+                                    -dalt,
+                                    int(not dry_run),
+                                    taken_at,
+                                    dx * 1e3,
+                                    -dy * 1e3,
+                                    size * 13 / 98e-3,
+                                    peak,
+                                    flux,
+                                ),
+                                timeLim=5,
+                            )
+                            mlp1_result.get()
+                        else:
+                            cmd.inform(f'text="Calculated offset not in allowed range, skipping: {dra=} {ddec=} {max_correction=}"')
 
                         kwargs = {
                             key: kwargs.get(key)
@@ -542,6 +554,7 @@ class AgThread(threading.Thread):
                                 delta_el=dalt,
                                 delta_z=dz,
                                 delta_zs=dzs,
+                                offset_flags=offset_flags,
                             )
                         if self.with_opdb_agc_match:
                             self.logger.info(f"AgThread.run: write_agc_match for frame_id={frame_id}")

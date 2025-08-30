@@ -203,6 +203,17 @@ class SourceDetectionFlag(IntFlag):
     FLAT_TOP = 0x0020
 
 
+class GuideOffsetFlag(IntFlag):
+    """Flags for the guide offsets.
+    Attributes:
+        OK: Guide offset is OK.
+        INVALID_OFFSET: Guide offset is invalid and was not used.
+    """
+
+    OK = 0x0000
+    INVALID_OFFSET = 0x0001
+
+
 def get_telescope_status(*, frame_id, **kwargs):
     """Get the telescope status information for a specific frame ID.
 
@@ -457,19 +468,41 @@ def get_detected_objects(
 
 def write_agc_guide_offset(
     *,
-    frame_id,
-    ra=None,
-    dec=None,
-    pa=None,
-    delta_ra=None,
-    delta_dec=None,
-    delta_insrot=None,
-    delta_scale=None,
-    delta_az=None,
-    delta_el=None,
-    delta_z=None,
-    delta_zs=None,
+    frame_id: int,
+    ra: float | None = None,
+    dec: float | None = None,
+    pa: float | None = None,
+    delta_ra: float | None = None,
+    delta_dec: float | None = None,
+    delta_insrot: float | None = None,
+    delta_scale: float | None = None,
+    delta_az: float | None = None,
+    delta_el: float | None = None,
+    delta_z: float | None = None,
+    delta_zs: NDArray | None = None,
+    offset_flags: GuideOffsetFlag = GuideOffsetFlag.OK,
 ):
+    """Write the guide offsets to the database.
+
+    If a value is not passed to the function then the default `None` will be
+    written to the database.
+
+    Parameters:
+        frame_id (int): The frame id of the frame.
+        ra (float | None): Right ascension of the field in degrees.
+        dec (float | None): Declination of the field in degrees.
+        pa (float | None): Instrument position angle in degrees.
+        delta_ra (float | None): Right ascension offset in arcseconds.
+        delta_dec (float | None): Declination offset in arcseconds.
+        delta_insrot (float | None): Instrument rotator offset in arcseconds.
+        delta_scale (float | None): Scale change.
+        delta_el (float | None): Elevation (Altitude) offset in arcseconds.
+        delta_az (float | None): Azimuth offset in arcseconds.
+        delta_z (float | None): Average focus offset.
+        delta_zs (NDArray | None): Focus offset per camera.
+        offset_flags (GuideOffsetFlag): Any flags for the data, stored in
+            the `mask` column, defaults to `GuideOffsetFlag.OK`.
+    """
     params = dict(
         agc_exposure_id=frame_id,
         guide_ra=ra,
@@ -481,6 +514,7 @@ def write_agc_guide_offset(
         guide_delta_scale=delta_scale,
         guide_delta_az=delta_az,
         guide_delta_el=delta_el,
+        mask=offset_flags,
         guide_delta_z=delta_z,
     )
     if delta_zs is not None:
