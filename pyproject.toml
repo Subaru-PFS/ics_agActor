@@ -21,7 +21,7 @@ dependencies = [
     "fitsio",
     "numpy >= 2.0",
     "pfs-datamodel @ git+https://github.com/Subaru-PFS/datamodel.git",
-    "pfs-tron-actorcore @ git+https://github.com/Subaru-PFS/tron_actorcore.git@tickets/INSTRM-2641",
+    "pfs-tron-actorcore @ git+https://github.com/Subaru-PFS/tron_actorcore.git",
     "pfs-utils @ git+https://github.com/Subaru-PFS/pfs_utils.git",
     "pfs-ics-utils @ git+https://github.com/Subaru-PFS/ics_utils.git",
     "psycopg2-binary",
