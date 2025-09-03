@@ -10,14 +10,12 @@ from agActor import field_acquisition
 from agActor.Controllers.ag import ag
 from agActor.catalog import pfs_design
 from agActor.utils import actorCalls, data as data_utils, focus as _focus
-from agActor.utils.data import GuideOffsetFlag, setup_db
+from agActor.utils.data import setup_db
 from agActor.utils.telescope_center import telCenter as tel_center
 
 
 class AgCmd:
-
     def __init__(self, actor):
-
         self.actor = actor
         self.vocab = [
             ("ping", "", self.ping),
@@ -25,47 +23,169 @@ class AgCmd:
             ("show", "", self.show),
             (
                 "acquire_field",
-                "[<design_id>] [<design_path>] [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<offset>] [<dinr>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]",
+                "[<design_id>] "
+                "[<design_path>] "
+                "[<visit_id>|<visit>] "
+                "[<exposure_time>] "
+                "[<guide>] "
+                "[<offset>] "
+                "[<dinr>] "
+                "[<magnitude>] "
+                "[<dry_run>] "
+                "[<fit_dinr>] "
+                "[<fit_dscale>] "
+                "[<max_ellipticity>] "
+                "[<max_size>] "
+                "[<min_size>] "
+                "[<max_residual>] "
+                "[<exposure_delay>] "
+                "[<tec_off>]",
                 self.acquire_field,
             ),
             (
                 "acquire_field",
-                "@otf [<visit_id>|<visit>] [<exposure_time>] [<guide>] [<center>] [<offset>] [<dinr>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<exposure_delay>] [<tec_off>]",
+                "@otf "
+                "[<visit_id>|<visit>] "
+                "[<exposure_time>] "
+                "[<guide>] "
+                "[<center>] "
+                "[<offset>] "
+                "[<dinr>] "
+                "[<magnitude>] "
+                "[<dry_run>] "
+                "[<fit_dinr>] "
+                "[<fit_dscale>] "
+                "[<max_ellipticity>] "
+                "[<max_size>] "
+                "[<min_size>] "
+                "[<max_residual>] "
+                "[<exposure_delay>] "
+                "[<tec_off>]",
                 self.acquire_field,
             ),
             (
                 "focus",
-                "[<visit_id>|<visit>] [<exposure_time>] [<max_ellipticity>] [<max_size>] [<min_size>] [<exposure_delay>] [<tec_off>]",
+                "[<visit_id>|<visit>] "
+                "[<exposure_time>] "
+                "[<max_ellipticity>] "
+                "[<max_size>] "
+                "[<min_size>] "
+                "[<exposure_delay>] "
+                "[<tec_off>]",
                 self.focus,
             ),
             (
                 "autoguide",
-                "@start [<design_id>] [<design_path>] [<visit_id>|<visit>] [<from_sky>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<max_correction>] [<exposure_delay>] [<tec_off>]",
+                "@start [<design_id>] "
+                "[<design_path>] "
+                "[<visit_id>|<visit>] "
+                "[<from_sky>] "
+                "[<exposure_time>] "
+                "[<cadence>] "
+                "[<center>] "
+                "[<magnitude>] "
+                "[<dry_run>] "
+                "[<fit_dinr>] "
+                "[<fit_dscale>] "
+                "[<max_ellipticity>] "
+                "[<max_size>] "
+                "[<min_size>] "
+                "[<max_residual>] "
+                "[<max_correction>] "
+                "[<exposure_delay>] "
+                "[<tec_off>]",
                 self.start_autoguide,
             ),
             (
                 "autoguide",
-                "@start @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<max_correction>] [<exposure_delay>] [<tec_off>]",
+                "@start "
+                "@otf "
+                "[<visit_id>|<visit>] "
+                "[<exposure_time>] "
+                "[<cadence>] "
+                "[<center>] "
+                "[<magnitude>] "
+                "[<dry_run>] "
+                "[<fit_dinr>] "
+                "[<fit_dscale>] "
+                "[<max_ellipticity>] "
+                "[<max_size>] "
+                "[<min_size>] "
+                "[<max_residual>] "
+                "[<max_correction>] "
+                "[<exposure_delay>] "
+                "[<tec_off>]",
                 self.start_autoguide,
             ),
             (
                 "autoguide",
-                "@initialize [<design_id>] [<design_path>] [<visit_id>|<visit>] [<from_sky>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<max_correction>] [<exposure_delay>] [<tec_off>]",
+                "@initialize "
+                "[<design_id>] "
+                "[<design_path>] "
+                "[<visit_id>|<visit>] "
+                "[<from_sky>] "
+                "[<exposure_time>] "
+                "[<cadence>] "
+                "[<center>] "
+                "[<magnitude>] "
+                "[<dry_run>] "
+                "[<fit_dinr>] "
+                "[<fit_dscale>] "
+                "[<max_ellipticity>] "
+                "[<max_size>] "
+                "[<min_size>] "
+                "[<max_residual>] "
+                "[<max_correction>] "
+                "[<exposure_delay>] "
+                "[<tec_off>]",
                 self.initialize_autoguide,
             ),
             (
                 "autoguide",
-                "@initialize @otf [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<center>] [<magnitude>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<max_correction>] [<exposure_delay>] [<tec_off>]",
+                "@initialize "
+                "@otf "
+                "[<visit_id>|<visit>] "
+                "[<exposure_time>] "
+                "[<cadence>] "
+                "[<center>] "
+                "[<magnitude>] "
+                "[<dry_run>] "
+                "[<fit_dinr>] "
+                "[<fit_dscale>] "
+                "[<max_ellipticity>] "
+                "[<max_size>] "
+                "[<min_size>] "
+                "[<max_residual>] "
+                "[<max_correction>] "
+                "[<exposure_delay>] "
+                "[<tec_off>]",
                 self.initialize_autoguide,
             ),
             ("autoguide", "@restart", self.restart_autoguide),
             ("autoguide", "@stop", self.stop_autoguide),
             (
                 "autoguide",
-                "@reconfigure [<visit_id>|<visit>] [<exposure_time>] [<cadence>] [<dry_run>] [<fit_dinr>] [<fit_dscale>] [<max_ellipticity>] [<max_size>] [<min_size>] [<max_residual>] [<max_correction>] [<exposure_delay>] [<tec_off>]",
+                "@reconfigure "
+                "[<visit_id>|<visit>] "
+                "[<exposure_time>] "
+                "[<cadence>] "
+                "[<dry_run>] "
+                "[<fit_dinr>] "
+                "[<fit_dscale>] "
+                "[<max_ellipticity>] "
+                "[<max_size>] "
+                "[<min_size>] "
+                "[<max_residual>] "
+                "[<max_correction>] "
+                "[<exposure_delay>] "
+                "[<tec_off>]",
                 self.reconfigure_autoguide,
             ),
-            ("offset", "[@(absolute|relative)] [<dx>] [<dy>] [<dinr>] [<dscale>]", self.offset),
+            (
+                "offset",
+                "[@(absolute|relative)] [<dx>] [<dy>] [<dinr>] [<dscale>]",
+                self.offset,
+            ),
             ("offset", "@reset", self.offset),
         ]
         self.keys = keys.KeysDictionary(
@@ -100,14 +220,19 @@ class AgCmd:
 
         # Set up the database connections.
         self.db_params = actor.actorConfig.get("db", {})
-        setup_db(dbname='opdb', dsn=self.db_params.get('opdb', None))
-        setup_db(dbname='gaia', dsn=self.db_params.get('gaia', None))
+        setup_db(dbname="opdb", dsn=self.db_params.get("opdb", None))
+        setup_db(dbname="gaia", dsn=self.db_params.get("gaia", None))
 
-        self.with_opdb_agc_guide_offset = actor.actorConfig.get("agc_guide_offset", False)
+        self.with_opdb_agc_guide_offset = actor.actorConfig.get(
+            "agc_guide_offset", False
+        )
         self.with_opdb_agc_match = actor.actorConfig.get("agc_match", False)
         self.with_agcc_timestamp = actor.actorConfig.get("agcc_timestamp", False)
 
-        tel_status = [x.strip() for x in actor.actorConfig.get("tel_status", ("agc_exposure",)).split(",")]
+        tel_status = [
+            x.strip()
+            for x in actor.actorConfig.get("tel_status", ("agc_exposure",)).split(",")
+        ]
         self.with_gen2_status = "gen2" in tel_status
         self.with_mlp1_status = "mlp1" in tel_status
         self.with_opdb_tel_status = "tel_status" in tel_status
@@ -139,7 +264,6 @@ class AgCmd:
         cmd.finish()
 
     def acquire_field(self, cmd):
-
         controller = self.actor.controllers["ag"]
         mode = controller.get_mode()
         self.actor.logger.info(f"AgCmd.acquire_field: mode={mode}")
@@ -153,7 +277,11 @@ class AgCmd:
         design_path = self.with_design_path if design_id is not None else None
         if "design_path" in cmd.cmd.keywords:
             design_path = str(cmd.cmd.keywords["design_path"].values[0])
-        design = (design_id, design_path) if any(x is not None for x in (design_id, design_path)) else None
+        design = (
+            (design_id, design_path)
+            if any(x is not None for x in (design_id, design_path))
+            else None
+        )
         visit_id = None
         if "visit_id" in cmd.cmd.keywords:
             visit_id = int(cmd.cmd.keywords["visit_id"].values[0])
@@ -223,7 +351,9 @@ class AgCmd:
 
             self.actor.logger.info(f"AgCmd.acquire_field: Sending agcc cmdStr={cmdStr}")
             agcc_exposure_result = self.actor.queueCommand(
-                actor="agcc", cmdStr=cmdStr, timeLim=((exposure_time + 6 * exposure_delay) // 1000 + 15)
+                actor="agcc",
+                cmdStr=cmdStr,
+                timeLim=((exposure_time + 6 * exposure_delay) // 1000 + 15),
             )
             # This synchronous sleep is to defer the request for telescope info to roughly
             # the middle of the exposure.
@@ -231,16 +361,25 @@ class AgCmd:
             telescope_state = None
             if self.with_mlp1_status:
                 telescope_state = self.actor.mlp1.telescopeState
-                self.actor.logger.info(f"AgCmd.acquire_field: telescopeState={telescope_state}")
+                self.actor.logger.info(
+                    f"AgCmd.acquire_field: telescopeState={telescope_state}"
+                )
                 kwargs["inr"] = telescope_state["rotator_real_angle"]
             if self.with_gen2_status or self.with_opdb_tel_status:
                 if self.with_gen2_status:
                     # update gen2 status values
-                    tel_status = actorCalls.updateTelStatus(self.actor, self.actor.logger, visit_id)
-                    self.actor.logger.info(f"AgCmd.acquire_field: tel_status={tel_status}")
+                    tel_status = actorCalls.updateTelStatus(
+                        self.actor, self.actor.logger, visit_id
+                    )
+                    self.actor.logger.info(
+                        f"AgCmd.acquire_field: tel_status={tel_status}"
+                    )
                     kwargs["tel_status"] = tel_status
                     _tel_center = tel_center(
-                        actor=self.actor, center=center, design=design, tel_status=tel_status
+                        actor=self.actor,
+                        center=center,
+                        design=design,
+                        tel_status=tel_status,
                     )
                     if all(x is None for x in (center, design)):
                         center, _offset = (
@@ -248,14 +387,18 @@ class AgCmd:
                         )  # dithered center and guide offset correction (insrot only)
                         self.actor.logger.info(f"AgCmd.acquire_field: center={center}")
                     else:
-                        _offset = _tel_center.offset  # dithering and guide offset correction
+                        _offset = (
+                            _tel_center.offset
+                        )  # dithering and guide offset correction
                     if offset is None:
                         offset = _offset
                         self.actor.logger.info(f"AgCmd.acquire_field: offset={offset}")
                 if self.with_opdb_tel_status:
                     status_update = self.actor.gen2.statusUpdate
                     status_id = (status_update["visit"], status_update["sequenceNum"])
-                    self.actor.logger.info(f"AgCmd.acquire_field: status_id={status_id}")
+                    self.actor.logger.info(
+                        f"AgCmd.acquire_field: status_id={status_id}"
+                    )
                     kwargs["status_id"] = status_id
             # wait for an exposure to complete
             agcc_exposure_result.get()
@@ -266,10 +409,14 @@ class AgCmd:
             taken_at = data_time + (exposure_time + 7 * exposure_delay) / 1000 / 2
             self.actor.logger.info(f"AgCmd.acquire_field: taken_at={taken_at}")
             if self.with_agcc_timestamp:
-                kwargs["taken_at"] = taken_at  # unix timestamp, not timezone-aware datetime
+                kwargs["taken_at"] = (
+                    taken_at  # unix timestamp, not timezone-aware datetime
+                )
             if self.with_mlp1_status:
                 # possibly override timestamp from agcc
-                taken_at = self.actor.mlp1.setUnixDay(telescope_state["az_el_detect_time"], taken_at)
+                taken_at = self.actor.mlp1.setUnixDay(
+                    telescope_state["az_el_detect_time"], taken_at
+                )
                 kwargs["taken_at"] = taken_at
             if center is not None:
                 kwargs["center"] = center
@@ -312,7 +459,9 @@ class AgCmd:
                     guide_offsets.detected_objects,
                     guide_offsets.identified_objects,
                 ]
-                cmd.inform(f'text="{ra=},{dec=},{inst_pa=},{dra=},{ddec=},{dinr=},{dscale=},{dalt=},{daz=}"')
+                cmd.inform(
+                    f'text="{ra=},{dec=},{inst_pa=},{dra=},{ddec=},{dinr=},{dscale=},{dalt=},{daz=}"'
+                )
                 filenames = (
                     "/dev/shm/guide_objects.npy",
                     "/dev/shm/detected_objects.npy",
@@ -321,7 +470,9 @@ class AgCmd:
                 for filename, value in zip(filenames, guide_files):
                     self.actor.logger.info(f"AgCmd.acquire_field: Saving {filename}")
                     np.save(filename, value)
-                cmd.inform('data={},{},{},"{}","{}","{}"'.format(ra, dec, inst_pa, *filenames))
+                cmd.inform(
+                    'data={},{},{},"{}","{}","{}"'.format(ra, dec, inst_pa, *filenames)
+                )
                 cmd.inform("detectionState=0")
                 dx, dy, size, peak, flux = (
                     guide_offsets.dx,
@@ -384,15 +535,22 @@ class AgCmd:
                 for filename, value in zip(filenames, guide_files):
                     self.actor.logger.info(f"AgCmd.acquire_field: Saving {filename}")
                     np.save(filename, value)
-                cmd.inform('data={},{},{},"{}","{}","{}"'.format(ra, dec, inst_pa, *filenames))
+                cmd.inform(
+                    'data={},{},{},"{}","{}","{}"'.format(ra, dec, inst_pa, *filenames)
+                )
                 cmd.inform("detectionState=0")
                 # send corrections to gen2 (or iic)
             # always compute focus offset and tilt
             self.actor.logger.info("AgCmd.acquire_field: Calling focus._focus")
-            dz, dzs = _focus._focus(detected_objects=guide_offsets.detected_objects, logger=self.actor.logger)
+            dz, dzs = _focus._focus(
+                detected_objects=guide_offsets.detected_objects,
+                logger=self.actor.logger,
+            )
             # send corrections to gen2 (or iic)
             cmd.inform(
-                "guideErrors={},{},{},{},{},{},{},{}".format(frame_id, dra, ddec, dinr, daz, dalt, dz, dscale)
+                "guideErrors={},{},{},{},{},{},{},{}".format(
+                    frame_id, dra, ddec, dinr, daz, dalt, dz, dscale
+                )
             )
             cmd.inform("focusErrors={},{},{},{},{},{},{}".format(frame_id, *dzs))
             # store results in opdb
@@ -416,7 +574,9 @@ class AgCmd:
                     design_id=(
                         design_id
                         if design_id is not None
-                        else pfs_design.pfsDesign.to_design_id(design_path) if design_path is not None else 0
+                        else pfs_design.pfsDesign.to_design_id(design_path)
+                        if design_path is not None
+                        else 0
                     ),
                     frame_id=frame_id,
                     guide_objects=guide_offsets.guide_objects,
@@ -430,7 +590,6 @@ class AgCmd:
         cmd.finish()
 
     def focus(self, cmd):
-
         controller = self.actor.controllers["ag"]
         mode = controller.get_mode()
         self.actor.logger.info(f"AgCmd.focus: mode={mode}")
@@ -476,7 +635,9 @@ class AgCmd:
             if tec_off:
                 cmdStr += " tecOFF"
             agcc_result = self.actor.queueCommand(
-                actor="agcc", cmdStr=cmdStr, timeLim=((exposure_time + 6 * exposure_delay) // 1000 + 15)
+                actor="agcc",
+                cmdStr=cmdStr,
+                timeLim=((exposure_time + 6 * exposure_delay) // 1000 + 15),
             )
             # wait for an exposure to complete
             agcc_result.get()
@@ -484,7 +645,9 @@ class AgCmd:
             self.actor.logger.info(f"AgCmd.focus: frameId={frame_id}")
             # retrieve detected objects from agcc (or opdb)
             # compute focus offset and tilt
-            dz, dzs = _focus.focus(frame_id=frame_id, logger=self.actor.logger, **kwargs)
+            dz, dzs = _focus.focus(
+                frame_id=frame_id, logger=self.actor.logger, **kwargs
+            )
             if np.isnan(dz):
                 cmd.fail(f'text="AgCmd.focus: dz={dz}"')
                 return
@@ -498,8 +661,12 @@ class AgCmd:
             cmd.inform("focusErrors={},{},{},{},{},{},{}".format(frame_id, *dzs))
             # store results in opdb
             if self.with_opdb_agc_guide_offset:
-                self.actor.logger.info(f"AgCmd.focus: Writing opdb_agc_guide_offset: {dz=} {dzs=}")
-                data_utils.write_agc_guide_offset(frame_id=frame_id, delta_z=dz, delta_zs=dzs)
+                self.actor.logger.info(
+                    f"AgCmd.focus: Writing opdb_agc_guide_offset: {dz=} {dzs=}"
+                )
+                data_utils.write_agc_guide_offset(
+                    frame_id=frame_id, delta_z=dz, delta_zs=dzs
+                )
         except Exception as e:
             self.actor.logger.exception("AgCmd.focus:")
             cmd.fail(f'text="AgCmd.focus: {e}"')
@@ -516,7 +683,11 @@ class AgCmd:
         design_path = self.with_design_path if design_id is not None else None
         if "design_path" in cmd.cmd.keywords:
             design_path = str(cmd.cmd.keywords["design_path"].values[0])
-        design = (design_id, design_path) if any(x is not None for x in (design_id, design_path)) else None
+        design = (
+            (design_id, design_path)
+            if any(x is not None for x in (design_id, design_path))
+            else None
+        )
         visit_id = None
         if "visit_id" in cmd.cmd.keywords:
             visit_id = int(cmd.cmd.keywords["visit_id"].values[0])
@@ -601,7 +772,11 @@ class AgCmd:
         design_path = self.with_design_path if design_id is not None else None
         if "design_path" in cmd.cmd.keywords:
             design_path = str(cmd.cmd.keywords["design_path"].values[0])
-        design = (design_id, design_path) if any(x is not None for x in (design_id, design_path)) else None
+        design = (
+            (design_id, design_path)
+            if any(x is not None for x in (design_id, design_path))
+            else None
+        )
         visit_id = None
         if "visit_id" in cmd.cmd.keywords:
             visit_id = int(cmd.cmd.keywords["visit_id"].values[0])
@@ -766,7 +941,6 @@ class AgCmd:
         self.actor.logger.info(f"AgCmd.offset: {cmd.cmd.keywords}")
 
         def zero_offset(*, dx=None, dy=None, dinr=None, dscale=None, relative=False):
-
             if dx is not None:
                 if relative:
                     Subaru_POPT2_PFS.inr_axis_on_dp_x += dx
@@ -809,9 +983,15 @@ class AgCmd:
         if "reset" in cmd.cmd.keywords:
             dx, dy, dinr, dscale = 0.0, 0.0, -90.0, 0.0
         dx, dy, dinr, dscale = zero_offset(
-            dx=dx, dy=dy, dinr=dinr, dscale=dscale, relative="relative" in cmd.cmd.keywords
+            dx=dx,
+            dy=dy,
+            dinr=dinr,
+            dscale=dscale,
+            relative="relative" in cmd.cmd.keywords,
         )
-        self.actor.logger.info(f"AgCmd.offset: dx={dx},dy={dy},dinr={dinr},dscale={dscale}")
+        self.actor.logger.info(
+            f"AgCmd.offset: dx={dx},dy={dy},dinr={dinr},dscale={dscale}"
+        )
         cmd.inform(f'text="dx={dx},dy={dy},dinr={dinr},dscale={dscale}"')
         cmd.inform(f"guideOffsets={dx},{dy}")
         cmd.finish()
