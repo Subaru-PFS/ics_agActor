@@ -20,6 +20,7 @@ All notable changes to this project will be documented in this file.
 - INSTRM-2630 - Large refactor of AG code. See commit message for details.
 - INSTRM-2642 - Clean up build tools.
 - INSTRM-2650 - Clean up database interaction.
+- INSTRM-2656 - Set minimum python version to `3.11`.
 
 ## [1.1.33] - 2025-07-09
 - INSTRM-2607 - Moving `coordinates.py` to `pfs_utils`.
