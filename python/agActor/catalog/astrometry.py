@@ -93,15 +93,18 @@ def measure(
     mag = 0
     objects = np.array(
         [
-            (next(counter), x.ra.to(u.deg).value, x.dec.to(u.deg).value, mag)
-            for x in icrs
-        ],
-        dtype=[
-            ("source_id", np.int64),  # u8 (80) not supported by FITSIO
-            ("ra", np.float64),
-            ("dec", np.float64),
-            ("mag", np.float32),
-        ],
+            (
+                next(counter),
+                x.ra.to(u.deg).value,
+                x.dec.to(u.deg).value,
+                mag,
+                icam[i],  # agId
+                x_det[i],  # agX
+                y_det[i],  # agY
+                flags[i],  # flag
+            )
+            for i, x in enumerate(icrs)
+        ]
     )
 
     return objects

@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from enum import IntFlag
-from typing import Optional
+from typing import ClassVar, Optional
 
 import numpy as np
 import pandas as pd
@@ -12,6 +12,7 @@ from ics.utils.database.db import DB
 from ics.utils.database.gaia import GaiaDB
 from ics.utils.database.opdb import OpDB
 from numpy.typing import NDArray
+from pfs.utils.datamodel.ag import AutoGuiderStarMask
 
 from agActor.catalog import astrometry, gen2_gaia as gaia
 from agActor.catalog.pfs_design import pfsDesign as pfs_design
@@ -118,7 +119,7 @@ class GuideObjectsResult:
     """Result of the get_guide_objects function.
 
     Attributes:
-        guide_objects: Structured array containing guide objects data
+        guide_objects: DataFrame containing guide objects data
         ra: Right ascension of the field in degrees
         dec: Declination of the field in degrees
         inr: Instrument rotator angle in degrees
@@ -128,7 +129,7 @@ class GuideObjectsResult:
         taken_at: Time the frame was taken
     """
 
-    guide_objects: np.ndarray
+    guide_objects: pd.DataFrame
     ra: float
     dec: float
     inr: float
@@ -136,6 +137,16 @@ class GuideObjectsResult:
     m2_pos3: float
     adc: float
     taken_at: Optional[datetime]
+    guide_object_dtype: ClassVar[dict] = {
+        "source_id": "<i8",  # u8 (80) not supported by FITSIO
+        "ra": "<f8",
+        "dec": "<f8",
+        "mag": "<f4",
+        "camera_id": "<i4",
+        "x": "<f4",
+        "y": "<f4",
+        "flags": "<i4",
+    }
 
 
 @dataclass
@@ -179,6 +190,35 @@ class GuideOffsets:
     size: float
     peak: float
     flux: float
+
+    def __str__(self) -> str:
+        # Helper to format optional floats
+        def fmt_opt(v: Optional[float], unit: str = "") -> str:
+            if v is None:
+                return "None"
+            return f"{v:.3f}{unit}"
+
+        # Counts for arrays (avoid dumping arrays themselves)
+        n_guide = 0 if self.guide_objects is None else int(len(self.guide_objects))
+        n_detected = 0 if self.detected_objects is None else int(len(self.detected_objects))
+        n_matched = 0 if self.identified_objects is None else int(len(self.identified_objects))
+
+        parts = [
+            f"Field: RA={self.ra:.6f} deg, Dec={self.dec:.6f} deg, PA={self.inst_pa:.3f} deg",
+            (
+                "Offsets: "
+                f'dRA={self.ra_offset:.3f}" '
+                f'dDec={self.dec_offset:.3f}" '
+                f'dINR={self.inr_offset:.3f}" '
+                f"dScale={self.scale_offset:.6f} "
+                f"dAlt={fmt_opt(self.dalt, '"')} "
+                f"dAz={fmt_opt(self.daz, '"')} "
+                f'dx={self.dx:.3f}" dy={self.dy:.3f}"'
+            ),
+            f"Spot: size={self.size:.3f}, peak={self.peak:.1f}, flux={self.flux:.1f}",
+            f"Counts: guide={n_guide}, detected={n_detected}, matched={n_matched}",
+        ]
+        return " | ".join(parts)
 
 
 # TODO move this somewhere else.
@@ -273,18 +313,15 @@ def get_telescope_status(*, frame_id, **kwargs):
 
 
 def get_guide_objects(
-    frame_id=None,
-    obswl: float = 0.62,
-    logger=None,
-    **kwargs,
-):
+    frame_id=None, obswl: float = 0.62, **kwargs
+) -> GuideObjectsResult:
     """Get the guide objects for a given frame or from other sources.
 
     The guide objects can come from four separate sources:
-    1. If frame_id is provided and detected_objects are passed, guide objects are generated using astrometry.measure
-    2. If neither design_id nor design_path is provided, guide objects are fetched from the Gaia database.
-    3. If design_path is provided, guide objects are fetched from the specified PFS design file.
-    4. If only design_id is provided, guide objects are fetched from the operational database (opdb).
+    1. REF_SKY: If frame_id is provided and detected_objects are passed, guide objects are generated using astrometry.measure.
+    2. REF_OTF: If neither design_id nor design_path is provided, guide objects are fetched from the Gaia database.
+    3. REF_DB:  If design_id and design_path are provided, guide objects are fetched from the specified PFS design file.
+    4. REF_DB:  If only design_id is provided, guide objects are fetched from the operational database (opdb).
 
     Parameters:
         frame_id (int, optional): The frame id of the frame. If None, telescope status is taken from kwargs.
@@ -313,9 +350,7 @@ def get_guide_objects(
 
     # Get telescope status if frame_id is provided
     if frame_id is not None:
-        taken_at, inr, adc, m2_pos3 = get_telescope_status(
-            frame_id=frame_id, logger=logger, **kwargs
-        )
+        taken_at, inr, adc, m2_pos3 = get_telescope_status(frame_id=frame_id, **kwargs)
     else:
         # Extract telescope status from kwargs
         taken_at = kwargs.get("taken_at")
@@ -339,11 +374,11 @@ def get_guide_objects(
     if "dinr" in kwargs and inr is not None:
         inr += kwargs.get("dinr") / 3600
 
-    # Check if we should use astrometry.measure with detected objects
+    # Check if we should use astrometry.measure with detected objects, i.e. REF_SKY.
     detected_objects = kwargs.get("detected_objects")
     if frame_id is not None and detected_objects is not None:
         log_fn("Getting guide objects from astrometry")
-        guide_objects = astrometry.measure(
+        guide_object_rows = astrometry.measure(
             detected_objects=detected_objects,
             ra=ra,
             dec=dec,
@@ -354,7 +389,13 @@ def get_guide_objects(
             obswl=obswl,
             logger=logger,
         )
-        log_fn(f"Got {len(guide_objects)=} guide objects")
+        log_fn(f"Got {len(guide_object_rows)=} guide objects")
+        guide_objects = pd.DataFrame(
+            guide_object_rows,
+            columns=list(GuideObjectsResult.guide_object_dtype.keys()),
+        )
+
+    # Check if we should use the gaia catalog, i.e. REF_OTF.
     elif design_path is None and design_id is None:
         log_fn(
             "No design_id or design_path provided, getting guide objects from gaia db."
@@ -374,7 +415,7 @@ def get_guide_objects(
         _objects = search_gaia(icrs.ra.deg, icrs.dec.deg)
 
         # Process search results and get structured array directly
-        guide_objects = gaia.process_search_results(
+        guide_object_rows = gaia.process_search_results(
             _objects,
             frame_tc.obstime,
             altaz_c,
@@ -384,6 +425,13 @@ def get_guide_objects(
             m2pos3=m2_pos3,
             obswl=obswl,
         )
+
+        guide_objects = pd.DataFrame(
+            guide_object_rows,
+            columns=list(GuideObjectsResult.guide_object_dtype.keys()),
+        )
+
+    # Check if we should use the design, either from the file or the opdb, i.e. REF_DB.
     else:
         if design_path is not None:
             log_fn(
@@ -396,6 +444,15 @@ def get_guide_objects(
             log_fn(f"Getting guide_objects from opdb via {design_id}")
             _, _ra, _dec, _inst_pa, *_ = query_pfs_design(design_id)
             guide_objects = query_pfs_design_agc(design_id)
+
+        # Rename columns for consistency.
+        new_cols = dict(
+            zip(guide_objects.columns, GuideObjectsResult.guide_object_dtype.keys())
+        )
+        guide_objects = guide_objects.rename(columns=new_cols)
+
+        # Mark which guide objects should be filtered (only GALAXIES for now).
+        guide_objects = filter_guide_objects(guide_objects)
 
         ra = ra or _ra
         dec = dec or _dec
@@ -508,24 +565,27 @@ def write_agc_guide_offset(
         guide_ra=ra,
         guide_dec=dec,
         guide_pa=pa,
-        guide_delta_ra=delta_ra,
-        guide_delta_dec=delta_dec,
-        guide_delta_insrot=delta_insrot,
-        guide_delta_scale=delta_scale,
-        guide_delta_az=delta_az,
-        guide_delta_el=delta_el,
-        mask=offset_flags,
-        guide_delta_z=delta_z,
+        guide_delta_ra=float(delta_ra),
+        guide_delta_dec=float(delta_dec),
+        guide_delta_insrot=float(delta_insrot),
+        guide_delta_scale=float(delta_scale),
+        guide_delta_az=float(delta_az),
+        guide_delta_el=float(delta_el),
+        mask=offset_flags.value,
+        guide_delta_z=float(delta_z),
     )
     if delta_zs is not None:
-        params.update(guide_delta_z1=delta_zs[0])
-        params.update(guide_delta_z2=delta_zs[1])
-        params.update(guide_delta_z3=delta_zs[2])
-        params.update(guide_delta_z4=delta_zs[3])
-        params.update(guide_delta_z5=delta_zs[4])
-        params.update(guide_delta_z6=delta_zs[5])
+        params.update(guide_delta_z1=float(delta_zs[0]))
+        params.update(guide_delta_z2=float(delta_zs[1]))
+        params.update(guide_delta_z3=float(delta_zs[2]))
+        params.update(guide_delta_z4=float(delta_zs[3]))
+        params.update(guide_delta_z5=float(delta_zs[4]))
+        params.update(guide_delta_z6=float(delta_zs[5]))
 
+
+    logger.info(f"Writing agc_guide_offsets with {params=}")
     get_db("opdb").insert("agc_guide_offset", **params)
+
 
 def write_agc_match(
     *,
@@ -572,7 +632,7 @@ def write_agc_match(
             "agc_nominal_y_mm": float(nominal_y_mm),
             "agc_center_x_mm": float(center_x_mm),
             "agc_center_y_mm": float(center_y_mm),
-            "flags": int(guide_objects["filter_flag"][guide_idx]),
+            "flags": int(guide_objects["flags"][guide_idx]),
         }
         rows_to_insert.append(row)
 
@@ -749,7 +809,9 @@ FROM pfs_design_agc
 WHERE pfs_design_id=%s
 ORDER BY guide_star_id
 """
-    return get_db("opdb").fetchall(sql, (pfs_design_id,))
+    # Fetch the results to a dataframe.
+    results = pd.read_sql(sql, get_db("opdb").connect(), params=(pfs_design_id,))
+    return results
 
 
 def query_pfs_design(pfs_design_id):
@@ -774,3 +836,59 @@ FROM pfs_design
 WHERE pfs_design_id=%s
 """
     return get_db("opdb").fetchone(sql, (pfs_design_id,))
+
+
+def filter_guide_objects(guide_objects, is_acquisition=False, flag_column="flags") -> pd.DataFrame:
+    """Apply filtering to the guide objects based on their flags.
+
+    This function filters guide objects based on various quality flags. For initial
+    coarse guiding, it only filters out galaxies. For fine guiding (initial=False),
+    it applies additional filters to ensure high quality guide stars from GAIA.
+
+    Parameters
+    ----------
+    guide_objects : pd.DataFrame
+        Structured array containing guide object data including flags.
+        Must have fields for basic star data (objId, ra, dec, mag, etc.)
+        and optionally a 'flag' field for filtering.
+    is_acquisition : bool, optional
+        If True, only filter galaxies. If False (default), apply all quality filters
+        including GAIA star requirements.
+    flag_column : str, optional
+        Indicates the column name that includes the filter flags.
+
+    Returns
+    -------
+    pd.DataFrame
+        A copy of the dataframe with an added `filtered_by` column.
+    """
+    guide_objects_df = guide_objects.copy()
+    guide_objects_df["filtered_by"] = 0
+
+    # Filter out the galaxies.
+    logger.info("Filtering galaxies from results.")
+    galaxy_idx = (guide_objects_df[flag_column].values & AutoGuiderStarMask.GALAXY) != 0
+    guide_objects_df.loc[galaxy_idx, "filtered_by"] = AutoGuiderStarMask.GALAXY.value
+
+    if is_acquisition:
+        filters_for_inclusion = [
+            AutoGuiderStarMask.GAIA,
+            AutoGuiderStarMask.NON_BINARY,
+            AutoGuiderStarMask.ASTROMETRIC,
+            AutoGuiderStarMask.PMRA_SIG,
+            AutoGuiderStarMask.PMDEC_SIG,
+            AutoGuiderStarMask.PARA_SIG,
+            AutoGuiderStarMask.PHOTO_SIG,
+        ]
+
+        # Go through the filters and mark which stars would be flagged as NOT meeting the mask requirement.
+        for f in filters_for_inclusion:
+            not_filtered = guide_objects_df.filtered_by != AutoGuiderStarMask.GALAXY
+            include_filter = (guide_objects_df[flag_column].values & f) == 0
+            to_be_filtered = (include_filter & not_filtered) != 0
+            guide_objects_df.loc[to_be_filtered, "filtered_by"] |= f.value
+            logger.info(
+                f"Filtering by {f.name}, removes {to_be_filtered.sum()} guide objects."
+            )
+
+    return guide_objects_df

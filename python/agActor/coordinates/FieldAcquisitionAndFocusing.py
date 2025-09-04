@@ -1,6 +1,7 @@
 from typing import Any, Tuple
 
 import numpy as np
+import pandas as pd
 from numpy.typing import NDArray
 from pfs.utils.coordinates import Subaru_POPT2_PFS
 
@@ -49,7 +50,7 @@ def calculate_focus_errors(
 
 
 def calculate_acquisition_offsets(
-    guide_objects: NDArray[np.float64],
+    guide_objects: pd.DataFrame,
     detected_array: NDArray[np.float64],
     tel_ra: float,
     tel_de: float,
@@ -74,8 +75,8 @@ def calculate_acquisition_offsets(
 
     Parameters
     ----------
-    guide_objects : NDArray[np.float64]
-        Array containing catalog star information for the guide objects
+    guide_objects : pd.DataFrame
+        DataFrame containing catalog star information for the guide objects
     detected_array : NDArray[np.float64]
         Array containing detected star information
     tel_ra : float
@@ -123,9 +124,9 @@ def calculate_acquisition_offsets(
 
     pfs = Subaru_POPT2_PFS_AG.PFS()
 
-    ra_values = guide_objects[:, 0]
-    dec_values = guide_objects[:, 1]
-    magnitude_values = guide_objects[:, 2]
+    ra_values = guide_objects.ra.values
+    dec_values = guide_objects.dec.values
+    magnitude_values = guide_objects.mag.values
 
     basis_vector_0, basis_vector_1 = pfs.makeBasis(
         tel_ra, tel_de, ra_values, dec_values, dt, adc, instrument_rotation, m2pos3, wl
@@ -134,8 +135,7 @@ def calculate_acquisition_offsets(
     basis_vector_0 = np.insert(basis_vector_0, 2, magnitude_values, axis=1)
     basis_vector_1 = np.insert(basis_vector_1, 2, magnitude_values, axis=1)
 
-    # Source filtering
-    # TODO we should not actually be performing filtering here but just marking what would get filtered.
+    # Detected sources filtering
     filtered_detected_array, valid_sources = pfs.sourceFilter(
         detected_array, maxellip, maxsize, minsize
     )

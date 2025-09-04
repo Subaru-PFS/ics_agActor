@@ -149,37 +149,26 @@ def process_search_results(
 
     # Create structured array directly from the data
     n_objects = len(objects)
-    guide_objects = np.empty(
-        n_objects,
-        dtype=[
-            ("source_id", np.int64),  # u8 (80) not supported by FITSIO
-            ("ra", np.float64),
-            ("dec", np.float64),
-            ("mag", np.float32),
-            ("camera_id", np.int16),
-            ("x", np.float32),
-            ("y", np.float32),
-            ("x_dp", np.float32),
-            ("y_dp", np.float32),
-            ("x_fp", np.float32),
-            ("y_fp", np.float32),
-        ],
-    )
 
-    # Fill the array with data
-    guide_objects["source_id"] = objects["source_id"]
-    guide_objects["ra"] = np.array([coord.ra.to(u.deg).value for coord in _icrs_d])
-    guide_objects["dec"] = np.array([coord.dec.to(u.deg).value for coord in _icrs_d])
-    guide_objects["mag"] = objects["phot_g_mean_mag"]
-    guide_objects["camera_id"] = icam
-    guide_objects["x"] = x_det
-    guide_objects["y"] = y_det
-    guide_objects["x_dp"] = x_dp
-    guide_objects["y_dp"] = y_dp
-    guide_objects["x_fp"] = x_fp
-    guide_objects["y_fp"] = y_fp
+    rows = list()
+    for i in range(n_objects):
+        if x_det[i] < 0 or y_det[i] < 0:
+            continue
 
-    return guide_objects
+        rows.append(
+            [
+                objects[i]["source_id"],
+                _icrs_d.ra[i].to(u.deg).value,
+                _icrs_d.dec[i].to(u.deg).value,
+                objects[i]["phot_g_mean_mag"],
+                icam[i],
+                x_det[i],
+                y_det[i],
+                0,  # Fake flag
+            ]
+        )
+
+    return rows
 
 
 def setup_search_coordinates(
