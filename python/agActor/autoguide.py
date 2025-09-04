@@ -114,16 +114,10 @@ def set_design_agc(*, frame_id=None, obswl=0.62, logger=None, **kwargs):
         kwargs["detected_objects"] = detected_objects
 
     # Get guide objects using the enhanced get_guide_objects function
-    guide_object_results = get_guide_objects(
-        frame_id=frame_id, obswl=obswl, logger=logger, **kwargs
-    )
-
-    guide_objects = guide_object_results.guide_objects
-    log_message(logger, f"Got {len(guide_objects)} guide objects before filtering.")
-    guide_objects = field_acquisition.filter_guide_objects(guide_objects, logger)
+    guide_object_results = get_guide_objects(frame_id=frame_id, obswl=obswl, **kwargs)
 
     log_message(logger, "Setting Field.guide_objects")
-    Field.guide_objects = guide_objects
+    Field.guide_objects = guide_object_results.guide_objects
 
 
 def autoguide(*, frame_id, obswl=0.62, logger=None, **kwargs):

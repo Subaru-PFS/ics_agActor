@@ -76,7 +76,8 @@ class AgCmd:
             ),
             (
                 "autoguide",
-                "@start [<design_id>] "
+                "@start "
+                "[<design_id>] "
                 "[<design_path>] "
                 "[<visit_id>|<visit>] "
                 "[<from_sky>] "
@@ -444,7 +445,8 @@ class AgCmd:
                     altazimuth=True,
                     logger=self.actor.logger,
                     **kwargs,
-                )  # design takes precedence over center
+                )
+
                 ra = guide_offsets.ra
                 dec = guide_offsets.dec
                 inst_pa = guide_offsets.inst_pa
@@ -540,6 +542,7 @@ class AgCmd:
                 )
                 cmd.inform("detectionState=0")
                 # send corrections to gen2 (or iic)
+
             # always compute focus offset and tilt
             self.actor.logger.info("AgCmd.acquire_field: Calling focus._focus")
             dz, dzs = _focus._focus(

@@ -4,6 +4,7 @@ from numbers import Number
 
 import fitsio
 import numpy as np
+import pandas as pd
 from astropy import units as u
 from astropy.coordinates import Angle, Distance, SkyCoord
 from astropy.time import Time
@@ -82,7 +83,7 @@ class pfsDesign:
         if "flag" in _guide_objects.dtype.names:
             cols.append("flag")
 
-        guide_objects = _guide_objects[cols]
+        guide_objects = pd.DataFrame(_guide_objects[cols])
 
         return guide_objects, ra, dec, inst_pa
 
