@@ -19,6 +19,7 @@ All notable changes to this project will be documented in this file.
 - INSTRM-2625 - Fix a logical error in conditional check for spots
 - INSTRM-2630 - Large refactor of AG code. See commit message for details.
 - INSTRM-2642 - Clean up build tools.
+- INSTRM-2647 - Make `guide_stars` format consistent across lookup methods.
 - INSTRM-2650 - Clean up database interaction.
 - INSTRM-2656 - Set minimum python version to `3.11`.
 
