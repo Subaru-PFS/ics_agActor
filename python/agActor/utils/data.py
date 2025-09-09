@@ -280,8 +280,12 @@ class GuideOffsets:
 
         # Counts for arrays (avoid dumping arrays themselves)
         n_guide = 0 if self.guide_objects is None else int(len(self.guide_objects))
-        n_detected = 0 if self.detected_objects is None else int(len(self.detected_objects))
-        n_matched = 0 if self.identified_objects is None else int(len(self.identified_objects))
+        n_detected = (
+            0 if self.detected_objects is None else int(len(self.detected_objects))
+        )
+        n_matched = (
+            0 if self.identified_objects is None else int(len(self.identified_objects))
+        )
 
         parts = [
             f"Frame: frame_id={self.frame_id} visit_id={self.visit_id} design_id={self.design_id}",
@@ -354,7 +358,7 @@ def get_telescope_status(*, frame_id, **kwargs):
         # If sequence_id is provided, get more accurate information from tel_status table
         sequence_id = kwargs.get("sequence_id")
         if sequence_id is not None:
-            logger.debug(
+            logger.info(
                 f"Getting telescope status from opdb for {visit_id=},{sequence_id=}"
             )
             _, _, db_inr, db_adc, db_m2_pos3, _, _, _, _, db_taken_at = (
@@ -367,7 +371,7 @@ def get_telescope_status(*, frame_id, **kwargs):
         adc = adc or db_adc
         m2_pos3 = m2_pos3 or db_m2_pos3
 
-    logger.debug(f"{taken_at=},{inr=},{adc=},{m2_pos3=}")
+    logger.info(f"tel_status: {taken_at=},{inr=},{adc=},{m2_pos3=}")
     return taken_at, inr, adc, m2_pos3
 
 
@@ -416,7 +420,8 @@ def get_guide_objects(
         inr = kwargs.get("inr")
         adc = kwargs.get("adc")
         m2_pos3 = kwargs.get("m2_pos3", 6.0)
-        log_fn(f"taken_at={taken_at},inr={inr},adc={adc},m2_pos3={m2_pos3}")
+
+    log_fn(f"taken_at={taken_at},inr={inr},adc={adc},m2_pos3={m2_pos3}")
 
     design_id = kwargs.get("design_id")
     design_path = kwargs.get("design_path")
@@ -505,6 +510,7 @@ def get_guide_objects(
             guide_objects = query_pfs_design_agc(design_id, as_dataframe=True)
 
         # Rename columns for consistency.
+        log_fn(f"Got {len(guide_objects)=} guide objects, renaming columns")
         new_cols = dict(
             zip(guide_objects.columns, GuideObjectsResult.guide_object_dtype.keys())
         )
@@ -512,6 +518,9 @@ def get_guide_objects(
 
         # Mark which guide objects should be filtered (only GALAXIES for now).
         guide_objects = filter_guide_objects(guide_objects)
+        logger.info(
+            f"Guide objects: Total: {len(guide_objects)} Unfiltered: {sum(guide_objects.filtered_by == 0)}"
+        )
 
         ra = ra or _ra
         dec = dec or _dec
@@ -623,7 +632,6 @@ def write_agc_guide_offset(
         params.update(guide_delta_z4=float(delta_zs[3]))
         params.update(guide_delta_z5=float(delta_zs[4]))
         params.update(guide_delta_z6=float(delta_zs[5]))
-
 
     logger.info(f"Writing agc_guide_offsets with {params=}")
     get_db("opdb").insert("agc_guide_offset", **params)
@@ -771,27 +779,27 @@ def search_gaia(ra, dec, radius=0.027 + 0.003):
 
 def query_db(
     sql: str,
-    params: tuple | None = None,
+    params: dict | list | None = None,
     as_dataframe: bool = True,
     db: DB | None = None,
-) -> pd.DataFrame | np.ndarray | None:
+) -> pd.DataFrame | pd.Series | np.ndarray | None:
     """Helper method to return rows from the sql query either.
 
     Parameters
     ----------
     sql : str
         The sql query to execute.
-    params : tuple
+    params : dict | list | None
         The parameters to pass to the sql query.
     as_dataframe : bool
-        Whether to return a pandas dataframe from the sql query.
-        Defaults to True.
+        Whether to return a pandas dataframe from the sql query. If only one row
+        is returned, return a pandas Series. Defaults to True.
     db : DB | None
         The database to use. Defaults to None, which uses `get_db("opdb").
 
     Returns
     -------
-    pd.DataFrame | np.ndarray | None
+    pd.DataFrame | pd.Series | np.ndarray | None
         The results from the query.
     """
     db = db or get_db("opdb")
@@ -800,7 +808,7 @@ def query_db(
         if len(result) == 1:
             result = result.iloc[0]
     else:
-        result = db.fetchone(query=sql, params=params)
+        result = db.fetchall(query=sql, params=params)
         if len(result) == 1:
             result = result[0]
 
@@ -924,7 +932,7 @@ WHERE pfs_design_id=%s
 
 
 def filter_guide_objects(
-    guide_objects, is_acquisition=True, flag_column="flags"
+    guide_objects, is_acquisition=False, flag_column="flags"
 ) -> pd.DataFrame:
     """Apply filtering to the guide objects based on their flags.
 
