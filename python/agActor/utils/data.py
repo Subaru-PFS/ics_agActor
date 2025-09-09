@@ -12,7 +12,7 @@ from ics.utils.database.db import DB
 from ics.utils.database.gaia import GaiaDB
 from ics.utils.database.opdb import OpDB
 from numpy.typing import NDArray
-from pfs.utils.datamodel.ag import AutoGuiderStarMask
+from pfs.utils.datamodel.ag import AutoGuiderStarMask, SourceDetectionFlag
 
 from agActor.catalog import astrometry, gen2_gaia as gaia
 from agActor.catalog.pfs_design import pfsDesign as pfs_design
@@ -219,28 +219,6 @@ class GuideOffsets:
             f"Counts: guide={n_guide}, detected={n_detected}, matched={n_matched}",
         ]
         return " | ".join(parts)
-
-
-# TODO move this somewhere else.
-class SourceDetectionFlag(IntFlag):
-    """
-    Represents a bitmask for detection properties.
-
-    Attributes:
-        RIGHT: Source is detected on the right side of the image.
-        EDGE: Source is detected at the edge of the image.
-        SATURATED: Source is saturated.
-        BAD_SHAPE: Source has a bad shape.
-        BAD_ELLIP: Source has a bad ellipticity.
-        FLAT_TOP: Source has a flat top profile.
-    """
-
-    RIGHT = 0x0001
-    EDGE = 0x0002
-    SATURATED = 0x0004
-    BAD_SHAPE = 0x0008
-    BAD_ELLIP = 0x0010
-    FLAT_TOP = 0x0020
 
 
 class GuideOffsetFlag(IntFlag):
