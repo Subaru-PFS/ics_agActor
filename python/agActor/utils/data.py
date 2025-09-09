@@ -176,7 +176,7 @@ class GuideObjectsResult:
         n = 0
         mag_part = "mag=NA"
         cam_part = "cams=NA"
-        filt_part = "filtered=NA"
+        filt_part = "count=NA"
 
         try:
             if (
@@ -208,7 +208,7 @@ class GuideObjectsResult:
                 # Filtered count if column exists (from filter_guide_objects)
                 if "filtered_by" in df.columns:
                     n_filtered = int((df["filtered_by"] != 0).sum())
-                    filt_part = f"filtered={n_filtered}/{n}"
+                    filt_part = f"count={n - n_filtered} filtered={n_filtered}"
                 else:
                     filt_part = f"count={n}"
             else:
@@ -221,7 +221,7 @@ class GuideObjectsResult:
             mag_part = "mag=?"
             filt_part = f"count={n if n else '?'}"
 
-        objs = f"GuideObjects: count={n}, {mag_part}, {cam_part}, {filt_part}"
+        objs = f"GuideObjects: {filt_part}, {mag_part}, {cam_part}"
 
         return " | ".join([field, tel, objs])
 
@@ -376,7 +376,7 @@ def get_telescope_status(*, frame_id, **kwargs):
 
 
 def get_guide_objects(
-    frame_id=None, obswl: float = 0.62, **kwargs
+    frame_id=None, obswl: float = 0.62, is_acquisition: bool = False, **kwargs
 ) -> GuideObjectsResult:
     """Get the guide objects for a given frame or from other sources.
 
@@ -389,7 +389,7 @@ def get_guide_objects(
     Parameters:
         frame_id (int, optional): The frame id of the frame. If None, telescope status is taken from kwargs.
         obswl (float): The observation wavelength in microns, by default 0.62.
-        logger (Logger, optional): Logger for logging messages.
+        is_acquisition (bool, optional): If True, guide objects are filtered to only include high quality stars.
         **kwargs: Additional keyword arguments including:
             detected_objects: If provided with frame_id, used to generate guide objects with astrometry.measure
             design_id: PFS design ID
@@ -453,7 +453,7 @@ def get_guide_objects(
             obswl=obswl,
             logger=logger,
         )
-        log_fn(f"Got {len(guide_object_rows)=} guide objects")
+        log_fn(f"Got {len(guide_object_rows)} guide objects")
         guide_objects = pd.DataFrame(
             guide_object_rows,
             columns=list(GuideObjectsResult.guide_object_dtype.keys()),
@@ -510,16 +510,19 @@ def get_guide_objects(
             guide_objects = query_pfs_design_agc(design_id, as_dataframe=True)
 
         # Rename columns for consistency.
-        log_fn(f"Got {len(guide_objects)=} guide objects, renaming columns")
+        log_fn(f"Got {len(guide_objects)} guide objects, renaming columns")
         new_cols = dict(
             zip(guide_objects.columns, GuideObjectsResult.guide_object_dtype.keys())
         )
         guide_objects = guide_objects.rename(columns=new_cols)
 
         # Mark which guide objects should be filtered (only GALAXIES for now).
-        guide_objects = filter_guide_objects(guide_objects)
+        logger.info(f"Guide objects before filtering: {len(guide_objects)}")
+        guide_objects = filter_guide_objects(
+            guide_objects, is_acquisition=is_acquisition
+        )
         logger.info(
-            f"Guide objects: Total: {len(guide_objects)} Unfiltered: {sum(guide_objects.filtered_by == 0)}"
+            f"Guide objects after filtering: {len(guide_objects.query('filtered_by == 0'))}"
         )
 
         ra = ra or _ra
@@ -562,7 +565,7 @@ def get_detected_objects(
     """
     logger.info("Getting detected objects from opdb.agc_data")
     detected_objects = query_agc_data(frame_id)
-    logger.debug(f"Detected objects: {len(detected_objects)=}")
+    logger.debug(f"Detected objects: {len(detected_objects)}")
 
     if filter_flag:
         detected_objects = detected_objects.query(f"flags < {filter_flag}")
@@ -682,7 +685,7 @@ def write_agc_match(
             "agc_nominal_y_mm": float(nominal_y_mm),
             "agc_center_x_mm": float(center_x_mm),
             "agc_center_y_mm": float(center_y_mm),
-            "flags": int(guide_objects["flags"][guide_idx]),
+            "flags": int(guide_objects["filtered_by"][guide_idx]),
         }
         rows_to_insert.append(row)
 
@@ -936,19 +939,23 @@ def filter_guide_objects(
 ) -> pd.DataFrame:
     """Apply filtering to the guide objects based on their flags.
 
-    This function filters guide objects based on various quality flags. For initial
-    coarse guiding, it only filters out galaxies. For fine guiding (initial=False),
-    it applies additional filters to ensure high quality guide stars from GAIA.
+    This function always filters galaxies and binary stars.  If `is_acquisition` is
+    `True`, this will look for high quality GAIA stars by including stars with the
+    following flags:
+
+    - `GAIA`
+    - `PHOTO_SIG`
+    - `ASTROMETRIC`
+    - `PMRA`
+    - `PMDEC`
+    - `PARA`
 
     Parameters
     ----------
     guide_objects : pd.DataFrame
-        Structured array containing guide object data including flags.
-        Must have fields for basic star data (objId, ra, dec, mag, etc.)
-        and optionally a 'flag' field for filtering.
+        DataFrame containing guide object data including a column for flags.
     is_acquisition : bool, optional
-        If True, only filter galaxies. If False (default), apply all quality filters
-        including GAIA star requirements.
+        If True, filter the objects to only include high quality GAIA stars, default False.
     flag_column : str, optional
         Indicates the column name that includes the filter flags.
 
@@ -961,29 +968,35 @@ def filter_guide_objects(
     guide_objects_df["filtered_by"] = 0
 
     # Filter out the galaxies.
-    logger.info("Filtering galaxies from results.")
     galaxy_idx = (guide_objects_df[flag_column].values & AutoGuiderStarMask.GALAXY) != 0
     guide_objects_df.loc[galaxy_idx, "filtered_by"] = AutoGuiderStarMask.GALAXY.value
+    logger.info(f"Filtered {galaxy_idx.sum()} galaxies from results.")
+
+    # Filter out binaries (note the logic is backwards because we want *not* non-binaries).
+    binary_idx = (
+        guide_objects_df[flag_column] & AutoGuiderStarMask.NON_BINARY.value
+    ) == 0
+    guide_objects_df.loc[binary_idx, "filtered_by"] = (
+        AutoGuiderStarMask.NON_BINARY.value
+    )
+    logger.info(f"Filtered {binary_idx.sum()} binary objects from results.")
 
     if is_acquisition:
         filters_for_inclusion = [
             AutoGuiderStarMask.GAIA,
-            AutoGuiderStarMask.NON_BINARY,
-            AutoGuiderStarMask.ASTROMETRIC,
-            AutoGuiderStarMask.PMRA_SIG,
-            AutoGuiderStarMask.PMDEC_SIG,
-            AutoGuiderStarMask.PARA_SIG,
             AutoGuiderStarMask.PHOTO_SIG,
+            AutoGuiderStarMask.ASTROMETRIC,
+            AutoGuiderStarMask.PMRA,
+            AutoGuiderStarMask.PMDEC,
+            AutoGuiderStarMask.PARA,
         ]
 
         # Go through the filters and mark which stars would be flagged as NOT meeting the mask requirement.
         for f in filters_for_inclusion:
-            not_filtered = guide_objects_df.filtered_by != AutoGuiderStarMask.GALAXY
             include_filter = (guide_objects_df[flag_column].values & f) == 0
-            to_be_filtered = (include_filter & not_filtered) != 0
-            guide_objects_df.loc[to_be_filtered, "filtered_by"] |= f.value
+            guide_objects_df.loc[include_filter, "filtered_by"] |= f.value
             logger.info(
-                f"Filtering by {f.name}, removes {to_be_filtered.sum()} guide objects."
+                f"Filtering non {f.name}, removes {include_filter.sum()} guide objects."
             )
 
     return guide_objects_df

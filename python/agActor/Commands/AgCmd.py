@@ -443,7 +443,6 @@ class AgCmd:
                     design=design,
                     frame_id=frame_id,
                     altazimuth=True,
-                    logger=self.actor.logger,
                     **kwargs,
                 )
 
@@ -511,7 +510,6 @@ class AgCmd:
                 guide_offsets = field_acquisition.acquire_field(
                     design=design,
                     frame_id=frame_id,
-                    logger=self.actor.logger,
                     **kwargs,
                 )  # design takes precedence over center
                 ra = guide_offsets.ra

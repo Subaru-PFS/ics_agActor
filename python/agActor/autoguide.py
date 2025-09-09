@@ -201,7 +201,7 @@ def autoguide(*, frame_id, obswl=0.62, logger=None, **kwargs):
         logger,
         "Calling field_acquisition.calculate_guide_offsets from autoguide.autoguide",
     )
-    guide_offsets = field_acquisition.calculate_guide_offsets(
+    guide_offsets = field_acquisition.get_guide_offsets(
         guide_objects,
         detected_objects,
         ra,
