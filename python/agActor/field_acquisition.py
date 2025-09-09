@@ -363,6 +363,7 @@ def calculate_guide_offsets(
     # 9 min_dist_index 0
 
     (index_v,) = np.where(valid_sources)
+    detected_objects_array = detected_objects.to_numpy()
     identified_objects = np.array(
         [
             (
@@ -373,7 +374,7 @@ def calculate_guide_offsets(
                 float(x[3]),  # x_dp of guide
                 float(x[4]),  # y_dp of guide
                 *coordinates.dp2det(
-                    detected_objects.to_numpy()[k][0], float(x[3]), float(x[4])
+                    detected_objects_array[k][0], float(x[3]), float(x[4])
                 ),            # x_ and y_dp of identified
             )
             for k, x in (

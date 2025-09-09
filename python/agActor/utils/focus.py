@@ -25,7 +25,7 @@ def focus(*, frame_id, logger=None, **kwargs):
     log_message(logger, f"frame_id={frame_id}")
     detected_objects = query_agc_data(frame_id)
     _kwargs = _filter_kwargs(kwargs)
-    log_message(logger, f"_kwargs={_kwargs}")
+    log_message(logger, f"In focus with _kwargs={_kwargs}")
     return _focus(detected_objects, logger=logger, **_kwargs)
 
 
@@ -49,7 +49,7 @@ def _focus(detected_objects, logger=None, **kwargs):
         ]
     )
     _kwargs = _map_kwargs(kwargs)
-    log_message(logger, f"_kwargs={_kwargs}")
+    log_message(logger, f"In _focus with _kwargs={_kwargs}")
     dzs = calculate_focus_errors(_detected_objects, **_kwargs)
     log_message(logger, f"dzs={dzs}")
     dz = np.nanmedian(dzs)
