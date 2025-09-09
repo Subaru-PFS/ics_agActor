@@ -148,6 +148,83 @@ class GuideObjectsResult:
         "flags": "<i4",
     }
 
+    def __str__(self) -> str:
+        # Helper to safely format values
+        def fmt(v, fmt_str="{:.3f}", unit=""):
+            if v is None:
+                return "None"
+            try:
+                return fmt_str.format(v) + unit
+            except Exception:
+                return str(v)
+
+        # Field/telemetry info
+        field = (
+            f"Field: RA={fmt(self.ra, '{:.6f}')} deg, "
+            f"Dec={fmt(self.dec, '{:.6f}')} deg, "
+            f"INR={fmt(self.inr, '{:.3f}')} deg, "
+            f"PA={fmt(self.inst_pa, '{:.3f}')} deg"
+        )
+
+        tel = (
+            f"Tel: M2pos3={fmt(self.m2_pos3, '{:.3f}', ' mm')} "
+            f"ADC={fmt(self.adc, '{:.3f}', ' deg')} "
+            f"TakenAt={(self.taken_at.isoformat(timespec='seconds') if isinstance(self.taken_at, datetime) else str(self.taken_at))}"
+        )
+
+        # Guide objects summary
+        n = 0
+        mag_part = "mag=NA"
+        cam_part = "cams=NA"
+        filt_part = "filtered=NA"
+
+        try:
+            if isinstance(self.guide_objects, pd.DataFrame) and not self.guide_objects.empty:
+                df = self.guide_objects
+                n = len(df)
+
+                # Magnitude stats if available
+                if "mag" in df.columns:
+                    mags = pd.to_numeric(df["mag"], errors="coerce").dropna()
+                    if len(mags) > 0:
+                        mag_part = (
+                            f"mag=[{mags.min():.2f},{mags.median():.2f},{mags.max():.2f}]"
+                        )
+                    else:
+                        mag_part = "mag=NA"
+
+                # Camera distribution if available
+                if "camera_id" in df.columns:
+                    cams = df["camera_id"].dropna()
+                    try:
+                        cams = cams.astype(int)
+                    except Exception:
+                        pass
+                    if len(cams) > 0:
+                        unique = sorted(pd.unique(cams).tolist())
+                        cam_part = f"cams={unique}"
+
+                # Filtered count if column exists (from filter_guide_objects)
+                if "filtered_by" in df.columns:
+                    n_filtered = int((df["filtered_by"] != 0).sum())
+                    filt_part = f"filtered={n_filtered}/{n}"
+                else:
+                    filt_part = f"count={n}"
+            else:
+                cam_part = "cams=[]"
+                mag_part = "mag=NA"
+                filt_part = "count=0"
+        except Exception:
+            # Be defensive: never raise from __str__
+            cam_part = "cams=?"
+            mag_part = "mag=?"
+            filt_part = f"count={n if n else '?'}"
+
+        objs = f"GuideObjects: count={n}, {mag_part}, {cam_part}, {filt_part}"
+
+        return " | ".join([field, tel, objs])
+
+
 
 @dataclass
 class GuideOffsets:
