@@ -22,6 +22,7 @@ All notable changes to this project will be documented in this file.
 - INSTRM-2647 - Make `guide_stars` format consistent across lookup methods.
 - INSTRM-2650 - Clean up database interaction.
 - INSTRM-2656 - Set minimum python version to `3.11`.
+- Adding generic query_db function which can return a dataframe
 
 ## [1.1.33] - 2025-07-09
 - INSTRM-2607 - Moving `coordinates.py` to `pfs_utils`.
