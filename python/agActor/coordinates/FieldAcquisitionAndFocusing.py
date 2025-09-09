@@ -1,3 +1,5 @@
+import logging
+import warnings
 from typing import Any, Tuple
 
 import numpy as np
@@ -6,6 +8,8 @@ from numpy.typing import NDArray
 from pfs.utils.coordinates import Subaru_POPT2_PFS
 
 from agActor.coordinates import Subaru_POPT2_PFS_AG
+
+logger = logging.getLogger(__name__)
 
 
 def calculate_focus_errors(
@@ -49,7 +53,7 @@ def calculate_focus_errors(
     return focus_errors
 
 
-def calculate_acquisition_offsets(
+def calculate_offsets(
     guide_objects: pd.DataFrame,
     detected_array: NDArray[np.float64],
     tel_ra: float,
@@ -124,9 +128,17 @@ def calculate_acquisition_offsets(
 
     pfs = Subaru_POPT2_PFS_AG.PFS()
 
-    ra_values = guide_objects.ra.values
-    dec_values = guide_objects.dec.values
-    magnitude_values = guide_objects.mag.values
+    try:
+        good_guide_objects = guide_objects.query('filtered_by == 0')
+    except KeyError:
+        logger.info(f"guide_objects missing 'filtered_by' attribute, using all objects")
+        good_guide_objects = guide_objects
+
+    logger.info(f"Using {len(good_guide_objects)} guide objects for basis vectors")
+
+    ra_values = good_guide_objects.ra.values
+    dec_values = good_guide_objects.dec.values
+    magnitude_values = good_guide_objects.mag.values
 
     basis_vector_0, basis_vector_1 = pfs.makeBasis(
         tel_ra, tel_de, ra_values, dec_values, dt, adc, instrument_rotation, m2pos3, wl
@@ -136,9 +148,11 @@ def calculate_acquisition_offsets(
     basis_vector_1 = np.insert(basis_vector_1, 2, magnitude_values, axis=1)
 
     # Detected sources filtering
+    logger.info(f"Filtering detected objects with {maxellip=} {maxsize=} {minsize=}")
     filtered_detected_array, valid_sources = pfs.sourceFilter(
         detected_array, maxellip, maxsize, minsize
     )
+    logger.info(f"Found {len(filtered_detected_array)} detected sources after filtering")
 
     ra_offset, de_offset, inr_offset, scale_offset, match_results = pfs.RADECInRShiftA(
         filtered_detected_array[:, 2],
@@ -151,10 +165,20 @@ def calculate_acquisition_offsets(
         scaleflag,
         maxresid,
     )
+    flagged_match_idx = match_results[:, 8] == 0.0
+    logger.info(f"Matched {len(match_results[~flagged_match_idx])} sources")
 
     residual_squares = match_results[:, 6] ** 2 + match_results[:, 7] ** 2
-    residual_squares[match_results[:, 8] == 0.0] = np.nan
-    median_distance = np.nanmedian(np.sqrt(residual_squares))
+    residual_squares[flagged_match_idx] = np.nan
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+
+        try:
+            median_distance = np.nanmedian(np.sqrt(residual_squares))
+        except RuntimeWarning:
+            logger.warning("All nan values for residuals, setting median_distance to np.nan")
+            median_distance = np.nan
 
     return (
         ra_offset,
