@@ -74,7 +74,7 @@ def measure(
         )
 
     # detected stellar objects in the equatorial coordinates
-    icam = detected_objects["camera_id"]
+    icam = detected_objects["agc_camera_id"]
     x_det = detected_objects["centroid_x"]
     y_det = detected_objects["centroid_y"]
     flags = detected_objects["flags"]
