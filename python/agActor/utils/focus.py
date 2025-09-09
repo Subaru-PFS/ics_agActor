@@ -33,17 +33,17 @@ def _focus(detected_objects, logger=None, **kwargs):
     _detected_objects = np.array(
         [
             (
-                row['agc_camera_id'] + 1,  # camera_id (1-6)
-                row['spot_id'],  # spot_id
+                row["agc_camera_id"] + 1,  # camera_id (1-6)
+                row["spot_id"],  # spot_id
                 0,  # centroid_x (unused)
                 0,  # centroid_y (unused)
                 0,  # flux (unused)
                 *semi_axes(
-                    row['central_image_moment_11_pix'],
-                    row['central_image_moment_20_pix'],
-                    row['central_image_moment_02_pix']
+                    row["central_image_moment_11_pix"],
+                    row["central_image_moment_20_pix"],
+                    row["central_image_moment_02_pix"],
                 ),  # semi-major and semi-minor axes
-                row['flags'],  # flags
+                row["flags"],  # flags
             )
             for idx, row in detected_objects.iterrows()
         ]

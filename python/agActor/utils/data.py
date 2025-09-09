@@ -179,7 +179,10 @@ class GuideObjectsResult:
         filt_part = "filtered=NA"
 
         try:
-            if isinstance(self.guide_objects, pd.DataFrame) and not self.guide_objects.empty:
+            if (
+                isinstance(self.guide_objects, pd.DataFrame)
+                and not self.guide_objects.empty
+            ):
                 df = self.guide_objects
                 n = len(df)
 
@@ -187,9 +190,7 @@ class GuideObjectsResult:
                 if "mag" in df.columns:
                     mags = pd.to_numeric(df["mag"], errors="coerce").dropna()
                     if len(mags) > 0:
-                        mag_part = (
-                            f"mag=[{mags.min():.2f},{mags.median():.2f},{mags.max():.2f}]"
-                        )
+                        mag_part = f"mag=[{mags.min():.2f},{mags.median():.2f},{mags.max():.2f}]"
                     else:
                         mag_part = "mag=NA"
 
@@ -223,7 +224,6 @@ class GuideObjectsResult:
         objs = f"GuideObjects: count={n}, {mag_part}, {cam_part}, {filt_part}"
 
         return " | ".join([field, tel, objs])
-
 
 
 @dataclass
