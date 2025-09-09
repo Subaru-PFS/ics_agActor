@@ -267,6 +267,9 @@ class GuideOffsets:
     size: float
     peak: float
     flux: float
+    design_id: int | None = None
+    visit_id: int | None = None
+    frame_id: int | None = None
 
     def __str__(self) -> str:
         # Helper to format optional floats
@@ -281,6 +284,7 @@ class GuideOffsets:
         n_matched = 0 if self.identified_objects is None else int(len(self.identified_objects))
 
         parts = [
+            f"Frame: frame_id={self.frame_id} visit_id={self.visit_id} design_id={self.design_id}",
             f"Field: RA={self.ra:.6f} deg, Dec={self.dec:.6f} deg, PA={self.inst_pa:.3f} deg",
             (
                 "Offsets: "
