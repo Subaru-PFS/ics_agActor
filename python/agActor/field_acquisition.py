@@ -270,28 +270,28 @@ def calculate_guide_offsets(
     # Get the RA/Dec in the detector plane from the centroid XY values for guide objects.
     logger.info("Calculating detector plane coordinates for detected objects")
     dp_ra, dp_dec = coordinates.det2dp(
-        detected_objects["camera_id"],
-        detected_objects["centroid_x"],
-        detected_objects["centroid_y"],
+        detected_objects["agc_camera_id"],
+        detected_objects["centroid_x_pix"],
+        detected_objects["centroid_y_pix"],
     )
 
     # Get the semi-major and semi-minor axes for the guide objects.
     logger.info("Calculating major and minor semi axes for detected objects")
     semi_major, semi_minor = semi_axes(
-        detected_objects["central_moment_11"],
-        detected_objects["central_moment_20"],
-        detected_objects["central_moment_02"],
+        detected_objects["central_image_moment_11_pix"],
+        detected_objects["central_image_moment_20_pix"],
+        detected_objects["central_image_moment_02_pix"],
     )
 
     # Put the detected objects in a format for the calculate_acquisition_offsets.
     logger.info("Building detected objects array for calculations")
     _detected_objects = np.array(
         [
-            detected_objects["camera_id"],
+            detected_objects["agc_camera_id"],
             detected_objects["spot_id"],
             dp_ra,
             dp_dec,
-            detected_objects["peak"],
+            detected_objects["peak_intensity"],
             semi_major,
             semi_minor,
             detected_objects["flags"],
@@ -347,7 +347,7 @@ def calculate_guide_offsets(
         logger.info(f"{alt=},{az=},{dalt=},{daz=}")
 
     # Add the detector plane coordinates to the guide objects.
-    guide_x_dp, guide_y_dp = coordinates.det2dp(guide_objects.camera_id, guide_objects.x, guide_objects.y)
+    guide_x_dp, guide_y_dp = coordinates.det2dp(guide_objects.agc_camera_id, guide_objects.x, guide_objects.y)
     guide_objects['x_dp'] = guide_x_dp
     guide_objects['y_dp'] = guide_y_dp
 
@@ -373,7 +373,7 @@ def calculate_guide_offsets(
                 float(x[3]),  # x_dp of guide
                 float(x[4]),  # y_dp of guide
                 *coordinates.dp2det(
-                    detected_objects[k]["camera_id"], float(x[3]), float(x[4])
+                    detected_objects.to_numpy()[k][0], float(x[3]), float(x[4])
                 ),            # x_ and y_dp of identified
             )
             for k, x in (
@@ -502,12 +502,12 @@ def find_representative_spot(
             i
         ]  # index of "median" of detected objects
         a, b = semi_axes(
-            detected_objects["central_moment_11"][k],
-            detected_objects["central_moment_20"][k],
-            detected_objects["central_moment_02"][k],
+            detected_objects["central_image_moment_11_pix"][k],
+            detected_objects["central_image_moment_20_pix"][k],
+            detected_objects["central_image_moment_02_pix"][k],
         )
         size = (a * b) ** 0.5
-        peak = detected_objects["peak"][k]
-        flux = detected_objects["moment_00"][k]
+        peak = detected_objects["peak_intensity"][k]
+        flux = detected_objects["image_moment_00_pix"][k]
 
     return flux, peak, size

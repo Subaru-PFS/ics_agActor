@@ -142,7 +142,7 @@ class GuideObjectsResult:
         "ra": "<f8",
         "dec": "<f8",
         "mag": "<f4",
-        "camera_id": "<i4",
+        "agc_camera_id": "<i4",
         "x": "<f4",
         "y": "<f4",
         "flags": "<i4",
@@ -194,8 +194,8 @@ class GuideObjectsResult:
                         mag_part = "mag=NA"
 
                 # Camera distribution if available
-                if "camera_id" in df.columns:
-                    cams = df["camera_id"].dropna()
+                if "agc_camera_id" in df.columns:
+                    cams = df["agc_camera_id"].dropna()
                     try:
                         cams = cams.astype(int)
                     except Exception:
@@ -259,8 +259,8 @@ class GuideOffsets:
     scale_offset: float
     dalt: Optional[float]
     daz: Optional[float]
-    guide_objects: NDArray
-    detected_objects: NDArray
+    guide_objects: pd.DataFrame
+    detected_objects: pd.DataFrame
     identified_objects: NDArray
     dx: float
     dy: float
@@ -346,9 +346,9 @@ def get_telescope_status(*, frame_id, **kwargs):
     # Check if we need to fetch any missing values from the database
     if any(value is None for value in (taken_at, inr, adc, m2_pos3)):
         # First, query the agc_exposure table to get basic information, including visit_id.
-        logger.debug(f"Getting agc_exposure from opdb for frame_id={frame_id}")
-        visit_id, _, db_taken_at, _, _, db_inr, db_adc, _, _, _, db_m2_pos3 = (
-            query_agc_exposure(frame_id)
+        logger.info(f"Getting agc_exposure from opdb for frame_id={frame_id}")
+        _, visit_id, _, _, db_taken_at, _, _, db_inr, db_adc, _, _, _, db_m2_pos3 = (
+            query_agc_exposure(frame_id, as_dataframe=False)
         )
 
         # If sequence_id is provided, get more accurate information from tel_status table
@@ -358,7 +358,7 @@ def get_telescope_status(*, frame_id, **kwargs):
                 f"Getting telescope status from opdb for {visit_id=},{sequence_id=}"
             )
             _, _, db_inr, db_adc, db_m2_pos3, _, _, _, _, db_taken_at = (
-                query_tel_status(visit_id, sequence_id)
+                query_tel_status(visit_id, sequence_id, as_dataframe=False)
             )
 
         # Use database values for any missing parameters
@@ -502,7 +502,7 @@ def get_guide_objects(
         else:
             log_fn(f"Getting guide_objects from opdb via {design_id}")
             _, _ra, _dec, _inst_pa, *_ = query_pfs_design(design_id)
-            guide_objects = query_pfs_design_agc(design_id)
+            guide_objects = query_pfs_design_agc(design_id, as_dataframe=True)
 
         # Rename columns for consistency.
         new_cols = dict(
@@ -531,55 +531,38 @@ def get_guide_objects(
 
 def get_detected_objects(
     frame_id: int, filter_flag: int = SourceDetectionFlag.EDGE
-) -> np.ndarray:
+) -> pd.DataFrame:
     """Get the detected objects from opdb.agc_data.
 
     Parameters:
-        frame_id (int): The frame id of the frame.
-        filter_flag (SourceDetectionFlag | int): The flag used to determine if an object is detected, by default SourceDetectionFlag.EDGE.
+    -----------
+        frame_id: int
+            The frame id of the frame.
+        filter_flag: SourceDetectionFlag | int
+            Flags greater than or equal to this flag will be filtered.
 
     Returns:
-        np.ndarray: The detected objects.
+    --------
+        pd.DataFrame:
+            The detected objects.
 
+    Raises:
+    -------
+    RuntimeError:
+        If no detected objects are found.
     """
-    logger.debug("Getting detected objects from opdb.agc_data")
-    detected_objects_rows = query_agc_data(frame_id)
-
-    detected_objects_dtype = [
-        ("camera_id", np.int16),
-        ("spot_id", np.int16),
-        ("moment_00", np.float32),
-        ("centroid_x", np.float32),
-        ("centroid_y", np.float32),
-        ("central_moment_11", np.float32),
-        ("central_moment_20", np.float32),
-        ("central_moment_02", np.float32),
-        ("peak_x", np.uint16),
-        ("peak_y", np.uint16),
-        ("peak", np.uint16),
-        ("background", np.float32),
-        ("flags", np.uint8),
-    ]
-
-    detected_objects = np.rec.fromarrays(
-        detected_objects_rows.T,
-        dtype=detected_objects_dtype,
-    )
-
+    logger.info("Getting detected objects from opdb.agc_data")
+    detected_objects = query_agc_data(frame_id)
     logger.debug(f"Detected objects: {len(detected_objects)=}")
 
     if filter_flag:
-        detected_objects = detected_objects[
-            detected_objects["flags"] <= SourceDetectionFlag.RIGHT
-        ]
-        logger.debug(
-            f"Detected objects after source filtering: {len(detected_objects)=}"
-        )
+        detected_objects = detected_objects.query(f"flags < {filter_flag}")
+        logger.debug(f"Detected objects after filtering: {len(detected_objects)=}")
 
     if len(detected_objects) == 0:
         raise RuntimeError("No valid spots detected, can't compute offsets")
 
-    return detected_objects
+    return detected_objects.reset_index(drop=True)
 
 
 def write_agc_guide_offset(
@@ -684,7 +667,7 @@ def write_agc_match(
         row = {
             "pfs_design_id": design_id,
             "agc_exposure_id": frame_id,
-            "agc_camera_id": int(detected_objects["camera_id"][detected_idx]),
+            "agc_camera_id": int(detected_objects["agc_camera_id"][detected_idx]),
             "spot_id": int(detected_objects["spot_id"][detected_idx]),
             "guide_star_id": int(guide_objects["source_id"][guide_idx]),
             "agc_nominal_x_mm": float(nominal_x_mm),
@@ -786,7 +769,45 @@ def search_gaia(ra, dec, radius=0.027 + 0.003):
     return Table(rows=objects, names=columns, units=units)
 
 
-def query_agc_data(agc_exposure_id):
+def query_db(
+    sql: str,
+    params: tuple | None = None,
+    as_dataframe: bool = True,
+    db: DB | None = None,
+) -> pd.DataFrame | np.ndarray | None:
+    """Helper method to return rows from the sql query either.
+
+    Parameters
+    ----------
+    sql : str
+        The sql query to execute.
+    params : tuple
+        The parameters to pass to the sql query.
+    as_dataframe : bool
+        Whether to return a pandas dataframe from the sql query.
+        Defaults to True.
+    db : DB | None
+        The database to use. Defaults to None, which uses `get_db("opdb").
+
+    Returns
+    -------
+    pd.DataFrame | np.ndarray | None
+        The results from the query.
+    """
+    db = db or get_db("opdb")
+    if as_dataframe:
+        result = pd.read_sql(sql, db.engine, params=params)
+        if len(result) == 1:
+            result = result.iloc[0]
+    else:
+        result = db.fetchone(query=sql, params=params)
+        if len(result) == 1:
+            result = result[0]
+
+    return result
+
+
+def query_agc_data(agc_exposure_id: int, as_dataframe: bool = True, **kwargs):
     sql = """
 SELECT agc_camera_id,
  spot_id,
@@ -805,10 +826,13 @@ FROM agc_data
 WHERE agc_exposure_id = %s
 ORDER BY agc_camera_id, spot_id
 """
-    return get_db("opdb").fetchall(sql, (agc_exposure_id,))
+    params = (agc_exposure_id,)
+    return query_db(sql, params, as_dataframe=as_dataframe, **kwargs)
 
 
-def query_tel_status(pfs_visit_id, status_sequence_id):
+def query_tel_status(
+    pfs_visit_id: int, status_sequence_id: int, as_dataframe: bool = True, **kwargs
+):
     sql = """
 SELECT
 altitude,
@@ -824,36 +848,38 @@ created_at
 FROM tel_status
 WHERE pfs_visit_id=%s AND status_sequence_id=%s
 """
-    return get_db("opdb").fetchone(
-        sql,
-        (
-            pfs_visit_id,
-            status_sequence_id,
-        ),
-    )
+    params = (pfs_visit_id, status_sequence_id)
+    return query_db(sql, params, as_dataframe=as_dataframe, **kwargs)
 
 
-def query_agc_exposure(agc_exposure_id):
+def query_agc_exposure(agc_exposure_id: int, as_dataframe: bool = True, **kwargs):
     sql = """
 SELECT
-pfs_visit_id,
-agc_exptime,
-taken_at,
-azimuth,
-altitude,
-insrot,
-adc_pa,
-outside_temperature,
-outside_humidity,
-outside_pressure,
-m2_pos3
-FROM agc_exposure
-WHERE agc_exposure_id=%s
+    t0.agc_exposure_id,
+    t0.pfs_visit_id,
+    t1.pfs_design_id,
+    t0.agc_exptime,
+    t0.taken_at,
+    t0.azimuth,
+    t0.altitude,
+    t0.insrot,
+    t0.adc_pa,
+    t0.outside_temperature,
+    t0.outside_humidity,
+    t0.outside_pressure,
+    t0.m2_pos3
+FROM 
+    agc_exposure t0, pfs_visit t1
+WHERE 
+    t0.pfs_visit_id=t1.pfs_visit_id
+    AND
+    t0.agc_exposure_id=%s
 """
-    return get_db("opdb").fetchone(sql, (agc_exposure_id,))
+    params = (agc_exposure_id,)
+    return query_db(sql, params, as_dataframe=as_dataframe, **kwargs)
 
 
-def query_pfs_design_agc(pfs_design_id):
+def query_pfs_design_agc(pfs_design_id: int, as_dataframe: bool = True, **kwargs):
     sql = """
 SELECT
 guide_star_id,
@@ -868,12 +894,11 @@ FROM pfs_design_agc
 WHERE pfs_design_id=%s
 ORDER BY guide_star_id
 """
-    # Fetch the results to a dataframe.
-    results = pd.read_sql(sql, get_db("opdb").connect(), params=(pfs_design_id,))
-    return results
+    params = (pfs_design_id,)
+    return query_db(sql, params, as_dataframe=as_dataframe, **kwargs)
 
 
-def query_pfs_design(pfs_design_id):
+def query_pfs_design(pfs_design_id: int, as_dataframe: bool = True, **kwargs):
     sql = """
 SELECT
 tile_id,
@@ -894,10 +919,13 @@ is_obsolete
 FROM pfs_design
 WHERE pfs_design_id=%s
 """
-    return get_db("opdb").fetchone(sql, (pfs_design_id,))
+    params = (pfs_design_id,)
+    return query_db(sql, params, as_dataframe=as_dataframe, **kwargs)
 
 
-def filter_guide_objects(guide_objects, is_acquisition=False, flag_column="flags") -> pd.DataFrame:
+def filter_guide_objects(
+    guide_objects, is_acquisition=True, flag_column="flags"
+) -> pd.DataFrame:
     """Apply filtering to the guide objects based on their flags.
 
     This function filters guide objects based on various quality flags. For initial
