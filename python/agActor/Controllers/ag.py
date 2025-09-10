@@ -536,24 +536,9 @@ class AgThread(threading.Thread):
                                 ra, dec, inst_pa, dra, ddec, dinr, dscale, dalt, daz
                             )
                         )
-                        # Get arrays from the result object
-                        guide_objects = guide_offsets.guide_objects
-                        detected_objects = guide_offsets.detected_objects
-                        identified_objects = guide_offsets.identified_objects
 
-                        filenames = (
-                            "/dev/shm/guide_objects.npy",
-                            "/dev/shm/detected_objects.npy",
-                            "/dev/shm/identified_objects.npy",
-                        )
-                        values_to_save = [
-                            guide_objects,
-                            detected_objects,
-                            identified_objects,
-                        ]
-                        for filename, value in zip(filenames, values_to_save):
-                            self.logger.info(f"AgThread.run: Saving {filename}")
-                            np.save(filename, value)
+                        filenames = guide_offsets.save_numpy_files()
+
                         cmd.inform(
                             'data={},{},{},"{}","{}","{}"'.format(
                                 ra, dec, inst_pa, *filenames
@@ -614,7 +599,7 @@ class AgThread(threading.Thread):
                             f"AgThread.run: focus._focus for frame_id={frame_id}"
                         )
                         dz, dzs = _focus._focus(
-                            detected_objects=detected_objects,
+                            detected_objects=guide_offsets.detected_objects,
                             logger=self.logger,
                             **kwargs,
                         )
@@ -661,9 +646,9 @@ class AgThread(threading.Thread):
                                     )
                                 ),
                                 frame_id=frame_id,
-                                guide_objects=guide_objects,
-                                detected_objects=detected_objects,
-                                identified_objects=identified_objects,
+                                guide_objects=guide_offsets.guide_objects,
+                                detected_objects=guide_offsets.detected_objects,
+                                identified_objects=guide_offsets.identified_objects,
                             )
                 if mode & ag.Mode.ONCE:
                     self.logger.info("AgThread.run: ONCE")

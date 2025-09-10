@@ -1,4 +1,5 @@
 import logging
+import os
 from dataclasses import dataclass
 from datetime import datetime
 from enum import IntFlag
@@ -270,6 +271,124 @@ class GuideOffsets:
     design_id: int | None = None
     visit_id: int | None = None
     frame_id: int | None = None
+
+    def save_numpy_files(self, base_dir: str = "/dev/shm") -> list:
+        """Save guide, detected, and identified objects to numpy files.
+
+        This is a bit verbose but guarantees consistent formatting with what
+        the other actors expect.
+
+        Parameters:
+        -----------
+        base_dir : str
+            Directory to save files in, defaults to /dev/shm/.
+
+        Returns:
+        --------
+        full_files : list
+            List of saved files.
+        """
+        save_files = {}
+
+        # Guide objects.
+        guide_npy = np.array(
+            [
+                (
+                    row.source_id,
+                    row.ra,
+                    row.dec,
+                    row.mag,
+                    row.agc_camera_id,
+                    row.x,
+                    row.y,
+                    row.x_dp,
+                    row.y_dp,
+                    row.flags,
+                    row.filtered_by,
+                )
+                for row in self.guide_objects.itertuples(index=False)
+            ],
+            dtype=[
+                ("source_id", np.int64),  # u8 (80) not supported by FITSIO
+                ("ra", np.float64),
+                ("dec", np.float64),
+                ("mag", np.float32),
+                ("camera_id", np.int16),
+                ("x", np.float32),
+                ("y", np.float32),
+                ("x_dp", np.float32),
+                ("y_dp", np.float32),
+                ("flags", np.int16),
+                ("filter_flags", np.uint16),
+            ],
+        )
+        save_files["guide_objects"] = guide_npy
+
+        # Detected objects.
+        detected_npy = np.array(
+            [
+                (
+                    row.agc_camera_id,
+                    row.spot_id,
+                    row.image_moment_00_pix,
+                    row.centroid_x_pix,
+                    row.centroid_y_pix,
+                    row.central_image_moment_11_pix,
+                    row.central_image_moment_20_pix,
+                    row.central_image_moment_02_pix,
+                    row.peak_pixel_x_pix,
+                    row.peak_pixel_y_pix,
+                    row.peak_intensity,
+                    row.background,
+                    row.flags,
+                )
+                for row in self.detected_objects.itertuples(index=False)
+            ],
+            dtype=[
+                ("camera_id", np.int16),
+                ("spot_id", np.int16),
+                ("moment_00", np.float32),
+                ("centroid_x", np.float32),
+                ("centroid_y", np.float32),
+                ("central_moment_11", np.float32),
+                ("central_moment_20", np.float32),
+                ("central_moment_02", np.float32),
+                ("peak_x", np.uint16),
+                ("peak_y", np.uint16),
+                ("peak", np.uint16),
+                ("background", np.float32),
+                ("flags", np.uint8),
+            ],
+        )
+        save_files["detected_objects"] = detected_npy
+
+        # Identified objects.
+        ident_npy = np.array(
+            [
+                (x[0], x[1], x[2], -x[3], x[4], -x[5], x[6], x[7])
+                for x in self.identified_objects
+            ],
+            dtype=[
+                ("detected_object_id", np.int16),
+                ("guide_object_id", np.int16),
+                ("detected_object_x", np.float32),
+                ("detected_object_y", np.float32),
+                ("guide_object_x", np.float32),
+                ("guide_object_y", np.float32),
+                ("guide_object_xdet", np.float32),
+                ("guide_object_ydet", np.float32),
+            ],
+        )
+        save_files["identified_objects"] = ident_npy
+
+        full_files = []
+        for obj_name, obj in save_files.items():
+            fn = os.path.join(base_dir, f"{obj_name}.npy")
+            logger.info(f"Saving {obj_name} to {fn}")
+            np.save(fn, obj)
+            full_files.append(fn)
+
+        return full_files
 
     def __str__(self) -> str:
         # Helper to format optional floats
@@ -1008,5 +1127,6 @@ def filter_guide_objects(
             f"'flags' column not found in guide objects, "
             f"no filtering applied for {flag_column}."
         )
+        guide_objects_df["flags"] = 0
 
     return guide_objects_df
