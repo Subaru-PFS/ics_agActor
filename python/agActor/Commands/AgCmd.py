@@ -455,22 +455,13 @@ class AgCmd:
                 dscale = guide_offsets.scale_offset
                 dalt = guide_offsets.dalt
                 daz = guide_offsets.daz
-                guide_files = [
-                    guide_offsets.guide_objects,
-                    guide_offsets.detected_objects,
-                    guide_offsets.identified_objects,
-                ]
+
                 cmd.inform(
                     f'text="{ra=},{dec=},{inst_pa=},{dra=},{ddec=},{dinr=},{dscale=},{dalt=},{daz=}"'
                 )
-                filenames = (
-                    "/dev/shm/guide_objects.npy",
-                    "/dev/shm/detected_objects.npy",
-                    "/dev/shm/identified_objects.npy",
-                )
-                for filename, value in zip(filenames, guide_files):
-                    self.actor.logger.info(f"AgCmd.acquire_field: Saving {filename}")
-                    np.save(filename, value)
+
+                filenames = guide_offsets.save_numpy_files()
+
                 cmd.inform(
                     'data={},{},{},"{}","{}","{}"'.format(ra, dec, inst_pa, *filenames)
                 )
@@ -527,14 +518,9 @@ class AgCmd:
                     guide_offsets.identified_objects,
                 ]
                 cmd.inform(f'text="dra={dra},ddec={ddec},dinr={dinr},dscale={dscale}"')
-                filenames = (
-                    "/dev/shm/guide_objects.npy",
-                    "/dev/shm/detected_objects.npy",
-                    "/dev/shm/identified_objects.npy",
-                )
-                for filename, value in zip(filenames, guide_files):
-                    self.actor.logger.info(f"AgCmd.acquire_field: Saving {filename}")
-                    np.save(filename, value)
+
+                filenames = guide_offsets.save_numpy_files()
+
                 cmd.inform(
                     'data={},{},{},"{}","{}","{}"'.format(ra, dec, inst_pa, *filenames)
                 )
