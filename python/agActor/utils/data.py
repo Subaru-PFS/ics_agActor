@@ -968,35 +968,45 @@ def filter_guide_objects(
     guide_objects_df["filtered_by"] = 0
 
     # Filter out the galaxies.
-    galaxy_idx = (guide_objects_df[flag_column].values & AutoGuiderStarMask.GALAXY) != 0
-    guide_objects_df.loc[galaxy_idx, "filtered_by"] = AutoGuiderStarMask.GALAXY.value
-    logger.info(f"Filtered {galaxy_idx.sum()} galaxies from results.")
+    try:
+        galaxy_idx = (
+            guide_objects_df[flag_column].values & AutoGuiderStarMask.GALAXY
+        ) != 0
+        guide_objects_df.loc[galaxy_idx, "filtered_by"] = (
+            AutoGuiderStarMask.GALAXY.value
+        )
+        logger.info(f"Filtered {galaxy_idx.sum()} galaxies from results.")
 
-    # Filter out binaries (note the logic is backwards because we want *not* non-binaries).
-    binary_idx = (
-        guide_objects_df[flag_column] & AutoGuiderStarMask.NON_BINARY.value
-    ) == 0
-    guide_objects_df.loc[binary_idx, "filtered_by"] = (
-        AutoGuiderStarMask.NON_BINARY.value
-    )
-    logger.info(f"Filtered {binary_idx.sum()} binary objects from results.")
+        # Filter out binaries (note the logic is backwards because we want *not* non-binaries).
+        binary_idx = (
+            guide_objects_df[flag_column] & AutoGuiderStarMask.NON_BINARY.value
+        ) == 0
+        guide_objects_df.loc[binary_idx, "filtered_by"] = (
+            AutoGuiderStarMask.NON_BINARY.value
+        )
+        logger.info(f"Filtered {binary_idx.sum()} binary objects from results.")
 
-    if is_acquisition:
-        filters_for_inclusion = [
-            AutoGuiderStarMask.GAIA,
-            AutoGuiderStarMask.PHOTO_SIG,
-            AutoGuiderStarMask.ASTROMETRIC,
-            AutoGuiderStarMask.PMRA,
-            AutoGuiderStarMask.PMDEC,
-            AutoGuiderStarMask.PARA,
-        ]
+        if is_acquisition:
+            filters_for_inclusion = [
+                AutoGuiderStarMask.GAIA,
+                AutoGuiderStarMask.PHOTO_SIG,
+                AutoGuiderStarMask.ASTROMETRIC,
+                AutoGuiderStarMask.PMRA,
+                AutoGuiderStarMask.PMDEC,
+                AutoGuiderStarMask.PARA,
+            ]
 
-        # Go through the filters and mark which stars would be flagged as NOT meeting the mask requirement.
-        for f in filters_for_inclusion:
-            include_filter = (guide_objects_df[flag_column].values & f) == 0
-            guide_objects_df.loc[include_filter, "filtered_by"] |= f.value
-            logger.info(
-                f"Filtering non {f.name}, removes {include_filter.sum()} guide objects."
-            )
+            # Go through the filters and mark which stars would be flagged as NOT meeting the mask requirement.
+            for f in filters_for_inclusion:
+                include_filter = (guide_objects_df[flag_column].values & f) == 0
+                guide_objects_df.loc[include_filter, "filtered_by"] |= f.value
+                logger.info(
+                    f"Filtering non {f.name}, removes {include_filter.sum()} guide objects."
+                )
+    except KeyError:
+        logger.warning(
+            f"'flags' column not found in guide objects, "
+            f"no filtering applied for {flag_column}."
+        )
 
     return guide_objects_df
