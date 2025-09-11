@@ -572,11 +572,14 @@ class AgThread(threading.Thread):
                         offset_in_range = (
                             abs(dra) < max_correction and abs(ddec) < max_correction
                         )
-                        offset_flags = (
-                            GuideOffsetFlag.OK
-                            if offset_in_range
-                            else GuideOffsetFlag.INVALID_OFFSET
-                        )
+
+                        if offset_in_range:
+                            offset_flags = GuideOffsetFlag.OK
+                            guide_status = "OK"
+                        else:
+                            offset_flags = GuideOffsetFlag.INVALID_OFFSET
+                            guide_status = f"INVALID_OFFSET: Guide correction is larger than {max_correction} arcsec."
+
                         if offset_flags == GuideOffsetFlag.OK:
                             # send corrections to mlp1 and gen2 (or iic)
                             mlp1_result = self.actor.queueCommand(
@@ -617,8 +620,8 @@ class AgThread(threading.Thread):
                         )
                         # send corrections to gen2 (or iic)
                         cmd.inform(
-                            "guideErrors={},{},{},{},{},{},{},{}".format(
-                                frame_id, dra, ddec, dinr, daz, dalt, dz, dscale
+                            "guideErrors={},{},{},{},{},{},{},{},{}".format(
+                                frame_id, dra, ddec, dinr, daz, dalt, dz, dscale, guide_status
                             )
                         )
                         cmd.inform(

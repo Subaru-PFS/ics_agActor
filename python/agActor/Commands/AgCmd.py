@@ -548,9 +548,10 @@ class AgCmd:
                 logger=self.actor.logger,
             )
             # send corrections to gen2 (or iic)
+            guide_status = "OK"
             cmd.inform(
-                "guideErrors={},{},{},{},{},{},{},{}".format(
-                    frame_id, dra, ddec, dinr, daz, dalt, dz, dscale
+                "guideErrors={},{},{},{},{},{},{},{},{}".format(
+                    frame_id, dra, ddec, dinr, daz, dalt, dz, dscale, guide_status
                 )
             )
             cmd.inform("focusErrors={},{},{},{},{},{},{}".format(frame_id, *dzs))
@@ -654,9 +655,10 @@ class AgCmd:
                 return
             cmd.inform(f'text="dz={dz}"')
             # send corrections to gen2 (or iic)
+            guide_status = "OK"
             cmd.inform(
-                "guideErrors={},{},{},{},{},{},{},{}".format(
-                    frame_id, np.nan, np.nan, np.nan, np.nan, np.nan, dz, np.nan
+                "guideErrors={},{},{},{},{},{},{},{},{}".format(
+                    frame_id, np.nan, np.nan, np.nan, np.nan, np.nan, dz, np.nan, guide_status
                 )
             )
             cmd.inform("focusErrors={},{},{},{},{},{},{}".format(frame_id, *dzs))

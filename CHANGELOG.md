@@ -23,6 +23,7 @@ All notable changes to this project will be documented in this file.
 - INSTRM-2647 - Make `guide_stars` format consistent across lookup methods.
 - INSTRM-2650 - Clean up database interaction.
 - INSTRM-2656 - Set minimum python version to `3.11`.
+- INSTRM-2669 - Add `status` column to `guideErrors` to indicate if offset correction is valid.
 - Adding generic query_db function which can return a dataframe
 
 ## [1.1.33] - 2025-07-09
