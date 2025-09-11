@@ -391,12 +391,6 @@ class GuideOffsets:
         return full_files
 
     def __str__(self) -> str:
-        # Helper to format optional floats
-        def fmt_opt(v: Optional[float], unit: str = "") -> str:
-            if v is None:
-                return "None"
-            return f"{v:.3f}{unit}"
-
         # Counts for arrays (avoid dumping arrays themselves)
         n_guide = 0 if self.guide_objects is None else int(len(self.guide_objects))
         n_detected = (
@@ -411,13 +405,13 @@ class GuideOffsets:
             f"Field: RA={self.ra:.6f} deg, Dec={self.dec:.6f} deg, PA={self.inst_pa:.3f} deg",
             (
                 "Offsets: "
-                f'dRA={self.ra_offset:.3f}" '
-                f'dDec={self.dec_offset:.3f}" '
-                f'dINR={self.inr_offset:.3f}" '
+                f'dRA={self.ra_offset:.3f} arcsec '
+                f'dDec={self.dec_offset:.3f} arcsec '
+                f'dINR={self.inr_offset:.3f} arcsec '
                 f"dScale={self.scale_offset:.6f} "
-                f"dAlt={fmt_opt(self.dalt, '"')} "
-                f"dAz={fmt_opt(self.daz, '"')} "
-                f'dx={self.dx:.3f}" dy={self.dy:.3f}"'
+                f"dAlt={self.dalt:.3f} arcsec "
+                f"dAz={self.daz:.3f} arcsec "
+                f"dx={self.dx:.3f} pix dy={self.dy:.3f} pix"
             ),
             f"Spot: size={self.size:.3f}, peak={self.peak:.1f}, flux={self.flux:.1f}",
             f"Counts: guide={n_guide}, detected={n_detected}, matched={n_matched}",
