@@ -3,6 +3,15 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- EngRun-Sept-2025 - EngRun updates from 09-11-2025:
+  - Fix the "spot size" (seeing) sent to mlp1
+  - Send `np.nan` instead of `None` values in `guideErrors`.
+  - Update the `MAX_CORRECTION` default to `10.0` arcsec. Change text that is sent.
+  - INSTRM-2680 - Don't break from the run loop during error, just set mode to `STOP`.
+  - Change how `identified_objects` table is built so it uses a DataFrame.
+  - Change the logic of `is_acuisition` to `is_guide` and set it so we filter more during guiding.
+
+## [1.1.34] - 2025-09-11
 - INSTRM-1057 - Replace IERS handling with tools from `ics_utils`.
 - INSTRM-2469 - Repository cleanup:
     - Reorganize code structure

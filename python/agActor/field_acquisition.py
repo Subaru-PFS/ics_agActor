@@ -4,6 +4,7 @@ from numbers import Number
 from typing import Any, Dict, Sequence, Tuple
 
 import numpy as np
+import pandas as pd
 from pfs.utils.coordinates import coordinates
 
 from agActor.coordinates.FieldAcquisitionAndFocusing import calculate_offsets
@@ -75,6 +76,7 @@ def acquire_field(
     frame_id: int,
     obswl: float = 0.62,
     altazimuth: bool = False,
+    is_guide: bool = False,
     **kwargs: Any,
 ) -> GuideOffsets:
     """Perform the necessary steps for field acquisition, including which guide stars are used.
@@ -87,6 +89,9 @@ def acquire_field(
         Observation wavelength in nm, defaults to 0.62.
     altazimuth : bool, optional
         Also return the AltAz coordinates in degrees, defaults to False.
+    is_guide : bool, optional
+        If we should filter the guide objects for acquisition, defaults to False.
+        Should almost always be False for this function but provided here as a convenience.
     **kwargs : dict
         Additional keyword arguments that may include:
 
@@ -138,7 +143,7 @@ def acquire_field(
     parse_kwargs(kwargs)
 
     guide_object_results = get_guide_objects(
-        frame_id, obswl=obswl, is_acquisition=True, **kwargs
+        frame_id, obswl=obswl, is_guide=is_guide, **kwargs
     )
     guide_objects = guide_object_results.guide_objects
     ra = guide_object_results.ra
@@ -304,7 +309,8 @@ def get_guide_offsets(
         scale_offset,
         match_results,
         median_distance,
-        valid_sources,
+        valid_detections,
+        good_guide_objects,
     ) = calculate_offsets(
         guide_objects,
         _detected_objects,
@@ -351,54 +357,58 @@ def get_guide_offsets(
     # 8 valid_resid    5
     # 9 min_dist_index 0
 
-    (index_v,) = np.where(valid_sources)
-    detected_objects_array = detected_objects.to_numpy()
-    identified_objects = np.array(
-        [
-            (
-                k,  # index of detected objects
-                int(x[0]),  # index of identified guide object
-                float(x[1]),  # x_dp of detected
-                float(x[2]),  # y_dp of detected
-                float(x[3]),  # x_dp of guide
-                float(x[4]),  # y_dp of guide
-                *coordinates.dp2det(
-                    detected_objects_array[k][0], float(x[3]), float(x[4])
-                ),
-                *coordinates.dp2det(
-                    detected_objects_array[k][0], float(x[1]), float(x[2])
-                ),
-                detected_objects_array[k][0],
-            )
-            for k, x in (
-                (int(index_v[i]), x)
-                for i, x in enumerate(
-                    zip(
-                        match_results[:, 9],
-                        match_results[:, 0],
-                        match_results[:, 1],
-                        match_results[:, 2],
-                        match_results[:, 3],
-                        match_results[:, 8],
-                    )
-                )
-                if int(x[5])
-            )
-        ],
-        dtype=[
-            ("detected_object_id", np.int16),
-            ("guide_object_id", np.int16),
-            ("detected_object_x_mm", np.float32),
-            ("detected_object_y_mm", np.float32),
-            ("guide_object_x_mm", np.float32),
-            ("guide_object_y_mm", np.float32),
-            ("guide_object_x_pix", np.float32),
-            ("guide_object_y_pix", np.float32),
-            ("detected_object_x_pix", np.float32),
-            ("detected_object_y_pix", np.float32),
-            ("agc_camera_id", np.int16),
-        ],
+    match_results_df = pd.DataFrame(match_results, columns=(
+        'detected_object_x_mm',
+        'detected_object_y_mm',
+        'guide_object_x_mm',
+        'guide_object_y_mm',
+        'err_x',
+        'err_y',
+        'resid_x',
+        'resid_y',
+        'matched',
+        'guide_object_id',
+    ))
+    match_results_df.index = detected_objects[valid_detections].index
+    match_results_df.index.name = 'detected_object_id'
+    match_results_df.reset_index(inplace=True)
+    match_results_df.guide_object_id = match_results_df.guide_object_id.astype(int)
+
+    match_results_df['agc_camera_id'] = detected_objects.loc[match_results_df.detected_object_id]['agc_camera_id'].values
+
+    guide_x_pix, guide_y_pix = coordinates.dp2det(
+        match_results_df["agc_camera_id"],
+        match_results_df["guide_object_x_mm"],
+        match_results_df["guide_object_y_mm"],
     )
+
+    detected_x_pix, detected_y_pix = coordinates.dp2det(
+        match_results_df["agc_camera_id"],
+        match_results_df["detected_object_x_mm"],
+        match_results_df["detected_object_y_mm"],
+    )
+
+    match_results_df['guide_object_x_pix'] = guide_x_pix
+    match_results_df['guide_object_y_pix'] = guide_y_pix
+
+    match_results_df['detected_object_x_pix'] = detected_x_pix
+    match_results_df['detected_object_y_pix'] = detected_y_pix
+
+    identified_objects = match_results_df[[
+            'detected_object_id',
+            'guide_object_id',
+            'detected_object_x_mm',
+            'detected_object_y_mm',
+            'guide_object_x_mm',
+            'guide_object_y_mm',
+            'detected_object_x_pix',
+            'detected_object_y_pix',
+            'guide_object_x_pix',
+            'guide_object_y_pix',
+            'agc_camera_id',
+            'matched',
+    ]]
+
     logger.info(f"Identified objects: {len(identified_objects)}")
     if len(identified_objects) == 0:
         logger.warning(f"No detected objects detected, offsets will be zero.")

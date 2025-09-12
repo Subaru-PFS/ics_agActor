@@ -128,6 +128,7 @@ def calculate_offsets(
 
     pfs = Subaru_POPT2_PFS_AG.PFS()
 
+    logger.info(f"Guide object before filtering: {len(guide_objects)=}")
     try:
         good_guide_objects = guide_objects.query('filtered_by == 0')
     except KeyError:
@@ -143,13 +144,15 @@ def calculate_offsets(
     basis_vector_0, basis_vector_1 = pfs.makeBasis(
         tel_ra, tel_de, ra_values, dec_values, dt, adc, instrument_rotation, m2pos3, wl
     )
+    logger.info(f"{len(basis_vector_0)=}")
+    logger.info(f"{len(basis_vector_1)=}")
 
     basis_vector_0 = np.insert(basis_vector_0, 2, magnitude_values, axis=1)
     basis_vector_1 = np.insert(basis_vector_1, 2, magnitude_values, axis=1)
 
     # Detected sources filtering
     logger.info(f"Filtering detected objects with {maxellip=} {maxsize=} {minsize=}")
-    filtered_detected_array, valid_sources = pfs.sourceFilter(
+    filtered_detected_array, valid_detections = pfs.sourceFilter(
         detected_array, maxellip, maxsize, minsize
     )
     logger.info(f"Found {len(filtered_detected_array)} detected sources after filtering")
@@ -165,8 +168,8 @@ def calculate_offsets(
         scaleflag,
         maxresid,
     )
-    flagged_match_idx = match_results[:, 8] == 0.0
-    logger.info(f"Matched {len(match_results[~flagged_match_idx])} sources")
+    flagged_match_idx = match_results[:, 8] == 1.0
+    logger.info(f"Matched {len(match_results[flagged_match_idx])} sources")
 
     residual_squares = match_results[:, 6] ** 2 + match_results[:, 7] ** 2
     residual_squares[flagged_match_idx] = np.nan
@@ -187,5 +190,6 @@ def calculate_offsets(
         scale_offset,
         match_results,
         median_distance,
-        valid_sources,
+        valid_detections,
+        good_guide_objects,
     )
