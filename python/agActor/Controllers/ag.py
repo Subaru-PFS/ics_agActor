@@ -604,6 +604,10 @@ class AgThread(threading.Thread):
                             **kwargs,
                         )
                         # send corrections to gen2 (or iic)
+                        if dalt is None:
+                            dalt = np.nan
+                        if daz is None:
+                            daz = np.nan
                         cmd.inform(
                             "guideErrors={},{},{},{},{},{},{},{},{}".format(
                                 frame_id, dra, ddec, dinr, daz, dalt, dz, dscale, guide_status

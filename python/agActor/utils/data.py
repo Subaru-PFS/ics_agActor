@@ -262,7 +262,7 @@ class GuideOffsets:
     daz: Optional[float]
     guide_objects: pd.DataFrame
     detected_objects: pd.DataFrame
-    identified_objects: NDArray
+    identified_objects: pd.DataFrame
     dx: float
     dy: float
     size: float
@@ -319,7 +319,7 @@ class GuideOffsets:
                 ("x_dp", np.float32),
                 ("y_dp", np.float32),
                 ("flags", np.int16),
-                ("filter_flags", np.uint16),
+                ("filter_flag", np.uint16),
             ],
         )
         save_files["guide_objects"] = guide_npy
@@ -365,18 +365,35 @@ class GuideOffsets:
         # Identified objects.
         ident_npy = np.array(
             [
-                (x[0], x[1], x[2], -x[3], x[4], -x[5], x[6], x[7])
-                for x in self.identified_objects
+                (
+                    row.detected_object_id,
+                    row.guide_object_id,
+                    row.detected_object_x_mm,
+                    row.detected_object_y_mm,
+                    row.guide_object_x_mm,
+                    row.guide_object_y_mm,
+                    row.detected_object_x_pix,
+                    row.detected_object_y_pix,
+                    row.guide_object_x_pix,
+                    row.guide_object_y_pix,
+                    row.agc_camera_id,
+                    row.matched
+                )
+                for row in self.identified_objects.itertuples(index=False)
             ],
             dtype=[
                 ("detected_object_id", np.int16),
                 ("guide_object_id", np.int16),
-                ("detected_object_x", np.float32),
-                ("detected_object_y", np.float32),
-                ("guide_object_x", np.float32),
-                ("guide_object_y", np.float32),
-                ("guide_object_xdet", np.float32),
-                ("guide_object_ydet", np.float32),
+                ("detected_object_x_mm", np.float32),
+                ("detected_object_y_mm", np.float32),
+                ("guide_object_x_mm", np.float32),
+                ("guide_object_y_mm", np.float32),
+                ("detected_object_x_pix", np.float32),
+                ("detected_object_y_pix", np.float32),
+                ("guide_object_x_pix", np.float32),
+                ("guide_object_y_pix", np.float32),
+                ("camera_id", np.int16),
+                ("matched", np.uint8),
             ],
         )
         save_files["identified_objects"] = ident_npy
@@ -397,7 +414,7 @@ class GuideOffsets:
             0 if self.detected_objects is None else int(len(self.detected_objects))
         )
         n_matched = (
-            0 if self.identified_objects is None else int(len(self.identified_objects))
+            0 if self.identified_objects is None else int(len(self.identified_objects.query('matched == 1')))
         )
 
         parts = [
@@ -489,7 +506,7 @@ def get_telescope_status(*, frame_id, **kwargs):
 
 
 def get_guide_objects(
-    frame_id=None, obswl: float = 0.62, is_acquisition: bool = False, **kwargs
+    frame_id=None, obswl: float = 0.62, is_guide: bool = False, **kwargs
 ) -> GuideObjectsResult:
     """Get the guide objects for a given frame or from other sources.
 
@@ -502,7 +519,7 @@ def get_guide_objects(
     Parameters:
         frame_id (int, optional): The frame id of the frame. If None, telescope status is taken from kwargs.
         obswl (float): The observation wavelength in microns, by default 0.62.
-        is_acquisition (bool, optional): If True, guide objects are filtered to only include high quality stars.
+        is_guide (bool, optional): If True, guide objects are filtered to only include high quality stars, default False.
         **kwargs: Additional keyword arguments including:
             detected_objects: If provided with frame_id, used to generate guide objects with astrometry.measure
             design_id: PFS design ID
@@ -632,7 +649,7 @@ def get_guide_objects(
         # Mark which guide objects should be filtered (only GALAXIES for now).
         logger.info(f"Guide objects before filtering: {len(guide_objects)}")
         guide_objects = filter_guide_objects(
-            guide_objects, is_acquisition=is_acquisition
+            guide_objects, is_guide=is_guide
         )
         logger.info(
             f"Guide objects after filtering: {len(guide_objects.query('filtered_by == 0'))}"
@@ -727,39 +744,42 @@ def write_agc_guide_offset(
         offset_flags (GuideOffsetFlag): Any flags for the data, stored in
             the `mask` column, defaults to `GuideOffsetFlag.OK`.
     """
-    params = dict(
-        agc_exposure_id=frame_id,
-        guide_ra=ra,
-        guide_dec=dec,
-        guide_pa=pa,
-        guide_delta_ra=float(delta_ra),
-        guide_delta_dec=float(delta_dec),
-        guide_delta_insrot=float(delta_insrot),
-        guide_delta_scale=float(delta_scale),
-        guide_delta_az=float(delta_az),
-        guide_delta_el=float(delta_el),
-        mask=offset_flags.value,
-        guide_delta_z=float(delta_z),
-    )
-    if delta_zs is not None:
-        params.update(guide_delta_z1=float(delta_zs[0]))
-        params.update(guide_delta_z2=float(delta_zs[1]))
-        params.update(guide_delta_z3=float(delta_zs[2]))
-        params.update(guide_delta_z4=float(delta_zs[3]))
-        params.update(guide_delta_z5=float(delta_zs[4]))
-        params.update(guide_delta_z6=float(delta_zs[5]))
+    try:
+        params = dict(
+            agc_exposure_id=frame_id,
+            guide_ra=float(ra),
+            guide_dec=float(dec),
+            guide_pa=float(pa),
+            guide_delta_ra=float(delta_ra),
+            guide_delta_dec=float(delta_dec),
+            guide_delta_insrot=float(delta_insrot),
+            guide_delta_scale=float(delta_scale),
+            guide_delta_az=float(delta_az) if delta_az is not None else None,
+            guide_delta_el=float(delta_el) if delta_el is not None else None,
+            mask=offset_flags.value,
+            guide_delta_z=float(delta_z),
+        )
+        if delta_zs is not None:
+            params.update(guide_delta_z1=float(delta_zs[0]))
+            params.update(guide_delta_z2=float(delta_zs[1]))
+            params.update(guide_delta_z3=float(delta_zs[2]))
+            params.update(guide_delta_z4=float(delta_zs[3]))
+            params.update(guide_delta_z5=float(delta_zs[4]))
+            params.update(guide_delta_z6=float(delta_zs[5]))
 
-    logger.info(f"Writing agc_guide_offsets with {params=}")
-    get_db("opdb").insert("agc_guide_offset", **params)
+        logger.info(f"Writing agc_guide_offsets with {params=}")
+        get_db("opdb").insert("agc_guide_offset", **params)
+    except Exception as e:
+        logger.warning(f"Failed to write agc_guide_offsets: {e}")
 
 
 def write_agc_match(
     *,
     design_id: int,
     frame_id: int,
-    guide_objects: NDArray,
-    detected_objects: NDArray,
-    identified_objects: NDArray,
+    guide_objects: pd.DataFrame,
+    detected_objects: pd.DataFrame,
+    identified_objects: pd.DataFrame,
 ) -> int | None:
     """Insert AG identified objects into opdb.agc_match.
 
@@ -767,9 +787,9 @@ def write_agc_match(
     -----------
     design_id (int): The PFS design ID.
     frame_id (int): The exposure ID for the AGC frame.
-    guide_objects (NDArray): Dictionary or structured array containing guide star data.
-    detected_objects (NDArray): Dictionary or structured array containing detected object data.
-    identified_objects (NDArray): An iterable of tuples, where each tuple contains
+    guide_objects (pd.DataFrame): Dictionary or structured array containing guide star data.
+    detected_objects (pd.DataFrame): Dictionary or structured array containing detected object data.
+    identified_objects (pd.DataFrame): An iterable of tuples, where each tuple contains
                                    indices and coordinate data for a matched object.
                                    Expected format: (detected_idx, guide_idx,
                                    center_x, center_y, nominal_x, nominal_y, ...)
@@ -779,36 +799,39 @@ def write_agc_match(
     int | None
         The number of identified objects inserted or None if no matches.
     """
-    rows_to_insert = []
-    for match in identified_objects:
-        detected_idx = match[0]
-        guide_idx = match[1]
-        center_x_mm = match[2]
-        center_y_mm = match[3] * -1  # TODO: move negative, see INSTRM-2654
-        nominal_x_mm = match[4]
-        nominal_y_mm = match[5] * -1  # TODO: move negative, see INSTRM-2654
+    try:
+        rows_to_insert = []
+        for idx, match in identified_objects.iterrows():
+            detected_idx = int(match.detected_object_id)
+            guide_idx = int(match.guide_object_id)
+            center_x_mm = float(match.guide_object_x_mm)
+            center_y_mm = float(match.guide_object_y_mm) * -1  # TODO: move negative, see INSTRM-2654
+            nominal_x_mm = float(match.detected_object_x_mm)
+            nominal_y_mm = float(match.detected_object_y_mm) * -1  # TODO: move negative, see INSTRM-2654
 
-        row = {
-            "pfs_design_id": design_id,
-            "agc_exposure_id": frame_id,
-            "agc_camera_id": int(detected_objects["agc_camera_id"][detected_idx]),
-            "spot_id": int(detected_objects["spot_id"][detected_idx]),
-            "guide_star_id": int(guide_objects["source_id"][guide_idx]),
-            "agc_nominal_x_mm": float(nominal_x_mm),
-            "agc_nominal_y_mm": float(nominal_y_mm),
-            "agc_center_x_mm": float(center_x_mm),
-            "agc_center_y_mm": float(center_y_mm),
-            "flags": int(guide_objects["filtered_by"][guide_idx]),
-        }
-        rows_to_insert.append(row)
+            row = {
+                "pfs_design_id": design_id,
+                "agc_exposure_id": frame_id,
+                "agc_camera_id": int(detected_objects["agc_camera_id"][detected_idx]),
+                "spot_id": int(detected_objects["spot_id"][detected_idx]),
+                "guide_star_id": int(guide_objects["source_id"][guide_idx]),
+                "agc_nominal_x_mm": float(nominal_x_mm),
+                "agc_nominal_y_mm": float(nominal_y_mm),
+                "agc_center_x_mm": float(center_x_mm),
+                "agc_center_y_mm": float(center_y_mm),
+                "flags": int(guide_objects["filtered_by"][guide_idx]),
+            }
+            rows_to_insert.append(row)
 
-    if rows_to_insert:
-        df = pd.DataFrame(rows_to_insert)
-        logger.debug("Inserting data into database")
-        n_rows = get_db("opdb").insert_dataframe(df=df, table="agc_match")
-        logger.info(f"Finished inserting agc_match data: {n_rows} rows inserted")
+        if rows_to_insert:
+            df = pd.DataFrame(rows_to_insert)
+            logger.debug("Inserting data into database")
+            n_rows = get_db("opdb").insert_dataframe(df=df, table="agc_match")
+            logger.info(f"Finished inserting agc_match data: {n_rows} rows inserted")
 
-        return n_rows
+            return n_rows
+    except Exception as e:
+        logger.warning(f"Failed to insert agc_match data: {e}")
 
     return None
 
@@ -1048,7 +1071,7 @@ WHERE pfs_design_id=%s
 
 
 def filter_guide_objects(
-    guide_objects, is_acquisition=False, flag_column="flags"
+    guide_objects, is_guide=False, flag_column="flags"
 ) -> pd.DataFrame:
     """Apply filtering to the guide objects based on their flags.
 
@@ -1067,7 +1090,7 @@ def filter_guide_objects(
     ----------
     guide_objects : pd.DataFrame
         DataFrame containing guide object data including a column for flags.
-    is_acquisition : bool, optional
+    is_guide : bool, optional
         If True, filter the objects to only include high quality GAIA stars, default False.
     flag_column : str, optional
         Indicates the column name that includes the filter flags.
@@ -1099,7 +1122,7 @@ def filter_guide_objects(
         )
         logger.info(f"Filtered {binary_idx.sum()} binary objects from results.")
 
-        if is_acquisition:
+        if is_guide:
             filters_for_inclusion = [
                 AutoGuiderStarMask.GAIA,
                 AutoGuiderStarMask.PHOTO_SIG,
