@@ -49,7 +49,7 @@ class ag:
     MAX_SIZE = 20.0  # pix
     MIN_SIZE = 0.92  # pix
     MAX_RESIDUAL = 0.2  # mm
-    MAX_CORRECTION = 1.0  # arcsec
+    MAX_CORRECTION = 10.0  # arcsec
     EXPOSURE_DELAY = 100  # ms
     TEC_OFF = False
 
@@ -564,7 +564,7 @@ class AgThread(threading.Thread):
                             guide_status = "OK"
                         else:
                             offset_flags = GuideOffsetFlag.INVALID_OFFSET
-                            guide_status = f"INVALID_OFFSET: Guide correction is larger than {max_correction} arcsec."
+                            guide_status = f"INVALID_OFFSET"
 
                         if offset_flags == GuideOffsetFlag.OK:
                             # send corrections to mlp1 and gen2 (or iic)
