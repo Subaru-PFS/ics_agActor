@@ -577,7 +577,7 @@ class AgThread(threading.Thread):
                                     taken_at,
                                     dx * 1e3,
                                     -dy * 1e3,
-                                    size * 13 / 98e-3,
+                                    size,
                                     peak,
                                     flux,
                                 ),
