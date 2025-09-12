@@ -295,8 +295,9 @@ class AgThread(threading.Thread):
         while True:
             if self.__stop.is_set():
                 self.__stop.clear()
-                self.logger.info("AgThread.run: stop has been set, breaking from loop")
-                break
+                self.logger.info("AgThread.run: stop has been set, setting mode to OFF")
+                self._set_params(mode=ag.Mode.OFF)
+
             start = time.time()
             mode, design, visit_id, exposure_time, cadence, center, options = (
                 self._get_params()
