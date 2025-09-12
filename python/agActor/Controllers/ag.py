@@ -49,7 +49,7 @@ class ag:
     MAX_SIZE = 20.0  # pix
     MIN_SIZE = 0.92  # pix
     MAX_RESIDUAL = 0.2  # mm
-    MAX_CORRECTION = 1.0  # arcsec
+    MAX_CORRECTION = 10.0  # arcsec
     EXPOSURE_DELAY = 100  # ms
     TEC_OFF = False
 
@@ -295,8 +295,9 @@ class AgThread(threading.Thread):
         while True:
             if self.__stop.is_set():
                 self.__stop.clear()
-                self.logger.info("AgThread.run: stop has been set, breaking from loop")
-                break
+                self.logger.info("AgThread.run: stop has been set, setting mode to OFF")
+                self._set_params(mode=ag.Mode.OFF)
+
             start = time.time()
             mode, design, visit_id, exposure_time, cadence, center, options = (
                 self._get_params()
@@ -563,7 +564,7 @@ class AgThread(threading.Thread):
                             guide_status = "OK"
                         else:
                             offset_flags = GuideOffsetFlag.INVALID_OFFSET
-                            guide_status = f"INVALID_OFFSET: Guide correction is larger than {max_correction} arcsec."
+                            guide_status = f"INVALID_OFFSET"
 
                         if offset_flags == GuideOffsetFlag.OK:
                             # send corrections to mlp1 and gen2 (or iic)
@@ -577,7 +578,7 @@ class AgThread(threading.Thread):
                                     taken_at,
                                     dx * 1e3,
                                     -dy * 1e3,
-                                    size * 13 / 98e-3,
+                                    size,
                                     peak,
                                     flux,
                                 ),
@@ -604,6 +605,10 @@ class AgThread(threading.Thread):
                             **kwargs,
                         )
                         # send corrections to gen2 (or iic)
+                        if dalt is None:
+                            dalt = np.nan
+                        if daz is None:
+                            daz = np.nan
                         cmd.inform(
                             "guideErrors={},{},{},{},{},{},{},{},{}".format(
                                 frame_id, dra, ddec, dinr, daz, dalt, dz, dscale, guide_status

@@ -485,7 +485,7 @@ class AgCmd:
                         taken_at,
                         dx * 1e3,
                         -dy * 1e3,
-                        size * 13 / 98e-3,
+                        size,
                         peak,
                         flux,
                     ),
@@ -535,6 +535,11 @@ class AgCmd:
             )
             # send corrections to gen2 (or iic)
             guide_status = "OK"
+            if dalt is None:
+                dalt = np.nan
+            if daz is None:
+                daz = np.nan
+
             cmd.inform(
                 "guideErrors={},{},{},{},{},{},{},{},{}".format(
                     frame_id, dra, ddec, dinr, daz, dalt, dz, dscale, guide_status

@@ -114,7 +114,7 @@ def set_design_agc(*, frame_id=None, obswl=0.62, logger=None, **kwargs):
         kwargs["detected_objects"] = detected_objects
 
     # Get guide objects using the enhanced get_guide_objects function
-    guide_object_results = get_guide_objects(frame_id=frame_id, obswl=obswl, **kwargs)
+    guide_object_results = get_guide_objects(frame_id=frame_id, is_guide=True, obswl=obswl, **kwargs)
 
     log_message(logger, "Setting Field.guide_objects")
     Field.guide_objects = guide_object_results.guide_objects
