@@ -28,7 +28,7 @@ def updateTelStatus(actor, logger, visit_id=None):
     actor.queueCommand(
         actor="gen2",
         cmdStr=f"updateTelStatus caller={actor.name} {visitStr}",
-        timeLim=5,
+        timeLim=10,
     ).get()
     tel_status = actor.gen2.tel_status
 
