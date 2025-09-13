@@ -372,7 +372,8 @@ def get_guide_offsets(
     match_results_df.index = detected_objects[valid_detections].index
     match_results_df.index.name = 'detected_object_id'
     match_results_df.reset_index(inplace=True)
-    match_results_df.guide_object_id = match_results_df.guide_object_id.astype(int)
+    matched_guide_idx = match_results_df.guide_object_id.values
+    match_results_df.guide_object_id = good_guide_objects.iloc[matched_guide_idx].index
 
     match_results_df['agc_camera_id'] = detected_objects.loc[match_results_df.detected_object_id]['agc_camera_id'].values
 
@@ -409,7 +410,7 @@ def get_guide_offsets(
             'matched',
     ]]
 
-    logger.info(f"Identified objects: {len(identified_objects)}")
+    logger.info(f"Identified objects: {len(identified_objects)} Number valid: {len(identified_objects.query('matched == 1'))}")
     if len(identified_objects) == 0:
         logger.warning(f"No detected objects detected, offsets will be zero.")
 

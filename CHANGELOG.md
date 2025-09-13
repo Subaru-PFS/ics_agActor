@@ -2,7 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [1.1.36] - 2025-09-13
+- EngRun-Sept-2025-09-12 - EngRun updates from 09-12-2025:
+  - Make the NON_BINARY check part of the regular checks for guiding.
+  - Don't return a series for a single agc match.
+  - Change the `MAX_CORRECTION` default to `0.5` arcsec to match what's on the SA reconfigure screen.
+  - Fix the matched guide objects index. See INSTRM-2683
+
+## [1.1.35] - 2025-09-12
 - EngRun-Sept-2025 - EngRun updates from 09-11-2025:
   - Fix the "spot size" (seeing) sent to mlp1
   - Send `np.nan` instead of `None` values in `guideErrors`.

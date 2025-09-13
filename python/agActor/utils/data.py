@@ -920,6 +920,7 @@ def query_db(
     sql: str,
     params: dict | list | None = None,
     as_dataframe: bool = True,
+    single_as_series: bool = False,
     db: DB | None = None,
 ) -> pd.DataFrame | pd.Series | np.ndarray | None:
     """Helper method to return rows from the sql query either.
@@ -933,6 +934,9 @@ def query_db(
     as_dataframe : bool
         Whether to return a pandas dataframe from the sql query. If only one row
         is returned, return a pandas Series. Defaults to True.
+    single_as_series : bool
+        Whether to return a pandas series from the sql query. If only one row
+        is returned, return a pandas Series. Defaults to False.
     db : DB | None
         The database to use. Defaults to None, which uses `get_db("opdb").
 
@@ -944,7 +948,7 @@ def query_db(
     db = db or get_db("opdb")
     if as_dataframe:
         result = pd.read_sql(sql, db.engine, params=params)
-        if len(result) == 1:
+        if len(result) == 1 and single_as_series:
             result = result.iloc[0]
     else:
         result = db.fetchall(query=sql, params=params)
@@ -996,7 +1000,7 @@ FROM tel_status
 WHERE pfs_visit_id=%s AND status_sequence_id=%s
 """
     params = (pfs_visit_id, status_sequence_id)
-    return query_db(sql, params, as_dataframe=as_dataframe, **kwargs)
+    return query_db(sql, params, as_dataframe=as_dataframe, single_as_series=True, **kwargs)
 
 
 def query_agc_exposure(agc_exposure_id: int, as_dataframe: bool = True, **kwargs):
@@ -1023,7 +1027,7 @@ WHERE
     t0.agc_exposure_id=%s
 """
     params = (agc_exposure_id,)
-    return query_db(sql, params, as_dataframe=as_dataframe, **kwargs)
+    return query_db(sql, params, as_dataframe=as_dataframe, single_as_series=True, **kwargs)
 
 
 def query_pfs_design_agc(pfs_design_id: int, as_dataframe: bool = True, **kwargs):
@@ -1067,7 +1071,7 @@ FROM pfs_design
 WHERE pfs_design_id=%s
 """
     params = (pfs_design_id,)
-    return query_db(sql, params, as_dataframe=as_dataframe, **kwargs)
+    return query_db(sql, params, as_dataframe=as_dataframe, single_as_series=True, **kwargs)
 
 
 def filter_guide_objects(
@@ -1113,17 +1117,9 @@ def filter_guide_objects(
         )
         logger.info(f"Filtered {galaxy_idx.sum()} galaxies from results.")
 
-        # Filter out binaries (note the logic is backwards because we want *not* non-binaries).
-        binary_idx = (
-            guide_objects_df[flag_column] & AutoGuiderStarMask.NON_BINARY.value
-        ) == 0
-        guide_objects_df.loc[binary_idx, "filtered_by"] = (
-            AutoGuiderStarMask.NON_BINARY.value
-        )
-        logger.info(f"Filtered {binary_idx.sum()} binary objects from results.")
-
         if is_guide:
             filters_for_inclusion = [
+                AutoGuiderStarMask.NON_BINARY,
                 AutoGuiderStarMask.GAIA,
                 AutoGuiderStarMask.PHOTO_SIG,
                 AutoGuiderStarMask.ASTROMETRIC,
