@@ -128,14 +128,14 @@ def calculate_offsets(
 
     pfs = Subaru_POPT2_PFS_AG.PFS()
 
-    logger.info(f"Guide object before filtering: {len(guide_objects)=}")
+    logger.info(f"Guide object before filtering: {len(guide_objects)}")
     try:
         good_guide_objects = guide_objects.query('filtered_by == 0')
     except KeyError:
         logger.info(f"guide_objects missing 'filtered_by' attribute, using all objects")
         good_guide_objects = guide_objects
 
-    logger.info(f"Using {len(good_guide_objects)} guide objects for basis vectors")
+    logger.info(f"Guide objects after filtering: {len(good_guide_objects)}")
 
     ra_values = good_guide_objects.ra.values
     dec_values = good_guide_objects.dec.values
@@ -144,8 +144,6 @@ def calculate_offsets(
     basis_vector_0, basis_vector_1 = pfs.makeBasis(
         tel_ra, tel_de, ra_values, dec_values, dt, adc, instrument_rotation, m2pos3, wl
     )
-    logger.info(f"{len(basis_vector_0)=}")
-    logger.info(f"{len(basis_vector_1)=}")
 
     basis_vector_0 = np.insert(basis_vector_0, 2, magnitude_values, axis=1)
     basis_vector_1 = np.insert(basis_vector_1, 2, magnitude_values, axis=1)
@@ -168,11 +166,11 @@ def calculate_offsets(
         scaleflag,
         maxresid,
     )
-    flagged_match_idx = match_results[:, 8] == 1.0
-    logger.info(f"Matched {len(match_results[flagged_match_idx])} sources")
+    valid_resid_idx = match_results[:, 8] == 1.0
+    logger.info(f"Matched sources with valid residuals: {len(match_results[valid_resid_idx])}")
 
     residual_squares = match_results[:, 6] ** 2 + match_results[:, 7] ** 2
-    residual_squares[flagged_match_idx] = np.nan
+    residual_squares[valid_resid_idx] = np.nan
 
     with warnings.catch_warnings():
         warnings.simplefilter("error", RuntimeWarning)
