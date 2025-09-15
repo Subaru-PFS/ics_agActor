@@ -93,19 +93,14 @@ class AgActor(ICC):
                         if not self.connector.isConnected():
                             raise Exception(f"connection lost: params={self.params}")
 
-                # Log out the command result. Look for any timeouts.
-                found_timeout = False
+                # Log out the command result.
                 for reply in cmd_result.replyList:
                     self.logger.info(f"reply={reply.canonical()}")
-                    found_timeout = "F timeout" in reply.canonical()
 
                 # Log out whether the command failed.
                 self.logger.info(f"didFail={cmd_result.didFail}")
                 if cmd_result.didFail:
-                    if found_timeout:
-                        raise TimeoutError(f"command timeout: params={self.params}")
-                    else:
-                        raise Exception(f"command failed: params={self.params}")
+                    raise Exception(f"command failed: params={self.params}")
 
                 return cmd_result
 
