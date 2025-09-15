@@ -662,6 +662,9 @@ class AgThread(threading.Thread):
                     self.logger.info("AgThread.run: STOP")
                     cmd.inform("guideReady=0")
                     self._set_params(mode=ag.Mode.OFF)
+            except TimeoutError as e:
+                self.logger.error(f"AgThread.run: Timeout: {e}")
+                self.logger.warning("AgThread.run: Going to next iteration because of timeout")
             except Exception as e:
                 self.logger.error(f"AgThread.run error: {e}")
                 self.logger.error("AgThread.run: stopping run loop due to error")
