@@ -413,9 +413,14 @@ class AgThread(threading.Thread):
                         # update gen2 status values
                         self.logger.info("AgThread.run: getting gen2 status")
                         if self.with_gen2_status:
-                            tel_status = actorCalls.updateTelStatus(
-                                self.actor, self.logger, visit_id
-                            )
+                            try:
+                                tel_status = actorCalls.updateTelStatus(
+                                    self.actor, self.logger, visit_id
+                                )
+                            except Exception as e:
+                                # Raising a RuntimeError as this call is usually not fatal.
+                                raise RuntimeError(f"AgThread.updateTelStatus error: {e}")
+
                             self.logger.info(f"AgThread.run: tel_status={tel_status}")
                             kwargs["tel_status"] = tel_status
                             _tel_center = tel_center(
@@ -662,9 +667,9 @@ class AgThread(threading.Thread):
                     self.logger.info("AgThread.run: STOP")
                     cmd.inform("guideReady=0")
                     self._set_params(mode=ag.Mode.OFF)
-            except TimeoutError as e:
-                self.logger.error(f"AgThread.run: Timeout: {e}")
-                self.logger.warning("AgThread.run: Going to next iteration because of timeout")
+            except RuntimeError as e:
+                self.logger.error(f"AgThread.run: RuntimeError: {e}")
+                self.logger.warning("AgThread.run: Going to next iteration because of non-fatal error")
             except Exception as e:
                 self.logger.error(f"AgThread.run error: {e}")
                 self.logger.error("AgThread.run: stopping run loop due to error")
