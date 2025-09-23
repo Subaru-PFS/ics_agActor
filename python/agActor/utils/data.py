@@ -734,12 +734,12 @@ def write_agc_match(
         for idx, match in identified_objects.iterrows():
             detected_idx = int(match.detected_object_id)
             guide_idx = int(match.guide_object_id)
-            center_x_mm = float(match.guide_object_x_mm)
-            center_y_mm = (
+            nominal_x_mm = float(match.guide_object_x_mm)
+            nominal_y_mm = (
                 float(match.guide_object_y_mm) * -1
             )  # TODO: move negative, see INSTRM-2654
-            nominal_x_mm = float(match.detected_object_x_mm)
-            nominal_y_mm = (
+            center_x_mm = float(match.detected_object_x_mm)
+            center_y_mm = (
                 float(match.detected_object_y_mm) * -1
             )  # TODO: move negative, see INSTRM-2654
 
