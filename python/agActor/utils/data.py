@@ -753,7 +753,7 @@ def write_agc_match(
                 "agc_nominal_y_mm": float(nominal_y_mm),
                 "agc_center_x_mm": float(center_x_mm),
                 "agc_center_y_mm": float(center_y_mm),
-                "flags": int(guide_objects["filtered_by"][guide_idx]),
+                "flags": int(not match.matched),
             }
             rows_to_insert.append(row)
 

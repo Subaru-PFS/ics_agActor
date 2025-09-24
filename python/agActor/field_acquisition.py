@@ -345,17 +345,6 @@ def get_guide_offsets(
     guide_objects["x_dp"] = guide_x_dp
     guide_objects["y_dp"] = guide_y_dp
 
-    # 0 obj_x          1
-    # 1 obj_y          2
-    # 2 catalog_x      3
-    # 3 catalog_y      4
-    # 4 err_x
-    # 5 err_y
-    # 6 resid_x
-    # 7 resid_y
-    # 8 valid_resid    5
-    # 9 min_dist_index 0
-
     match_results_df = pd.DataFrame(
         match_results,
         columns=(
@@ -374,6 +363,9 @@ def get_guide_offsets(
     match_results_df.index = detected_objects[valid_detections].index
     match_results_df.index.name = "detected_object_id"
     match_results_df.reset_index(inplace=True)
+
+    # The guide_object_id values are indices into the good_guide_objects array.
+    # We need to convert them to the actual guide_object_id values.
     matched_guide_idx = match_results_df.guide_object_id.values
     match_results_df.guide_object_id = good_guide_objects.iloc[matched_guide_idx].index
 
@@ -416,11 +408,15 @@ def get_guide_offsets(
         ]
     ]
 
+    identified_objects['matched'] = identified_objects['matched'].astype(bool)
+
+    good_identified = identified_objects.query("matched == True")
+
     logger.info(
-        f"Identified objects: {len(identified_objects)} Number valid: {len(identified_objects.query('matched == 1'))}"
+        f"Identified objects: {len(identified_objects)} Number valid: {len(good_identified)}"
     )
-    if len(identified_objects) == 0:
-        logger.warning(f"No detected objects detected, offsets will be zero.")
+    if len(good_identified) == 0:
+        logger.warning("No detected objects matched, offsets will be zero.")
 
     # convert to arcsec
     logger.info(
