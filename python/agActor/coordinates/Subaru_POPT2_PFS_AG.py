@@ -1,5 +1,10 @@
+import logging
+
 import numpy as np
 from pfs.utils.coordinates import Subaru_POPT2_PFS as pfs
+from pfs.utils.datamodel.ag import SourceDetectionFlag
+
+logger = logging.getLogger(__name__)
 
 ### perturbation
 d_ra  = 1.0/3600.0
@@ -9,45 +14,68 @@ d_scl = 1.0e-05
 
 
 class PFS():
-    def sourceFilter(self, agarray, maxellip, maxsize, minsize):
-        ag_ccd  = agarray[:,0]
-        ag_id   = agarray[:,1]
-        ag_xc   = agarray[:,2]
-        ag_yc   = agarray[:,3]
-        ag_flx  = agarray[:,4]
-        ag_smma = agarray[:,5]
-        ag_smmi = agarray[:,6]
-        ag_flag = agarray[:,7]
+    def sourceFilter(self, detected_objects, maxellip, maxsize, minsize):
+        bad_ellip = ~detected_objects.eval('ellipticity < @maxellip')
+        bad_size = ~detected_objects.eval('@minsize < size < @maxsize')
 
-        # ellipticity condition
-        cellip = (1.0-ag_smmi/ag_smma)    < maxellip
-        # size condition (upper)
-        csizeU = np.sqrt(ag_smmi*ag_smma) < maxsize
-        # size condition (lower)
-        csizeL = np.sqrt(ag_smmi*ag_smma) > minsize
+        detected_objects.loc[bad_ellip, 'flags'] |= SourceDetectionFlag.BAD_ELLIP.value
+        detected_objects.loc[bad_size, 'flags'] |= SourceDetectionFlag.BAD_SHAPE.value
 
-        # flag condition (0: no glass, 1: with glass, 2-7 : edge and/or satulate)
-        cflag  = ag_flag < 2
+        return detected_objects
 
-        v = cellip*csizeU*csizeL*cflag
+    def RADECInRShiftA(self, obj_xdp, obj_ydp, obj_flag, v0, v1, inrflag, scaleflag, maxresid=0.5):
+        """
+        Estimate small pointing and instrument offsets by matching observed AG detections
+        to model-predicted catalog positions, then solving a linearized system.
 
-        vdatanum = np.sum(v)
+        What it does (high-level):
+        - Builds a linear basis of partial derivatives that describe how detector (x, y)
+          shift with respect to changes in RA, Dec, instrument rotator angle (INR) and
+          a small plate-scale term.
+        - Finds nearest catalog predictions to each observed object (with optional
+          condition/flag selecting between two catalog states v0 and v1, e.g., without/with glass).
+        - Computes a coarse RA/Dec translation using the local derivatives.
+        - Refines the match and solves a least-squares problem to estimate the offsets.
+        - Iteratively rejects outliers based on residuals and returns final offsets and a
+          detailed matching/residuals report.
 
-        oarray = np.zeros((vdatanum,8))
-        oarray[:,0] = ag_ccd[v]
-        oarray[:,1] = ag_id[v]
-        oarray[:,2] = ag_xc[v]
-        oarray[:,3] = ag_yc[v]
-        oarray[:,4] = ag_flx[v]
-        oarray[:,5] = ag_smma[v]
-        oarray[:,6] = ag_smmi[v]
-        oarray[:,7] = ag_flag[v]
+        Parameters
+        ----------
+        obj_xdp : array-like, shape (N,)
+            Observed detector x positions [mm] of AG objects.
+        obj_ydp : array-like, shape (N,)
+            Observed detector y positions [mm] of AG objects.
+        obj_flag : array-like, shape (N,)
+            Per-object flag; objects with value 1.0 use the v1 catalog/basis, others use v0.
+        v0 : ndarray, shape (M, >=9)
+            Catalog/basis for condition 0. Columns are:
+              [x_cat, y_cat, mag, dx/dRA, dy/dRA, dx/dDec, dy/dDec, dx/dINR, dy/dINR].
+            A small scale basis is synthesized as [x_cat, y_cat] * d_scl.
+        v1 : ndarray, shape (M, >=9)
+            Catalog/basis for condition 1 (same column convention as v0).
+        inrflag : int {0,1}
+            If 1, include INR derivative in the fit; if 0, omit it.
+        scaleflag : int {0,1}
+            If 1, include scale derivative in the fit; if 0, omit it.
+        maxresid : float, optional
+            Upper bound [mm] for the residual threshold used in outlier rejection.
 
-        return oarray, v
-
-
-    def RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag, scaleflag, maxresid=0.5):
-
+        Returns
+        -------
+        ra_offset : float
+            Estimated RA pointing offset in sky units, scaled by d_ra (arcsec converted to model step).
+        de_offset : float
+            Estimated Dec pointing offset in sky units, scaled by d_de.
+        inr_offset : float or NaN
+            Estimated instrument rotator offset (only meaningful if inrflag==1), scaled by d_inr.
+        scale_offset : float or NaN
+            Estimated small scale term (only meaningful if scaleflag==1), scaled by d_scl.
+        mr : ndarray, shape (N, 9)
+            Match/report matrix with columns:
+              [obj_x, obj_y, cat_x, cat_y, err_x, err_y, resid_x, resid_y, valid_mask, match_index]
+            where valid_mask is 1 for accepted matches after outlier rejection.
+        """
+        # Unpack catalog basis arrays for two different conditions (e.g., with/without glass)
         cat_xdp_0 = v0[:,0]
         cat_ydp_0 = v0[:,1]
         cat_mag_0 = v0[:,2]
@@ -72,6 +100,7 @@ class PFS():
         dxscl_1   = v1[:,0]*d_scl
         dyscl_1   = v1[:,1]*d_scl
 
+        # Average the basis vectors between the two conditions
         dxra  = (dxra_0  + dxra_1 )/2.0
         dyra  = (dyra_0  + dyra_1 )/2.0
         dxde  = (dxde_0  + dxde_1 )/2.0
@@ -81,30 +110,35 @@ class PFS():
         dxscl = (dxscl_0 + dxscl_1)/2.0
         dyscl = (dyscl_0 + dyscl_1)/2.0
 
+        # Identify objects with flag==1.0 (e.g., with glass)
         flg = np.where(obj_flag==1.0)
 
         n_obj = (obj_xdp.shape)[0]
 
+        # Compute differences between object and catalog positions for both conditions
         xdiff_0 = np.transpose([obj_xdp])-cat_xdp_0
         ydiff_0 = np.transpose([obj_ydp])-cat_ydp_0
         xdiff_1 = np.transpose([obj_xdp])-cat_xdp_1
         ydiff_1 = np.transpose([obj_ydp])-cat_ydp_1
 
+        # Use appropriate differences depending on flag
         xdiff = np.copy(xdiff_0)
         ydiff = np.copy(ydiff_0)
         xdiff[flg]=xdiff_1[flg]
         ydiff[flg]=ydiff_1[flg]
 
+        # Find closest catalog match for each object
         dist  = np.sqrt(xdiff**2+ydiff**2)
-
         min_dist_index   = np.nanargmin(dist, axis=1)
         min_dist_indices = np.array(range(n_obj), dtype='int'),min_dist_index
+
+        # Estimate RA/DEC offsets using median of matched differences
         rCRA = np.median((xdiff[min_dist_indices]*dyde[min_dist_index]-ydiff[min_dist_indices]*dxde[min_dist_index])/(dxra[min_dist_index]*dyde[min_dist_index]-dyra[min_dist_index]*dxde[min_dist_index]))
         rCDE = np.median((xdiff[min_dist_indices]*dyra[min_dist_index]-ydiff[min_dist_indices]*dxra[min_dist_index])/(dxde[min_dist_index]*dyra[min_dist_index]-dyde[min_dist_index]*dxra[min_dist_index]))
 
+        # Apply estimated offsets to catalog positions and recompute differences
         xdiff_0 = np.transpose([obj_xdp])-(cat_xdp_0+rCRA*dxra+rCDE*dxde)
         ydiff_0 = np.transpose([obj_ydp])-(cat_ydp_0+rCRA*dyra+rCDE*dyde)
-
         xdiff_1 = np.transpose([obj_xdp])-(cat_xdp_1+rCRA*dxra+rCDE*dxde)
         ydiff_1 = np.transpose([obj_ydp])-(cat_ydp_1+rCRA*dyra+rCDE*dyde)
 
@@ -113,18 +147,20 @@ class PFS():
         xdiff[flg]=xdiff_1[flg]
         ydiff[flg]=ydiff_1[flg]
 
+        # Find closest catalog match again after offset correction
         dist  = np.sqrt(xdiff**2+ydiff**2)
-
         min_dist_index   = np.nanargmin(dist, axis=1)
         min_dist_indices = np.array(range(n_obj), dtype='int'),min_dist_index
 
+        # Filter matches by distance threshold
         f  = dist[min_dist_indices] < 2.0
 
+        # Prepare matched object and catalog arrays
         match_obj_xdp  = obj_xdp
         match_obj_ydp  = obj_ydp
-        match_obj_int  = obj_int
         match_obj_flag = obj_flag
 
+        # Gather matched catalog basis vectors for both conditions
         match_cat_xdp_0 = (cat_xdp_0[min_dist_index])
         match_cat_ydp_0 = (cat_ydp_0[min_dist_index])
         match_cat_mag_0 = (cat_mag_0[min_dist_index])
@@ -149,6 +185,7 @@ class PFS():
         match_dxscl_1   = (dxscl_1[min_dist_index])
         match_dyscl_1   = (dyscl_1[min_dist_index])
 
+        # Use appropriate catalog values depending on flag
         match_cat_xdp = np.copy(match_cat_xdp_0)
         match_cat_ydp = np.copy(match_cat_ydp_0)
         match_cat_mag = np.copy(match_cat_mag_0)
@@ -162,7 +199,6 @@ class PFS():
         match_dyscl   = np.copy(match_dyscl_0)
 
         flg = np.where(match_obj_flag==1.0)
-
         match_cat_xdp[flg] = match_cat_xdp_1[flg]
         match_cat_ydp[flg] = match_cat_ydp_1[flg]
         match_cat_mag[flg] = match_cat_mag_1[flg]
@@ -175,11 +211,13 @@ class PFS():
         match_dxscl[flg]   = match_dxscl_1[flg]
         match_dyscl[flg]   = match_dyscl_1[flg]
 
+        # Build basis matrix for least squares fit
         dra  = np.concatenate([match_dxra,match_dyra])
         dde  = np.concatenate([match_dxde,match_dyde])
         dinr = np.concatenate([match_dxinr,match_dyinr])
         dscl = np.concatenate([match_dxscl,match_dyscl])
 
+        # Select which basis vectors to use depending on flags
         if inrflag == 1 and scaleflag == 1:
             basis= np.stack([dra,dde,dinr,dscl]).transpose()
         elif inrflag == 1 and scaleflag == 0:
@@ -189,28 +227,32 @@ class PFS():
         else:
             basis= np.stack([dra,dde]).transpose()
 
+        # Compute error vector between matched object and catalog positions
         errx = match_obj_xdp - match_cat_xdp
         erry = match_obj_ydp - match_cat_ydp
         err  = np.array([np.concatenate([errx,erry])]).transpose()
 
+        # Filter basis and error arrays by match quality
         newbasis = basis[np.concatenate([f,f])]
         newerr   = err[np.concatenate([f,f])]
+
+        # Solve for offsets using least squares
         A, residual, rank, sv = np.linalg.lstsq(newbasis, newerr, rcond = None)
 
+        # Compute residuals for each match
         match_obj_xy = np.stack([match_obj_xdp,match_obj_ydp]).transpose()
         match_cat_xy = np.stack([match_cat_xdp,match_cat_ydp]).transpose()
         err_xy       = np.stack([errx,erry]).transpose()
         resid_xy = (((err-np.dot(basis,A))[:,0]).reshape([2,-1])).transpose()
 
-        #### outlier rejection (threshold = min (maxresid=0.5mm, 3 * median of residual))
+        #### Outlier rejection loop (removes matches with large residuals)
         rej_thres_lim = maxresid
         rej_thres = np.min(np.array([np.nanmedian(np.sqrt(np.sum(resid_xy**2,axis=1)))*3, rej_thres_lim]))
+        logger.info(f'Rejection threshold: {rej_thres} mm (limit {rej_thres_lim} mm)')
         for rej_itr in range(5):
             resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
-
             vc  = np.where(np.concatenate([resid_r, resid_r], 0) < rej_thres)
             vch = np.where(np.concatenate([resid_r], 0) < rej_thres)
-
             basis2 = basis[vc]
             err2   = err[vc]
             A, residual, rank, sv = np.linalg.lstsq(basis2, err2, rcond = None)
@@ -218,13 +260,17 @@ class PFS():
             rej_thres_old = rej_thres
             resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
             rej_thres = np.min(np.array([np.nanmedian(resid_r[vch])*3,rej_thres_lim]))
+            logger.info(f'Rejection threshold: {rej_thres} mm (limit {rej_thres_lim} mm)')
             if(rej_thres == rej_thres_old):
                 break
 
+        # Final residuals and mask for accepted matches
+        logger.info(f'Final Rejection threshold: {rej_thres} mm (limit {rej_thres_lim} mm)')
         resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
         vcx = np.array([resid_r<rej_thres]).transpose()
         mr = np.block([match_obj_xy, match_cat_xy, err_xy, resid_xy, vcx, min_dist_index.reshape(-1,1)])
 
+        # Convert fit coefficients to physical offsets
         ra_offset    = 0.0
         de_offset    = 0.0
         inr_offset   = np.nan
@@ -247,6 +293,7 @@ class PFS():
             ra_offset    = A[0][0] * d_ra
             de_offset    = A[1][0] * d_de
 
+        # Return offsets and match results
         return ra_offset, de_offset, inr_offset, scale_offset, mr
 
     def makeBasis(self, tel_ra, tel_de, str_ra, str_de, t, adc, inr, m2pos3, wl):
@@ -322,10 +369,10 @@ class PFS():
         # return xdp0,ydp0, dxdpdra,dydpdra, dxdpdde,dydpdde, dxdpdinr,dydpdinr
         return v_0,v_1
 
-    def agarray2momentdifference(self, array, maxellip, maxsize, minsize):
+    def agarray2momentdifference(self, filtered_agarray, maxellip, maxsize, minsize):
         ##### array
         ### ccdid objectid xcent[mm] ycent[mm] flx[counts] semimajor[pix] semiminor[pix] Flag[0 or 1]
-        filtered_agarray, v = PFS.sourceFilter(self, array, maxellip, maxsize, minsize)
+        # filtered_agarray, v = PFS.sourceFilter(self, array, maxellip, maxsize, minsize)
         outarray=np.array([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
 
         for ccdid in range(1,7):

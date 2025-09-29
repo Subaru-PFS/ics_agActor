@@ -45,12 +45,12 @@ def _focus(detected_objects, logger=None, **kwargs):
                 ),  # semi-major and semi-minor axes
                 row["flags"],  # flags
             )
-            for idx, row in detected_objects.iterrows()
+            for idx, row in detected_objects.query('flags < 2').iterrows()
         ]
     )
     _kwargs = _map_kwargs(kwargs)
     log_message(logger, f"In _focus with _kwargs={_kwargs}")
-    dzs = calculate_focus_errors(_detected_objects, **_kwargs)
+    dzs = calculate_focus_errors(detected_objects, **_kwargs)
     log_message(logger, f"dzs={dzs}")
     dz = np.nanmedian(dzs)
     log_message(logger, f"dz={dz}")
