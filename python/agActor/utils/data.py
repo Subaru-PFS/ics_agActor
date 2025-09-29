@@ -13,8 +13,13 @@ from ics.utils.database.db import DB
 from ics.utils.database.gaia import GaiaDB
 from ics.utils.database.opdb import OpDB
 from numpy.typing import NDArray
+from pfs.utils.coordinates import coordinates
 from pfs.utils.datamodel.ag import AutoGuiderStarMask, SourceDetectionFlag
 
+from agActor.catalog import astrometry, gen2_gaia as gaia
+from agActor.catalog.pfs_design import pfsDesign as pfs_design
+from agActor.utils.logging import log_message
+from agActor.utils.math import semi_axes
 
 logger = logging.getLogger(__name__)
 
@@ -298,8 +303,8 @@ class GuideOffsets:
                     row.agc_camera_id,
                     row.x,
                     row.y,
-                    row.x_dp,
-                    row.y_dp,
+                    row.x_dp_mm,
+                    row.y_dp_mm,
                     row.flags,
                     row.filtered_by,
                 )
@@ -374,7 +379,7 @@ class GuideOffsets:
                     row.guide_object_x_pix,
                     row.guide_object_y_pix,
                     row.agc_camera_id,
-                    row.matched,
+                    row.valid_residual
                 )
                 for row in self.identified_objects.itertuples(index=False)
             ],
@@ -411,9 +416,7 @@ class GuideOffsets:
             0 if self.detected_objects is None else int(len(self.detected_objects))
         )
         n_matched = (
-            0
-            if self.identified_objects is None
-            else int(len(self.identified_objects.query("matched == 1")))
+            0 if self.identified_objects is None else int(len(self.identified_objects.query('valid_residual == 1')))
         )
 
         parts = [
@@ -589,6 +592,13 @@ def get_guide_objects(
     dec = dec or field_design.field_dec
     inst_pa = inst_pa or field_design.field_inst_pa
 
+    # Add the detector plane coordinates to the guide objects.
+    guide_x_dp, guide_y_dp = coordinates.det2dp(
+        guide_objects.agc_camera_id, guide_objects.x, guide_objects.y
+    )
+    guide_objects["x_dp_mm"] = guide_x_dp
+    guide_objects["y_dp_mm"] = guide_y_dp
+
     return GuideCatalog(
         guide_objects=guide_objects,
         ra=ra,
@@ -628,11 +638,34 @@ def get_detected_objects(
     logger.debug(f"Detected objects: {len(detected_objects)}")
 
     if filter_flag:
-        detected_objects = detected_objects.query(f"flags < {filter_flag}")
+        detected_objects = detected_objects.query(f"flags < {filter_flag}").copy()
         logger.debug(f"Detected objects after filtering: {len(detected_objects)=}")
 
     if len(detected_objects) == 0:
         raise RuntimeError("No valid spots detected, can't compute offsets")
+
+    # Get the xy coords in the detector plane from the centroid XY values for guide objects.
+    logger.info("Calculating detector plane coordinates for detected objects")
+    x_dp_mm, y_dp_mm = coordinates.det2dp(
+        detected_objects["agc_camera_id"],
+        detected_objects["centroid_x_pix"],
+        detected_objects["centroid_y_pix"],
+    )
+
+    # Get the semi-major and semi-minor axes for the guide objects.
+    logger.info("Calculating major and minor semi axes for detected objects")
+    semi_major, semi_minor = semi_axes(
+        detected_objects["central_image_moment_11_pix"],
+        detected_objects["central_image_moment_20_pix"],
+        detected_objects["central_image_moment_02_pix"],
+    )
+
+    detected_objects['x_dp_mm'] = x_dp_mm
+    detected_objects['y_dp_mm'] = y_dp_mm
+    detected_objects['semi_major_pix'] = semi_major
+    detected_objects['semi_minor_pix'] = semi_minor
+    detected_objects['size'] = np.sqrt(semi_major * semi_minor)
+    detected_objects['ellipticity'] = 1 - (semi_major / semi_minor)
 
     return detected_objects.reset_index(drop=True)
 
