@@ -265,6 +265,7 @@ class GuideOffsets:
     guide_objects: pd.DataFrame
     detected_objects: pd.DataFrame
     identified_objects: pd.DataFrame
+    match_results: pd.DataFrame
     dx: float
     dy: float
     size: float
@@ -685,7 +686,8 @@ def write_agc_guide_offset(
     delta_z: float | None = None,
     delta_zs: NDArray | None = None,
     offset_flags: GuideOffsetFlag = GuideOffsetFlag.OK,
-):
+    skip_write: bool = False,
+) -> Optional[dict]:
     """Write the guide offsets to the database.
 
     If a value is not passed to the function then the default `None` will be
@@ -706,7 +708,9 @@ def write_agc_guide_offset(
         delta_zs (NDArray | None): Focus offset per camera.
         offset_flags (GuideOffsetFlag): Any flags for the data, stored in
             the `mask` column, defaults to `GuideOffsetFlag.OK`.
+        skip_write (bool): If True, skip writing to the database (for testing), default False.
     """
+    params = None
     try:
         params = dict(
             agc_exposure_id=frame_id,
@@ -730,10 +734,13 @@ def write_agc_guide_offset(
             params.update(guide_delta_z5=float(delta_zs[4]))
             params.update(guide_delta_z6=float(delta_zs[5]))
 
-        logger.info(f"Writing agc_guide_offsets with {params=}")
-        get_db("opdb").insert("agc_guide_offset", **params)
+        if not skip_write:
+            logger.info(f"Writing agc_guide_offsets with {params=}")
+            get_db("opdb").insert("agc_guide_offset", **params)
     except Exception as e:
-        logger.warning(f"Failed to write agc_guide_offsets: {e}")
+        logger.warning(f"Failed to write agc_guide_offsets: {e:r}")
+
+    return params
 
 
 def write_agc_match(
@@ -743,7 +750,8 @@ def write_agc_match(
     guide_objects: pd.DataFrame,
     detected_objects: pd.DataFrame,
     identified_objects: pd.DataFrame,
-) -> int | None:
+    skip_write: bool = False,
+) -> Optional[pd.DataFrame]:
     """Insert AG identified objects into opdb.agc_match.
 
     Parameters:
@@ -756,12 +764,14 @@ def write_agc_match(
                                    indices and coordinate data for a matched object.
                                    Expected format: (detected_idx, guide_idx,
                                    center_x, center_y, nominal_x, nominal_y, ...)
+    skip_write (bool): If True, skip writing to the database (for testing), default False.
 
     Returns:
     --------
-    int | None
-        The number of identified objects inserted or None if no matches.
+    pd.DataFrame | None
+        The dataframe that was used to write the table entries.
     """
+    df = None
     try:
         rows_to_insert = []
         for idx, match in identified_objects.iterrows():
@@ -786,21 +796,24 @@ def write_agc_match(
                 "agc_nominal_y_mm": float(nominal_y_mm),
                 "agc_center_x_mm": float(center_x_mm),
                 "agc_center_y_mm": float(center_y_mm),
-                "flags": int(not match.matched),
+                "flags": int(not match.valid_residual),
             }
             rows_to_insert.append(row)
 
         if rows_to_insert:
             df = pd.DataFrame(rows_to_insert)
-            logger.debug("Inserting data into database")
-            n_rows = get_db("opdb").insert_dataframe(df=df, table="agc_match")
-            logger.info(f"Finished inserting agc_match data: {n_rows} rows inserted")
+            logger.info(f"Prepared {len(df)} rows for agc_match insertion")
 
-            return n_rows
+            if not skip_write:
+                logger.debug("Inserting data into database")
+                n_rows = get_db("opdb").insert_dataframe(df=df, table="agc_match")
+                logger.info(f"Finished inserting agc_match data: {n_rows} rows inserted")
+
+                return df
     except Exception as e:
         logger.warning(f"Failed to insert agc_match data: {e}")
 
-    return None
+    return df
 
 
 def search_gaia(ra, dec, radius=0.027 + 0.003):
