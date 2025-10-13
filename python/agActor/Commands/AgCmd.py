@@ -41,7 +41,8 @@ class AgCmd:
                 "[<min_size>] "
                 "[<max_residual>] "
                 "[<exposure_delay>] "
-                "[<tec_off>]",
+                "[<tec_off>] ",
+                "[<filter_bad_shape>]",
                 self.acquire_field,
             ),
             (
@@ -119,7 +120,8 @@ class AgCmd:
                 "[<max_residual>] "
                 "[<max_correction>] "
                 "[<exposure_delay>] "
-                "[<tec_off>]",
+                "[<tec_off>] ",
+                "[<filter_bad_shape>]",
                 self.reconfigure_autoguide,
             ),
             (
@@ -282,6 +284,10 @@ class AgCmd:
         tec_off = ag.TEC_OFF
         if "tec_off" in cmd.cmd.keywords:
             tec_off = bool(cmd.cmd.keywords["tec_off"].values[0])
+
+        kwargs["filter_bad_shape"] = ag.FILTER_BAD_SHAPE
+        if "filter_bad_shape" in cmd.cmd.keywords:
+            kwargs["filter_bad_shape"] = bool(cmd.cmd.keywords["filter_bad_shape"].values[0])
 
         self.actor.logger.info(f"AgCmd.acquire_field: kwargs={kwargs}")
 
@@ -840,6 +846,9 @@ class AgCmd:
         if "max_correction" in cmd.cmd.keywords:
             max_correction = float(cmd.cmd.keywords["max_correction"].values[0])
             kwargs["max_correction"] = max_correction
+
+        if "filter_bad_shape" in cmd.cmd.keywords:
+            kwargs["filter_bad_shape"] = bool(cmd.cmd.keywords['filter_bad_shape'].values[0])
 
         try:
             controller.reconfigure_autoguide(cmd=cmd, **kwargs)

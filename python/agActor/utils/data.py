@@ -23,7 +23,12 @@ logger = logging.getLogger(__name__)
 
 
 DB_CLASSES = {"opdb": OpDB, "gaia": GaiaDB}
-
+BAD_DETECTION_FLAGS = (
+    SourceDetectionFlag.SATURATED
+    | SourceDetectionFlag.EDGE
+    | SourceDetectionFlag.BAD_ELLIP
+    | SourceDetectionFlag.FLAT_TOP
+)
 
 class Database:
     def __init__(self):
@@ -709,7 +714,7 @@ def tweak_target_position(
 
 
 def get_detected_objects(
-    frame_id: int, filter_flag: int = SourceDetectionFlag.EDGE
+    frame_id: int, filter_flags: int | None = BAD_DETECTION_FLAGS
 ) -> pd.DataFrame:
     """Get the detected objects from opdb.agc_data.
 
@@ -717,8 +722,8 @@ def get_detected_objects(
     -----------
         frame_id: int
             The frame id of the frame.
-        filter_flag: SourceDetectionFlag | int
-            Flags greater than or equal to this flag will be filtered.
+        filter_flags: SourceDetectionFlag | int
+            Flag to filter out detected objects. Defaults to BAD_DETECTION_FLAGS.
 
     Returns:
     --------
@@ -734,9 +739,10 @@ def get_detected_objects(
     detected_objects = query_agc_data(frame_id)
     logger.debug(f"Detected objects: {len(detected_objects)}")
 
-    if filter_flag:
-        detected_objects = detected_objects.query(f"flags < {filter_flag}")
-        logger.debug(f"Detected objects after filtering: {len(detected_objects)=}")
+    if filter_flags:
+        logger.info(f"Filtering detected objects with bad flags: {filter_flags=}")
+        detected_objects = detected_objects[(detected_objects['flags'] & int(filter_flags)) == 0]
+        logger.debug(f"Detected objects after filtering bad flags: {len(detected_objects)=}")
 
     if len(detected_objects) == 0:
         raise RuntimeError("No valid spots detected, can't compute offsets")

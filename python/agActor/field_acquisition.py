@@ -6,10 +6,11 @@ from typing import Any, Dict, Sequence, Tuple
 import numpy as np
 import pandas as pd
 from pfs.utils.coordinates import coordinates
+from pfs.utils.datamodel.ag import SourceDetectionFlag
 
 from agActor.coordinates.FieldAcquisitionAndFocusing import calculate_offsets
 from agActor.utils import to_altaz
-from agActor.utils.data import GuideOffsets, get_detected_objects, get_guide_objects
+from agActor.utils.data import BAD_DETECTION_FLAGS, GuideOffsets, get_detected_objects, get_guide_objects
 from agActor.utils.math import semi_axes
 
 logger = logging.getLogger(__name__)
@@ -141,7 +142,13 @@ def acquire_field(
     )
 
     # Get the detected_objects, which will raise an exception if no valid spots are detected.
-    detected_objects = get_detected_objects(frame_id)
+    filter_flags = BAD_DETECTION_FLAGS
+    filter_bad_shape = kwargs.get("filter_bad_shape", False)
+    if filter_bad_shape:
+        filter_flags = filter_flags | SourceDetectionFlag.BAD_SHAPE
+    else:
+        filter_flags = filter_flags & ~SourceDetectionFlag.BAD_SHAPE
+    detected_objects = get_detected_objects(frame_id, filter_flags=filter_flags)
     logger.info(f"Detected objects: {len(detected_objects)}")
 
     parse_kwargs(kwargs)

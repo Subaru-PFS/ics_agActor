@@ -35,6 +35,7 @@ class ag:
     MAX_CORRECTION = 10  # arcsec
     EXPOSURE_DELAY = 100  # ms
     TEC_OFF = False
+    FILTER_BAD_SHAPE = False # By default we don't want to filter bad shape objects.
 
     class Params:
         __slots__ = (
@@ -58,6 +59,7 @@ class ag:
             "max_correction",
             "exposure_delay",
             "tec_off",
+            "filter_bad_shape",
         )
 
         def __init__(self, **kwargs):
@@ -388,6 +390,9 @@ class AgThread(threading.Thread):
                         kwargs["min_size"] = options.get("min_size")
                     if "max_residual" in options:
                         kwargs["max_residual"] = options.get("max_residual")
+
+                    if "filter_bad_shape" in options:
+                        kwargs["filter_bad_shape"] = options.get("filter_bad_shape")
 
                     # Compute guide errors for exposure.
                     cmd.inform("detectionState=1")
