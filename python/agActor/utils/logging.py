@@ -9,6 +9,7 @@ def log_message(logger: logging.Logger | None, message: str, level: str | int = 
         message: The message string to log.
         level: The logging level as string or int. Defaults to "INFO".
     """
+    logger = logger or logging.getLogger()
     if logger is not None:
         if isinstance(level, str):
             try:
