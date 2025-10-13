@@ -50,7 +50,7 @@ def _focus(detected_objects, logger=None, **kwargs):
     )
     _kwargs = _map_kwargs(kwargs)
     log_message(logger, f"In _focus with _kwargs={_kwargs}")
-    dzs = calculate_focus_errors(detected_objects, **_kwargs)
+    dzs = calculate_focus_errors(_detected_objects, **_kwargs)
     log_message(logger, f"dzs={dzs}")
     dz = np.nanmedian(dzs)
     log_message(logger, f"dz={dz}")
