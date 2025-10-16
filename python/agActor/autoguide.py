@@ -15,8 +15,7 @@ def get_exposure_offsets(
     *,
     frame_id: int,
     guide_catalog: GuideCatalog,
-    obswl: float = 0.62,
-    **kwargs,
+    obswl: float=0.62, **kwargs,
 ):
     """Calculate guiding corrections based on detected objects in a frame.
 
@@ -73,8 +72,7 @@ def get_exposure_offsets(
     _kwargs = field_acquisition.filter_kwargs(kwargs)
     logger.info(f"_kwargs={_kwargs}")
 
-    logger.info(
-        "Calling field_acquisition.calculate_guide_offsets from autoguide.get_exposure_offsets"
+    logger.info("Calling field_acquisition.calculate_guide_offsets from autoguide.get_exposure_offsets"
     )
     guide_offsets = field_acquisition.get_guide_offsets(
         guide_catalog.guide_objects,

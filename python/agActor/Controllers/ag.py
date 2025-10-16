@@ -291,9 +291,7 @@ class AgThread(threading.Thread):
                     telescope_state = None
                     if self.with_mlp1_status:
                         telescope_state = self.actor.mlp1.telescopeState
-                        self.logger.info(
-                            f"AgThread.run: telescopeState={telescope_state}"
-                        )
+                        self.logger.info(f"AgThread.run: telescopeState={telescope_state}")
                         kwargs["inr"] = telescope_state["rotator_real_angle"]
 
                     # update gen2 status values.
