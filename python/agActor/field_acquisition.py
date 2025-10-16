@@ -72,6 +72,7 @@ def parse_kwargs(kwargs):
 def acquire_field(
     *,
     design_id: int,
+    visit0: int,
     frame_id: int,
     obswl: float = 0.62,
     altazimuth: bool = True,
@@ -84,6 +85,8 @@ def acquire_field(
     ----------
     design_id: int
         The design ID to retrieve guide stars for.
+    visit0 : int
+        The visit ID to retrieve guide stars for.
     frame_id : int
         The frame ID to retrieve telescope status for.
     obswl : float, optional
@@ -143,7 +146,7 @@ def acquire_field(
 
     parse_kwargs(kwargs)
 
-    guide_catalog = get_guide_objects(design_id=design_id, is_guide=is_guide, **kwargs)
+    guide_catalog = get_guide_objects(design_id=design_id, visit0=visit0, is_guide=is_guide, **kwargs)
     guide_objects = guide_catalog.guide_objects
     ra = guide_catalog.ra
     dec = guide_catalog.dec

@@ -27,6 +27,7 @@ class AgCmd:
                 "[<design_id>] "
                 "[<design_path>] "
                 "[<visit_id>|<visit>] "
+                "[visit0]"
                 "[<exposure_time>] "
                 "[<guide>] "
                 "[<offset>] "
@@ -60,6 +61,7 @@ class AgCmd:
                 "[<design_id>] "
                 "[<design_path>] "
                 "[<visit_id>|<visit>] "
+                "[visit0]"
                 "[<from_sky>] "
                 "[<exposure_time>] "
                 "[<cadence>] "
@@ -129,7 +131,7 @@ class AgCmd:
         ]
         self.keys = keys.KeysDictionary(
             "ag_ag",
-            (1, 16),
+            (1, 17),
             keys.Key("exposure_time", types.Int(), help=""),
             keys.Key("cadence", types.Int(), help=""),
             keys.Key("guide", types.Bool("no", "yes"), help=""),
@@ -137,6 +139,7 @@ class AgCmd:
             keys.Key("design_path", types.String(), help=""),
             keys.Key("visit_id", types.Int(), help=""),
             keys.Key("visit", types.Int(), help=""),
+            keys.Key("visit0", types.Int(), help="The visit0 associated with a pfsConfig"),
             keys.Key("from_sky", types.Bool("no", "yes"), help=""),
             keys.Key("center", types.Float() * (2, 3), help=""),
             keys.Key("offset", types.Float() * (2, 4), help=""),
@@ -226,6 +229,11 @@ class AgCmd:
             visit_id = int(cmd.cmd.keywords["visit_id"].values[0])
         elif "visit" in cmd.cmd.keywords:
             visit_id = int(cmd.cmd.keywords["visit"].values[0])
+
+        visit0 = None
+        if "visit0" in cmd.cmd.keywords:
+            visit0 = int(cmd.cmd.keywords["visit0"].values[0])
+
         exposure_time = 2000  # ms
         if "exposure_time" in cmd.cmd.keywords:
             exposure_time = int(cmd.cmd.keywords["exposure_time"].values[0])
@@ -376,6 +384,7 @@ class AgCmd:
             )
             guide_offsets = field_acquisition.acquire_field(
                 design_id=design_id,
+                visit0=visit0,
                 frame_id=frame_id,
                 **kwargs,
             )
@@ -591,6 +600,12 @@ class AgCmd:
             visit_id = int(cmd.cmd.keywords["visit_id"].values[0])
         elif "visit" in cmd.cmd.keywords:
             visit_id = int(cmd.cmd.keywords["visit"].values[0])
+
+        visit0 = None
+        if "visit0" in cmd.cmd.keywords:
+            visit0 = int(cmd.cmd.keywords["visit0"].values[0])
+
+
         from_sky = None
         if "from_sky" in cmd.cmd.keywords:
             from_sky = bool(cmd.cmd.keywords["from_sky"].values[0])
@@ -648,6 +663,7 @@ class AgCmd:
                 cmd=cmd,
                 design=design,
                 visit_id=visit_id,
+                visit0=visit0,
                 from_sky=from_sky,
                 exposure_time=exposure_time,
                 cadence=cadence,
