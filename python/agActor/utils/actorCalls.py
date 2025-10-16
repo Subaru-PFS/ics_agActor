@@ -1,3 +1,44 @@
+def send_guide_offsets(
+    actor, taken_at, daz, dalt, dx, dy, size, peak, flux, dry_run, logger
+):
+    """Send guider offsets to mlp1.
+
+    Parameters
+    ----------
+    actor : `actorcore.Actor`
+       where to send commands and fetch results from.
+    logger : `logging.Logger`
+        Logger to use.
+
+    Returns
+    -------
+    mlp1_result : result of the mlp1 command
+    """
+    logger.info(
+        f"Calling mlp1.guide with caller={actor.name}, {taken_at=}, {daz=}, {dalt=}, {dx=}, {dy=}, {size=}, {peak=}, {flux=}, {dry_run=}"
+    )
+
+    # send corrections to mlp1 and gen2 (or iic)
+    mlp1_result = actor.queueCommand(
+        actor="mlp1",
+        # daz, dalt: arcsec, positive feedback; dx, dy: mas, HSC -> PFS; size: mas; peak, flux: adu
+        cmdStr="guide azel={},{} ready={} time={} delay=0 xy={},{} size={} intensity={} flux={}".format(
+            -daz,
+            -dalt,
+            int(not dry_run),
+            taken_at,
+            dx * 1e3,
+            -dy * 1e3,
+            size,
+            peak,
+            flux,
+        ),
+        timeLim=5,
+    ).get()
+
+    return mlp1_result
+
+
 def updateTelStatus(actor, logger, visit_id=None):
     """Fetch the current tel_status.
 
