@@ -16,8 +16,6 @@ logger = logging.getLogger(__name__)
 
 # mapping of keys and value types between field_acquisition.py and FieldAcquisitionAndFocusing.py
 _KEYMAP = {
-    "fit_dinr": ("inrflag", int),
-    "fit_dscale": ("scaleflag", int),
     "max_ellipticity": ("maxellip", float),
     "max_size": ("maxsize", float),
     "min_size": ("minsize", float),
@@ -73,9 +71,10 @@ def parse_kwargs(kwargs):
 
 def acquire_field(
     *,
+    design_id: int,
     frame_id: int,
     obswl: float = 0.62,
-    altazimuth: bool = False,
+    altazimuth: bool = True,
     is_guide: bool = False,
     **kwargs: Any,
 ) -> GuideOffsets:
@@ -83,12 +82,14 @@ def acquire_field(
 
     Parameters
     ----------
+    design_id: int
+        The design ID to retrieve guide stars for.
     frame_id : int
         The frame ID to retrieve telescope status for.
     obswl : float, optional
         Observation wavelength in nm, defaults to 0.62.
     altazimuth : bool, optional
-        Also return the AltAz coordinates in degrees, defaults to False.
+        Also return the AltAz coordinates in degrees, defaults to True.
     is_guide : bool, optional
         If we should filter the guide objects for acquisition, defaults to False.
         Should almost always be False for this function but provided here as a convenience.
@@ -142,17 +143,15 @@ def acquire_field(
 
     parse_kwargs(kwargs)
 
-    guide_object_results = get_guide_objects(
-        frame_id, obswl=obswl, is_guide=is_guide, **kwargs
-    )
-    guide_objects = guide_object_results.guide_objects
-    ra = guide_object_results.ra
-    dec = guide_object_results.dec
-    inr = guide_object_results.inr
-    inst_pa = guide_object_results.inst_pa
-    m2_pos3 = guide_object_results.m2_pos3
-    adc = guide_object_results.adc
-    taken_at = guide_object_results.taken_at
+    guide_catalog = get_guide_objects(design_id=design_id, is_guide=is_guide, **kwargs)
+    guide_objects = guide_catalog.guide_objects
+    ra = guide_catalog.ra
+    dec = guide_catalog.dec
+    inr = guide_catalog.inr
+    inst_pa = guide_catalog.inst_pa
+    m2_pos3 = guide_catalog.m2_pos3
+    adc = guide_catalog.adc
+    taken_at = guide_catalog.taken_at
     logger.info(f"Using {ra=},{dec=},{inst_pa=}")
 
     if "dra" in kwargs:
@@ -357,25 +356,30 @@ def get_guide_offsets(
     # 8 valid_resid    5
     # 9 min_dist_index 0
 
-    match_results_df = pd.DataFrame(match_results, columns=(
-        'detected_object_x_mm',
-        'detected_object_y_mm',
-        'guide_object_x_mm',
-        'guide_object_y_mm',
-        'err_x',
-        'err_y',
-        'resid_x',
-        'resid_y',
-        'matched',
-        'guide_object_id',
-    ))
+    match_results_df = pd.DataFrame(
+        match_results,
+        columns=(
+            "detected_object_x_mm",
+            "detected_object_y_mm",
+            "guide_object_x_mm",
+            "guide_object_y_mm",
+            "err_x",
+            "err_y",
+            "resid_x",
+            "resid_y",
+            "matched",
+            "guide_object_id",
+        ),
+    )
     match_results_df.index = detected_objects[valid_detections].index
-    match_results_df.index.name = 'detected_object_id'
+    match_results_df.index.name = "detected_object_id"
     match_results_df.reset_index(inplace=True)
     matched_guide_idx = match_results_df.guide_object_id.values
     match_results_df.guide_object_id = good_guide_objects.iloc[matched_guide_idx].index
 
-    match_results_df['agc_camera_id'] = detected_objects.loc[match_results_df.detected_object_id]['agc_camera_id'].values
+    match_results_df["agc_camera_id"] = detected_objects.loc[
+        match_results_df.detected_object_id
+    ]["agc_camera_id"].values
 
     guide_x_pix, guide_y_pix = coordinates.dp2det(
         match_results_df["agc_camera_id"],
@@ -389,28 +393,32 @@ def get_guide_offsets(
         match_results_df["detected_object_y_mm"],
     )
 
-    match_results_df['guide_object_x_pix'] = guide_x_pix
-    match_results_df['guide_object_y_pix'] = guide_y_pix
+    match_results_df["guide_object_x_pix"] = guide_x_pix
+    match_results_df["guide_object_y_pix"] = guide_y_pix
 
-    match_results_df['detected_object_x_pix'] = detected_x_pix
-    match_results_df['detected_object_y_pix'] = detected_y_pix
+    match_results_df["detected_object_x_pix"] = detected_x_pix
+    match_results_df["detected_object_y_pix"] = detected_y_pix
 
-    identified_objects = match_results_df[[
-            'detected_object_id',
-            'guide_object_id',
-            'detected_object_x_mm',
-            'detected_object_y_mm',
-            'guide_object_x_mm',
-            'guide_object_y_mm',
-            'detected_object_x_pix',
-            'detected_object_y_pix',
-            'guide_object_x_pix',
-            'guide_object_y_pix',
-            'agc_camera_id',
-            'matched',
-    ]]
+    identified_objects = match_results_df[
+        [
+            "detected_object_id",
+            "guide_object_id",
+            "detected_object_x_mm",
+            "detected_object_y_mm",
+            "guide_object_x_mm",
+            "guide_object_y_mm",
+            "detected_object_x_pix",
+            "detected_object_y_pix",
+            "guide_object_x_pix",
+            "guide_object_y_pix",
+            "agc_camera_id",
+            "matched",
+        ]
+    ]
 
-    logger.info(f"Identified objects: {len(identified_objects)} Number valid: {len(identified_objects.query('matched == 1'))}")
+    logger.info(
+        f"Identified objects: {len(identified_objects)} Number valid: {len(identified_objects.query('matched == 1'))}"
+    )
     if len(identified_objects) == 0:
         logger.warning(f"No detected objects detected, offsets will be zero.")
 

@@ -10,6 +10,7 @@ from agActor import field_acquisition
 from agActor.Controllers.ag import ag
 from agActor.catalog import pfs_design
 from agActor.utils import actorCalls, data as data_utils, focus as _focus
+from agActor.utils.actorCalls import send_guide_offsets
 from agActor.utils.data import setup_db
 from agActor.utils.telescope_center import telCenter as tel_center
 
@@ -28,27 +29,6 @@ class AgCmd:
                 "[<visit_id>|<visit>] "
                 "[<exposure_time>] "
                 "[<guide>] "
-                "[<offset>] "
-                "[<dinr>] "
-                "[<magnitude>] "
-                "[<dry_run>] "
-                "[<fit_dinr>] "
-                "[<fit_dscale>] "
-                "[<max_ellipticity>] "
-                "[<max_size>] "
-                "[<min_size>] "
-                "[<max_residual>] "
-                "[<exposure_delay>] "
-                "[<tec_off>]",
-                self.acquire_field,
-            ),
-            (
-                "acquire_field",
-                "@otf "
-                "[<visit_id>|<visit>] "
-                "[<exposure_time>] "
-                "[<guide>] "
-                "[<center>] "
                 "[<offset>] "
                 "[<dinr>] "
                 "[<magnitude>] "
@@ -99,53 +79,11 @@ class AgCmd:
             ),
             (
                 "autoguide",
-                "@start "
-                "@otf "
-                "[<visit_id>|<visit>] "
-                "[<exposure_time>] "
-                "[<cadence>] "
-                "[<center>] "
-                "[<magnitude>] "
-                "[<dry_run>] "
-                "[<fit_dinr>] "
-                "[<fit_dscale>] "
-                "[<max_ellipticity>] "
-                "[<max_size>] "
-                "[<min_size>] "
-                "[<max_residual>] "
-                "[<max_correction>] "
-                "[<exposure_delay>] "
-                "[<tec_off>]",
-                self.start_autoguide,
-            ),
-            (
-                "autoguide",
                 "@initialize "
                 "[<design_id>] "
                 "[<design_path>] "
                 "[<visit_id>|<visit>] "
                 "[<from_sky>] "
-                "[<exposure_time>] "
-                "[<cadence>] "
-                "[<center>] "
-                "[<magnitude>] "
-                "[<dry_run>] "
-                "[<fit_dinr>] "
-                "[<fit_dscale>] "
-                "[<max_ellipticity>] "
-                "[<max_size>] "
-                "[<min_size>] "
-                "[<max_residual>] "
-                "[<max_correction>] "
-                "[<exposure_delay>] "
-                "[<tec_off>]",
-                self.initialize_autoguide,
-            ),
-            (
-                "autoguide",
-                "@initialize "
-                "@otf "
-                "[<visit_id>|<visit>] "
                 "[<exposure_time>] "
                 "[<cadence>] "
                 "[<center>] "
@@ -431,41 +369,39 @@ class AgCmd:
             # retrieve guide star coordinates from opdb
             # retrieve metrics of detected objects from opdb
             # compute offsets, scale, transparency, and seeing
-            dalt = daz = np.nan
+            cmd.inform("detectionState=1")
+
+            self.actor.logger.info(
+                "AgCmd.acquire_field: Calling field_acquisition.acquire_field for guiding"
+            )
+            guide_offsets = field_acquisition.acquire_field(
+                design_id=design_id,
+                frame_id=frame_id,
+                **kwargs,
+            )
+
+            ra = guide_offsets.ra
+            dec = guide_offsets.dec
+            inst_pa = guide_offsets.inst_pa
+            dra = guide_offsets.ra_offset
+            ddec = guide_offsets.dec_offset
+            dinr = guide_offsets.inr_offset
+            dscale = guide_offsets.scale_offset
+            dalt = guide_offsets.dalt
+            daz = guide_offsets.daz
+
+            cmd.inform(
+                f'text="{ra=},{dec=},{inst_pa=},{dra=},{ddec=},{dinr=},{dscale=},{dalt=},{daz=}"'
+            )
+
+            filenames = guide_offsets.save_numpy_files()
+
+            cmd.inform(
+                'data={},{},{},"{}","{}","{}"'.format(ra, dec, inst_pa, *filenames)
+            )
+            cmd.inform("detectionState=0")
+
             if guide:
-                self.actor.logger.info("AgCmd.acquire_field: guide=True")
-                cmd.inform("detectionState=1")
-                # convert equatorial coordinates to horizontal coordinates
-                self.actor.logger.info(
-                    "AgCmd.acquire_field: Calling field_acquisition.acquire_field for guiding"
-                )
-                guide_offsets = field_acquisition.acquire_field(
-                    design=design,
-                    frame_id=frame_id,
-                    altazimuth=True,
-                    **kwargs,
-                )
-
-                ra = guide_offsets.ra
-                dec = guide_offsets.dec
-                inst_pa = guide_offsets.inst_pa
-                dra = guide_offsets.ra_offset
-                ddec = guide_offsets.dec_offset
-                dinr = guide_offsets.inr_offset
-                dscale = guide_offsets.scale_offset
-                dalt = guide_offsets.dalt
-                daz = guide_offsets.daz
-
-                cmd.inform(
-                    f'text="{ra=},{dec=},{inst_pa=},{dra=},{ddec=},{dinr=},{dscale=},{dalt=},{daz=}"'
-                )
-
-                filenames = guide_offsets.save_numpy_files()
-
-                cmd.inform(
-                    'data={},{},{},"{}","{}","{}"'.format(ra, dec, inst_pa, *filenames)
-                )
-                cmd.inform("detectionState=0")
                 dx, dy, size, peak, flux = (
                     guide_offsets.dx,
                     guide_offsets.dy,
@@ -473,59 +409,19 @@ class AgCmd:
                     guide_offsets.peak,
                     guide_offsets.flux,
                 )
-
-                # send corrections to mlp1 and gen2 (or iic)
-                mlp1_result = self.actor.queueCommand(
-                    actor="mlp1",
-                    # daz, dalt: arcsec, positive feedback; dx, dy: mas, HSC -> PFS; size: mas; peak, flux: adu
-                    cmdStr="guide azel={},{} ready={} time={} delay=0 xy={},{} size={} intensity={} flux={}".format(
-                        -daz,
-                        -dalt,
-                        int(not dry_run),
-                        taken_at,
-                        dx * 1e3,
-                        -dy * 1e3,
-                        size,
-                        peak,
-                        flux,
-                    ),
-                    timeLim=5,
+                send_guide_offsets(
+                    self.actor,
+                    taken_at,
+                    daz,
+                    dalt,
+                    dx,
+                    dy,
+                    size,
+                    peak,
+                    flux,
+                    dry_run,
+                    logger=self.actor.logger,
                 )
-                mlp1_result.get()
-            else:
-                self.actor.logger.info("AgCmd.acquire_field: guide=False")
-                cmd.inform("detectionState=1")
-                self.actor.logger.info(
-                    "AgCmd.acquire_field: Calling field_acquisition.acquire_field not guiding"
-                )
-                guide_offsets = field_acquisition.acquire_field(
-                    design=design,
-                    frame_id=frame_id,
-                    **kwargs,
-                )  # design takes precedence over center
-                ra = guide_offsets.ra
-                dec = guide_offsets.dec
-                inst_pa = guide_offsets.inst_pa
-                dra = guide_offsets.ra_offset
-                ddec = guide_offsets.dec_offset
-                dinr = guide_offsets.inr_offset
-                dscale = guide_offsets.scale_offset
-                dalt = guide_offsets.dalt
-                daz = guide_offsets.daz
-                guide_files = [
-                    guide_offsets.guide_objects,
-                    guide_offsets.detected_objects,
-                    guide_offsets.identified_objects,
-                ]
-                cmd.inform(f'text="dra={dra},ddec={ddec},dinr={dinr},dscale={dscale}"')
-
-                filenames = guide_offsets.save_numpy_files()
-
-                cmd.inform(
-                    'data={},{},{},"{}","{}","{}"'.format(ra, dec, inst_pa, *filenames)
-                )
-                cmd.inform("detectionState=0")
-                # send corrections to gen2 (or iic)
 
             # always compute focus offset and tilt
             self.actor.logger.info("AgCmd.acquire_field: Calling focus._focus")
@@ -649,7 +545,15 @@ class AgCmd:
             guide_status = "OK"
             cmd.inform(
                 "guideErrors={},{},{},{},{},{},{},{},{}".format(
-                    frame_id, np.nan, np.nan, np.nan, np.nan, np.nan, dz, np.nan, guide_status
+                    frame_id,
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    dz,
+                    np.nan,
+                    guide_status,
                 )
             )
             cmd.inform("focusErrors={},{},{},{},{},{},{}".format(frame_id, *dzs))

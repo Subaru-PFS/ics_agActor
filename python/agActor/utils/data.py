@@ -15,9 +15,6 @@ from ics.utils.database.opdb import OpDB
 from numpy.typing import NDArray
 from pfs.utils.datamodel.ag import AutoGuiderStarMask, SourceDetectionFlag
 
-from agActor.catalog import astrometry, gen2_gaia as gaia
-from agActor.catalog.pfs_design import pfsDesign as pfs_design
-from agActor.utils.logging import log_message
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +113,7 @@ def get_db(dbname: str) -> DB | None:
 
 
 @dataclass
-class GuideObjectsResult:
+class GuideCatalog:
     """Result of the get_guide_objects function.
 
     Attributes:
@@ -377,7 +374,7 @@ class GuideOffsets:
                     row.guide_object_x_pix,
                     row.guide_object_y_pix,
                     row.agc_camera_id,
-                    row.matched
+                    row.matched,
                 )
                 for row in self.identified_objects.itertuples(index=False)
             ],
@@ -414,7 +411,9 @@ class GuideOffsets:
             0 if self.detected_objects is None else int(len(self.detected_objects))
         )
         n_matched = (
-            0 if self.identified_objects is None else int(len(self.identified_objects.query('matched == 1')))
+            0
+            if self.identified_objects is None
+            else int(len(self.identified_objects.query("matched == 1")))
         )
 
         parts = [
@@ -422,9 +421,9 @@ class GuideOffsets:
             f"Field: RA={self.ra:.6f} deg, Dec={self.dec:.6f} deg, PA={self.inst_pa:.3f} deg",
             (
                 "Offsets: "
-                f'dRA={self.ra_offset:.3f} arcsec '
-                f'dDec={self.dec_offset:.3f} arcsec '
-                f'dINR={self.inr_offset:.3f} arcsec '
+                f"dRA={self.ra_offset:.3f} arcsec "
+                f"dDec={self.dec_offset:.3f} arcsec "
+                f"dINR={self.inr_offset:.3f} arcsec "
                 f"dScale={self.scale_offset:.6f} "
                 f"dAlt={self.dalt:.3f} arcsec "
                 f"dAz={self.daz:.3f} arcsec "
@@ -506,59 +505,61 @@ def get_telescope_status(*, frame_id, **kwargs):
 
 
 def get_guide_objects(
-    frame_id=None, obswl: float = 0.62, is_guide: bool = False, **kwargs
-) -> GuideObjectsResult:
+    *,
+    design_id: int,
+    design_path: str | None = None,
+    is_guide: bool = False,
+    **kwargs,
+) -> GuideCatalog:
     """Get the guide objects for a given frame or from other sources.
 
-    The guide objects can come from four separate sources:
-    1. REF_SKY: If frame_id is provided and detected_objects are passed, guide objects are generated using astrometry.measure.
-    2. REF_OTF: If neither design_id nor design_path is provided, guide objects are fetched from the Gaia database.
-    3. REF_DB:  If design_id and design_path are provided, guide objects are fetched from the specified PFS design file.
-    4. REF_DB:  If only design_id is provided, guide objects are fetched from the operational database (opdb).
+    Parameters
+    ----------
+    design_id : int
+        The PFS design ID.
+    design_path : str, optional
+        The path to the PFS design file. If None, guide objects are fetched from opdb if design_id is provided.
+    is_guide : bool, optional
+        If True, guide objects are filtered to only include high quality stars.
+    **kwargs : dict
+        Additional keyword arguments:
 
-    Parameters:
-        frame_id (int, optional): The frame id of the frame. If None, telescope status is taken from kwargs.
-        obswl (float): The observation wavelength in microns, by default 0.62.
-        is_guide (bool, optional): If True, guide objects are filtered to only include high quality stars, default False.
-        **kwargs: Additional keyword arguments including:
-            detected_objects: If provided with frame_id, used to generate guide objects with astrometry.measure
-            design_id: PFS design ID
-            design_path: Path to PFS design file
-            ra, dec, inst_pa: Field center coordinates and position angle
-            taken_at, inr, adc, m2_pos3: Telescope status parameters
+        - ra, dec, inst_pa : Field center coordinates and position angle
+        - taken_at, inr, adc, m2_pos3 : Telescope status parameters
 
-    Returns:
-        GuideObjectsResult: A dataclass containing:
-            guide_objects (np.ndarray): The guide objects.
-            ra (float): The right ascension of the field.
-            dec (float): The declination of the field.
-            inr (float): The instrument rotator angle.
-            inst_pa (float): The instrument position angle.
-            m2_pos3 (float): The M2 position 3 value.
-            adc (float): The ADC setting.
-            taken_at (datetime): The time the frame was taken.
+    Returns
+    -------
+    GuideCatalog
+        A dataclass containing:
+
+        - guide_objects : np.ndarray
+            The guide objects.
+        - ra : float
+            The right ascension of the field.
+        - dec : float
+            The declination of the field.
+        - inr : float
+            The instrument rotator angle.
+        - inst_pa : float
+            The instrument position angle.
+        - m2_pos3 : float
+            The M2 position 3 value.
+        - adc : float
+            The ADC setting.
+        - taken_at : datetime
+            The time the frame was taken.
     """
-    # Use logger.debug if logger is None, otherwise use log_message
-    log_fn = lambda msg: log_message(logger, msg)
 
-    # Get telescope status if frame_id is provided
-    if frame_id is not None:
-        taken_at, inr, adc, m2_pos3 = get_telescope_status(frame_id=frame_id, **kwargs)
-    else:
-        # Extract telescope status from kwargs
-        taken_at = kwargs.get("taken_at")
-        inr = kwargs.get("inr")
-        adc = kwargs.get("adc")
-        m2_pos3 = kwargs.get("m2_pos3", 6.0)
-
-    log_fn(f"taken_at={taken_at},inr={inr},adc={adc},m2_pos3={m2_pos3}")
-
-    design_id = kwargs.get("design_id")
-    design_path = kwargs.get("design_path")
-    log_fn(f"design_id={design_id},design_path={design_path}")
+    # Extract telescope status from kwargs
+    taken_at = kwargs.get("taken_at")
+    inr = kwargs.get("inr")
+    adc = kwargs.get("adc")
+    m2_pos3 = kwargs.get("m2_pos3", 6.0)
     ra = kwargs.get("ra")
     dec = kwargs.get("dec")
     inst_pa = kwargs.get("inst_pa")
+    logger.info(f"taken_at={taken_at},inr={inr},adc={adc},m2_pos3={m2_pos3}")
+    logger.info(f"design_id={design_id},design_path={design_path}")
 
     # Apply coordinate adjustments if provided
     if "dra" in kwargs and ra is not None:
@@ -568,98 +569,27 @@ def get_guide_objects(
     if "dinr" in kwargs and inr is not None:
         inr += kwargs.get("dinr") / 3600
 
-    # Check if we should use astrometry.measure with detected objects, i.e. REF_SKY.
-    detected_objects = kwargs.get("detected_objects")
-    if frame_id is not None and detected_objects is not None:
-        log_fn("Getting guide objects from astrometry")
-        guide_object_rows = astrometry.measure(
-            detected_objects=detected_objects,
-            ra=ra,
-            dec=dec,
-            obstime=taken_at,
-            inst_pa=inst_pa,
-            adc=adc,
-            m2_pos3=m2_pos3,
-            obswl=obswl,
-            logger=logger,
-        )
-        log_fn(f"Got {len(guide_object_rows)} guide objects")
-        guide_objects = pd.DataFrame(
-            guide_object_rows,
-            columns=list(GuideObjectsResult.guide_object_dtype.keys()),
-        )
+    logger.info(f"Getting guide_objects from opdb via {design_id=}")
+    field_design = query_pfs_design(design_id)
+    guide_objects = query_pfs_design_agc(design_id, as_dataframe=True)
 
-    # Check if we should use the gaia catalog, i.e. REF_OTF.
-    elif design_path is None and design_id is None:
-        log_fn(
-            "No design_id or design_path provided, getting guide objects from gaia db."
-        )
-        # Set up search coordinates first
-        icrs, altaz_c, frame_tc, inr, adc = gaia.setup_search_coordinates(
-            ra=ra,
-            dec=dec,
-            obstime=taken_at,
-            inst_pa=inst_pa,
-            adc=adc,
-            m2pos3=m2_pos3,
-            obswl=obswl,
-        )
+    # Rename columns for consistency.
+    logger.info(f"Got {len(guide_objects)} guide objects, renaming columns")
+    new_cols = dict(zip(guide_objects.columns, GuideCatalog.guide_object_dtype.keys()))
+    guide_objects = guide_objects.rename(columns=new_cols)
 
-        # Search for objects
-        _objects = search_gaia(icrs.ra.deg, icrs.dec.deg)
+    # Mark which guide objects should be filtered (only GALAXIES for now).
+    logger.info(f"Guide objects before filtering: {len(guide_objects)}")
+    guide_objects = filter_guide_objects(guide_objects, is_guide=is_guide)
+    logger.info(
+        f"Guide objects after filtering: {len(guide_objects.query('filtered_by == 0'))}"
+    )
 
-        # Process search results and get structured array directly
-        guide_object_rows = gaia.process_search_results(
-            _objects,
-            frame_tc.obstime,
-            altaz_c,
-            frame_tc,
-            adc,
-            inr,
-            m2pos3=m2_pos3,
-            obswl=obswl,
-        )
+    ra = ra or field_design.field_ra
+    dec = dec or field_design.field_dec
+    inst_pa = inst_pa or field_design.field_inst_pa
 
-        guide_objects = pd.DataFrame(
-            guide_object_rows,
-            columns=list(GuideObjectsResult.guide_object_dtype.keys()),
-        )
-
-    # Check if we should use the design, either from the file or the opdb, i.e. REF_DB.
-    else:
-        if design_path is not None:
-            log_fn(
-                f"Getting guide_objects via pfsDesign file at '{design_path}{design_id}'"
-            )
-            guide_objects, _ra, _dec, _inst_pa = pfs_design(
-                design_id, design_path, logger=logger
-            ).guide_objects(obstime=taken_at)
-        else:
-            log_fn(f"Getting guide_objects from opdb via {design_id}")
-            _, _ra, _dec, _inst_pa, *_ = query_pfs_design(design_id)
-            guide_objects = query_pfs_design_agc(design_id, as_dataframe=True)
-
-        # Rename columns for consistency.
-        log_fn(f"Got {len(guide_objects)} guide objects, renaming columns")
-        new_cols = dict(
-            zip(guide_objects.columns, GuideObjectsResult.guide_object_dtype.keys())
-        )
-        guide_objects = guide_objects.rename(columns=new_cols)
-
-        # Mark which guide objects should be filtered (only GALAXIES for now).
-        logger.info(f"Guide objects before filtering: {len(guide_objects)}")
-        guide_objects = filter_guide_objects(
-            guide_objects, is_guide=is_guide
-        )
-        logger.info(
-            f"Guide objects after filtering: {len(guide_objects.query('filtered_by == 0'))}"
-        )
-
-        ra = ra or _ra
-        dec = dec or _dec
-        inst_pa = inst_pa or _inst_pa
-
-    return GuideObjectsResult(
+    return GuideCatalog(
         guide_objects=guide_objects,
         ra=ra,
         dec=dec,
@@ -805,9 +735,13 @@ def write_agc_match(
             detected_idx = int(match.detected_object_id)
             guide_idx = int(match.guide_object_id)
             center_x_mm = float(match.guide_object_x_mm)
-            center_y_mm = float(match.guide_object_y_mm) * -1  # TODO: move negative, see INSTRM-2654
+            center_y_mm = (
+                float(match.guide_object_y_mm) * -1
+            )  # TODO: move negative, see INSTRM-2654
             nominal_x_mm = float(match.detected_object_x_mm)
-            nominal_y_mm = float(match.detected_object_y_mm) * -1  # TODO: move negative, see INSTRM-2654
+            nominal_y_mm = (
+                float(match.detected_object_y_mm) * -1
+            )  # TODO: move negative, see INSTRM-2654
 
             row = {
                 "pfs_design_id": design_id,
@@ -1000,7 +934,9 @@ FROM tel_status
 WHERE pfs_visit_id=%s AND status_sequence_id=%s
 """
     params = (pfs_visit_id, status_sequence_id)
-    return query_db(sql, params, as_dataframe=as_dataframe, single_as_series=True, **kwargs)
+    return query_db(
+        sql, params, as_dataframe=as_dataframe, single_as_series=True, **kwargs
+    )
 
 
 def query_agc_exposure(agc_exposure_id: int, as_dataframe: bool = True, **kwargs):
@@ -1027,7 +963,9 @@ WHERE
     t0.agc_exposure_id=%s
 """
     params = (agc_exposure_id,)
-    return query_db(sql, params, as_dataframe=as_dataframe, single_as_series=True, **kwargs)
+    return query_db(
+        sql, params, as_dataframe=as_dataframe, single_as_series=True, **kwargs
+    )
 
 
 def query_pfs_design_agc(pfs_design_id: int, as_dataframe: bool = True, **kwargs):
@@ -1051,27 +989,16 @@ ORDER BY guide_star_id
 
 def query_pfs_design(pfs_design_id: int, as_dataframe: bool = True, **kwargs):
     sql = """
-SELECT
-tile_id,
-ra_center_designed,
-dec_center_designed,
-pa_designed,
-num_sci_designed,
-num_cal_designed,
-num_sky_designed,
-num_guide_stars,
-exptime_tot,
-exptime_min,
-ets_version,
-ets_assigner,
-designed_at,
-to_be_observed_at,
-is_obsolete
-FROM pfs_design
-WHERE pfs_design_id=%s
-"""
+          SELECT ra_center_designed as field_ra,
+                 dec_center_designed as field_dec,
+                 pa_designed as field_inst_pa
+          FROM pfs_design
+          WHERE pfs_design_id = %s
+          """
     params = (pfs_design_id,)
-    return query_db(sql, params, as_dataframe=as_dataframe, single_as_series=True, **kwargs)
+    return query_db(
+        sql, params, as_dataframe=as_dataframe, single_as_series=True, **kwargs
+    )
 
 
 def filter_guide_objects(
