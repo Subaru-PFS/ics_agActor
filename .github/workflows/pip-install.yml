@@ -1,0 +1,36 @@
+name: Pip install check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pip-install:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Need to clone everything for the git tags.
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Upgrade pip and wheel
+        run: |
+          python -m pip install --upgrade pip wheel
+
+      - name: Install build-time helper (lsst-versions)
+        run: |
+          python -m pip install lsst-versions
+
+      - name: Install package with pip
+        run: |
+          python -m pip install .
+
+      - name: Verify import
+        run: |
+          python -c "from agActor.version import __version__; print('Created version', __version__)"

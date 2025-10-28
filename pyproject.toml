@@ -1,19 +1,22 @@
 [build-system]
-requires = ["setuptools >= 77.0.3", "lsst-versions"]
+requires = ["setuptools >= 77.0.3", "wheel", "lsst-versions"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "ics-ag-actor"
 description = "ICS actor for the Auto Guider"
+authors = [
+    { name = "Subaru PFS ICS Team" }
+]
 readme = "README.md"
-requires-python = ">=3.11"
 license = { text = "PFS Collaboration" }
+requires-python = ">=3.12"
 keywords = ["astronomy", "spectrograph", "subaru", "pfs", "autoguider"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Astronomy",
 ]
 dependencies = [
@@ -23,7 +26,7 @@ dependencies = [
     "pfs-datamodel @ git+https://github.com/Subaru-PFS/datamodel.git",
     "pfs-tron-actorcore @ git+https://github.com/Subaru-PFS/tron_actorcore.git",
     "pfs-utils @ git+https://github.com/Subaru-PFS/pfs_utils.git",
-    "pfs-ics-utils @ git+https://github.com/Subaru-PFS/ics_utils.git",
+    "ics-utils @ git+https://github.com/Subaru-PFS/ics_utils.git",
     "psycopg2-binary",
 ]
 dynamic = ["version"]
@@ -48,7 +51,7 @@ write_to = "python/agActor/version.py"
 
 [tool.black]
 line-length = 110
-target-version = ["py311"]
+target-version = ["py312"]
 
 [tool.isort]
 profile = "black"
@@ -57,3 +60,13 @@ known_first_party = ["agActor"]
 
 [tool.pytest.ini_options]
 addopts = "--import-mode=importlib"
+
+# Ruff configuration to ignore naming capitalization/camelCase rules for functions, methods, and variables
+[tool.ruff.lint]
+ignore = ["N802", "N803", "N806", "N815", "N816", "EM101", "TRY003"]
+
+[tool.pydocstyle]
+convention = "numpy"
+
+[tool.hatch.metadata]
+allow-direct-references = true
