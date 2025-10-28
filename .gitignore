@@ -1,5 +1,6 @@
 # Ignore generated version file.
 python/agActor/version.py
+data/
 
 ### JetBrains template
 .idea/
