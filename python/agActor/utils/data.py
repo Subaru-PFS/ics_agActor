@@ -7,14 +7,18 @@ from typing import ClassVar, Optional
 
 import numpy as np
 import pandas as pd
+from zoneinfo import ZoneInfo
 from astropy import units as u
 from astropy.table import Table
 from ics.utils.database.db import DB
 from ics.utils.database.gaia import GaiaDB
 from ics.utils.database.opdb import OpDB
 from numpy.typing import NDArray
+from pfs.utils.coordinates import coordinates
 from pfs.utils.datamodel.ag import AutoGuiderStarMask, SourceDetectionFlag
 
+utc = ZoneInfo("UTC")
+from agActor.utils.math import semi_axes
 
 logger = logging.getLogger(__name__)
 
@@ -260,6 +264,7 @@ class GuideOffsets:
     guide_objects: pd.DataFrame
     detected_objects: pd.DataFrame
     identified_objects: pd.DataFrame
+    match_results: pd.DataFrame
     dx: float
     dy: float
     size: float
@@ -298,8 +303,8 @@ class GuideOffsets:
                     row.agc_camera_id,
                     row.x,
                     row.y,
-                    row.x_dp,
-                    row.y_dp,
+                    row.x_dp_mm,
+                    row.y_dp_mm,
                     row.flags,
                     row.filtered_by,
                 )
@@ -374,7 +379,7 @@ class GuideOffsets:
                     row.guide_object_x_pix,
                     row.guide_object_y_pix,
                     row.agc_camera_id,
-                    row.matched,
+                    row.valid_residual
                 )
                 for row in self.identified_objects.itertuples(index=False)
             ],
@@ -411,9 +416,7 @@ class GuideOffsets:
             0 if self.detected_objects is None else int(len(self.detected_objects))
         )
         n_matched = (
-            0
-            if self.identified_objects is None
-            else int(len(self.identified_objects.query("matched == 1")))
+            0 if self.identified_objects is None else int(len(self.identified_objects.query('valid_residual == 1')))
         )
 
         parts = [
@@ -507,8 +510,16 @@ def get_telescope_status(*, frame_id, **kwargs):
 def get_guide_objects(
     *,
     design_id: int,
-    design_path: str | None = None,
+    frame_id: int | None = None,
     is_guide: bool = False,
+    taken_at: datetime | str | None = None,
+    inr: float | None = None,
+    adc: float | None = None,
+    m2_pos3: float | None = None,
+    ra: float | None = None,
+    dec: float | None = None,
+    inst_pa: float | None = None,
+    db_kwargs: dict | None = None,
     **kwargs,
 ) -> GuideCatalog:
     """Get the guide objects for a given frame or from other sources.
@@ -517,15 +528,27 @@ def get_guide_objects(
     ----------
     design_id : int
         The PFS design ID.
-    design_path : str, optional
-        The path to the PFS design file. If None, guide objects are fetched from opdb if design_id is provided.
+    frame_id : int, optional
+        The frame ID. If provided, information about the exposure will be retrieved from opdb.
     is_guide : bool, optional
         If True, guide objects are filtered to only include high quality stars.
-    **kwargs : dict
-        Additional keyword arguments:
-
-        - ra, dec, inst_pa : Field center coordinates and position angle
-        - taken_at, inr, adc, m2_pos3 : Telescope status parameters
+    taken_at : datetime or str, optional
+        The time the frame was taken. If None, it will be retrieved from opdb if frame_id is provided.
+    inr : float, optional
+        The instrument rotator angle. If None, it will be retrieved from opdb if frame_id is provided.
+    adc : float, optional
+        The ADC setting. If None, it will be retrieved from opdb if frame_id is provided.
+    m2_pos3 : float, optional
+        The M2 position 3 value. If None, it will be retrieved from opdb if frame_id is provided.
+    ra : float, optional
+        The right ascension of the field. If None, it will be retrieved from opdb if design_id is provided.
+    dec : float, optional
+        The declination of the field. If None, it will be retrieved from opdb if design_id is provided.
+    inst_pa : float, optional
+        The instrument position angle. If None, it will be retrieved from opdb if design_id is provided.
+    db_kwargs : dict, optional
+        Additional keyword arguments to pass to database queries.
+    **kwargs
 
     Returns
     -------
@@ -549,17 +572,32 @@ def get_guide_objects(
         - taken_at : datetime
             The time the frame was taken.
     """
+    db_kwargs = db_kwargs or {}
 
-    # Extract telescope status from kwargs
-    taken_at = kwargs.get("taken_at")
-    inr = kwargs.get("inr")
-    adc = kwargs.get("adc")
-    m2_pos3 = kwargs.get("m2_pos3", 6.0)
-    ra = kwargs.get("ra")
-    dec = kwargs.get("dec")
-    inst_pa = kwargs.get("inst_pa")
-    logger.info(f"taken_at={taken_at},inr={inr},adc={adc},m2_pos3={m2_pos3}")
-    logger.info(f"design_id={design_id},design_path={design_path}")
+    if frame_id is not None:
+        exposure_info = query_agc_exposure(frame_id, **db_kwargs)
+        taken_at = taken_at or exposure_info.taken_at.tz_localize(utc)
+        inr = inr or exposure_info.insrot
+        adc = adc or exposure_info.adc_pa
+        m2_pos3 = m2_pos3 or exposure_info.m2_pos3
+
+    logger.info(f"get_guide_objects: {taken_at=},{inr=},{adc=},{m2_pos3=}")
+
+    logger.info(f"Getting guide_objects from opdb via {design_id=}")
+    field_design = query_pfs_design(design_id, **db_kwargs)
+    guide_objects = query_pfs_design_agc(design_id, as_dataframe=True, **db_kwargs)
+
+    # Rename columns for consistency.
+    logger.info(f"Got {len(guide_objects)} guide objects, renaming columns")
+    new_cols = dict(zip(guide_objects.columns, GuideCatalog.guide_object_dtype.keys()))
+    guide_objects = guide_objects.rename(columns=new_cols)
+
+    # Mark which guide objects should be filtered (only GALAXIES for now).
+    logger.info(f"Guide objects before filtering ({is_guide=}): {len(guide_objects)}")
+    guide_objects = filter_guide_objects(guide_objects, is_guide=is_guide)
+    logger.info(
+        f"Guide objects after filtering: {len(guide_objects.query('filtered_by == 0'))}"
+    )
 
     # Apply coordinate adjustments if provided
     if "dra" in kwargs and ra is not None:
@@ -569,25 +607,17 @@ def get_guide_objects(
     if "dinr" in kwargs and inr is not None:
         inr += kwargs.get("dinr") / 3600
 
-    logger.info(f"Getting guide_objects from opdb via {design_id=}")
-    field_design = query_pfs_design(design_id)
-    guide_objects = query_pfs_design_agc(design_id, as_dataframe=True)
+    # Use design field values if ra/dec/inst_pa not provided.
+    ra = ra or field_design.ra_center_designed
+    dec = dec or field_design.dec_center_designed
+    inst_pa = inst_pa or field_design.pa_designed
 
-    # Rename columns for consistency.
-    logger.info(f"Got {len(guide_objects)} guide objects, renaming columns")
-    new_cols = dict(zip(guide_objects.columns, GuideCatalog.guide_object_dtype.keys()))
-    guide_objects = guide_objects.rename(columns=new_cols)
-
-    # Mark which guide objects should be filtered (only GALAXIES for now).
-    logger.info(f"Guide objects before filtering: {len(guide_objects)}")
-    guide_objects = filter_guide_objects(guide_objects, is_guide=is_guide)
-    logger.info(
-        f"Guide objects after filtering: {len(guide_objects.query('filtered_by == 0'))}"
+    # Add the detector plane coordinates to the guide objects.
+    guide_x_dp, guide_y_dp = coordinates.det2dp(
+        guide_objects.agc_camera_id, guide_objects.x, guide_objects.y
     )
-
-    ra = ra or field_design.field_ra
-    dec = dec or field_design.field_dec
-    inst_pa = inst_pa or field_design.field_inst_pa
+    guide_objects["x_dp_mm"] = guide_x_dp
+    guide_objects["y_dp_mm"] = guide_y_dp
 
     return GuideCatalog(
         guide_objects=guide_objects,
@@ -628,11 +658,34 @@ def get_detected_objects(
     logger.debug(f"Detected objects: {len(detected_objects)}")
 
     if filter_flag:
-        detected_objects = detected_objects.query(f"flags < {filter_flag}")
+        detected_objects = detected_objects.query(f"flags < {filter_flag}").copy()
         logger.debug(f"Detected objects after filtering: {len(detected_objects)=}")
 
     if len(detected_objects) == 0:
         raise RuntimeError("No valid spots detected, can't compute offsets")
+
+    # Get the xy coords in the detector plane from the centroid XY values for guide objects.
+    logger.info("Calculating detector plane coordinates for detected objects")
+    x_dp_mm, y_dp_mm = coordinates.det2dp(
+        detected_objects["agc_camera_id"],
+        detected_objects["centroid_x_pix"],
+        detected_objects["centroid_y_pix"],
+    )
+
+    # Get the semi-major and semi-minor axes for the guide objects.
+    logger.info("Calculating major and minor semi axes for detected objects")
+    semi_major, semi_minor = semi_axes(
+        detected_objects["central_image_moment_11_pix"],
+        detected_objects["central_image_moment_20_pix"],
+        detected_objects["central_image_moment_02_pix"],
+    )
+
+    detected_objects['x_dp_mm'] = x_dp_mm
+    detected_objects['y_dp_mm'] = y_dp_mm
+    detected_objects['semi_major_pix'] = semi_major
+    detected_objects['semi_minor_pix'] = semi_minor
+    detected_objects['size'] = np.sqrt(semi_major * semi_minor)
+    detected_objects['ellipticity'] = 1 - (semi_major / semi_minor)
 
     return detected_objects.reset_index(drop=True)
 
@@ -652,7 +705,8 @@ def write_agc_guide_offset(
     delta_z: float | None = None,
     delta_zs: NDArray | None = None,
     offset_flags: GuideOffsetFlag = GuideOffsetFlag.OK,
-):
+    skip_write: bool = False,
+) -> Optional[dict]:
     """Write the guide offsets to the database.
 
     If a value is not passed to the function then the default `None` will be
@@ -673,7 +727,9 @@ def write_agc_guide_offset(
         delta_zs (NDArray | None): Focus offset per camera.
         offset_flags (GuideOffsetFlag): Any flags for the data, stored in
             the `mask` column, defaults to `GuideOffsetFlag.OK`.
+        skip_write (bool): If True, skip writing to the database (for testing), default False.
     """
+    params = None
     try:
         params = dict(
             agc_exposure_id=frame_id,
@@ -697,10 +753,13 @@ def write_agc_guide_offset(
             params.update(guide_delta_z5=float(delta_zs[4]))
             params.update(guide_delta_z6=float(delta_zs[5]))
 
-        logger.info(f"Writing agc_guide_offsets with {params=}")
-        get_db("opdb").insert("agc_guide_offset", **params)
+        if not skip_write:
+            logger.info(f"Writing agc_guide_offsets with {params=}")
+            get_db("opdb").insert("agc_guide_offset", **params)
     except Exception as e:
-        logger.warning(f"Failed to write agc_guide_offsets: {e}")
+        logger.warning(f"Failed to write agc_guide_offsets: {e:r}")
+
+    return params
 
 
 def write_agc_match(
@@ -710,7 +769,8 @@ def write_agc_match(
     guide_objects: pd.DataFrame,
     detected_objects: pd.DataFrame,
     identified_objects: pd.DataFrame,
-) -> int | None:
+    skip_write: bool = False,
+) -> Optional[pd.DataFrame]:
     """Insert AG identified objects into opdb.agc_match.
 
     Parameters:
@@ -723,23 +783,25 @@ def write_agc_match(
                                    indices and coordinate data for a matched object.
                                    Expected format: (detected_idx, guide_idx,
                                    center_x, center_y, nominal_x, nominal_y, ...)
+    skip_write (bool): If True, skip writing to the database (for testing), default False.
 
     Returns:
     --------
-    int | None
-        The number of identified objects inserted or None if no matches.
+    pd.DataFrame | None
+        The dataframe that was used to write the table entries.
     """
+    df = None
     try:
         rows_to_insert = []
         for idx, match in identified_objects.iterrows():
             detected_idx = int(match.detected_object_id)
             guide_idx = int(match.guide_object_id)
-            center_x_mm = float(match.guide_object_x_mm)
-            center_y_mm = (
+            nominal_x_mm = float(match.guide_object_x_mm)
+            nominal_y_mm = (
                 float(match.guide_object_y_mm) * -1
             )  # TODO: move negative, see INSTRM-2654
-            nominal_x_mm = float(match.detected_object_x_mm)
-            nominal_y_mm = (
+            center_x_mm = float(match.detected_object_x_mm)
+            center_y_mm = (
                 float(match.detected_object_y_mm) * -1
             )  # TODO: move negative, see INSTRM-2654
 
@@ -753,21 +815,24 @@ def write_agc_match(
                 "agc_nominal_y_mm": float(nominal_y_mm),
                 "agc_center_x_mm": float(center_x_mm),
                 "agc_center_y_mm": float(center_y_mm),
-                "flags": int(guide_objects["filtered_by"][guide_idx]),
+                "flags": int(not match.valid_residual),
             }
             rows_to_insert.append(row)
 
         if rows_to_insert:
             df = pd.DataFrame(rows_to_insert)
-            logger.debug("Inserting data into database")
-            n_rows = get_db("opdb").insert_dataframe(df=df, table="agc_match")
-            logger.info(f"Finished inserting agc_match data: {n_rows} rows inserted")
+            logger.info(f"Prepared {len(df)} rows for agc_match insertion")
 
-            return n_rows
+            if not skip_write:
+                logger.debug("Inserting data into database")
+                n_rows = get_db("opdb").insert_dataframe(df=df, table="agc_match")
+                logger.info(f"Finished inserting agc_match data: {n_rows} rows inserted")
+
+                return df
     except Exception as e:
         logger.warning(f"Failed to insert agc_match data: {e}")
 
-    return None
+    return df
 
 
 def search_gaia(ra, dec, radius=0.027 + 0.003):
@@ -920,18 +985,20 @@ def query_tel_status(
 ):
     sql = """
 SELECT
-altitude,
-azimuth,
-insrot,
-adc_pa,
-m2_pos3,
-tel_ra,
-tel_dec,
-dome_shutter_status,
-dome_light_status,
-created_at
-FROM tel_status
-WHERE pfs_visit_id=%s AND status_sequence_id=%s
+    altitude,
+    azimuth,
+    insrot,
+    adc_pa,
+    m2_pos3,
+    tel_ra,
+    tel_dec,
+    dome_shutter_status,
+    dome_light_status,
+    created_at
+FROM 
+    tel_status
+WHERE 
+    pfs_visit_id=%s AND status_sequence_id=%s
 """
     params = (pfs_visit_id, status_sequence_id)
     return query_db(
@@ -989,9 +1056,7 @@ ORDER BY guide_star_id
 
 def query_pfs_design(pfs_design_id: int, as_dataframe: bool = True, **kwargs):
     sql = """
-          SELECT ra_center_designed as field_ra,
-                 dec_center_designed as field_dec,
-                 pa_designed as field_inst_pa
+          SELECT *
           FROM pfs_design
           WHERE pfs_design_id = %s
           """

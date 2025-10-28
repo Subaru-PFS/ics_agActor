@@ -55,7 +55,7 @@ def calculate_focus_errors(
 
 def calculate_offsets(
     guide_objects: pd.DataFrame,
-    detected_array: NDArray[np.float64],
+    detected_objects: pd.DataFrame,
     tel_ra: float,
     tel_de: float,
     dt: Any,
@@ -65,9 +65,9 @@ def calculate_offsets(
     wl: Any,
     inrflag: int = 1,
     scaleflag: int = 1,
-    maxellip: float = 0.6,
-    maxsize: float = 20.0,
-    minsize: float = 0.92,
+    maxellip: float = 2.0,
+    maxsize: float = 1.0e12,
+    minsize: float = -1.0,
     maxresid: float = 0.5,
 ) -> Tuple[float, float, float, float, NDArray[np.float64], float, int]:
     """
@@ -81,8 +81,8 @@ def calculate_offsets(
     ----------
     guide_objects : pd.DataFrame
         DataFrame containing catalog star information for the guide objects
-    detected_array : NDArray[np.float64]
-        Array containing detected star information
+    detected_objects : pd.DataFrame
+        DataFrame containing detected star information
     tel_ra : float
         Telescope right ascension in degrees
     tel_de : float
@@ -102,11 +102,11 @@ def calculate_offsets(
     scaleflag : int, optional
         Flag for scale calculation, by default 1
     maxellip : float, optional
-        Maximum ellipticity for source filtering, by default 0.6
+        Maximum ellipticity for source filtering, by default 2.0 (unnecessarily large)
     maxsize : float, optional
-        Maximum size for source filtering, by default 20.0
+        Maximum size for source filtering, by default 1.0e12 (unnecessarily large)
     minsize : float, optional
-        Minimum size for source filtering, by default 0.92
+        Minimum size for source filtering, by default -1.0 (unnecessarily small)
     maxresid : float, optional
         Maximum residual for source filtering, by default 0.5
 
@@ -132,7 +132,7 @@ def calculate_offsets(
     try:
         good_guide_objects = guide_objects.query('filtered_by == 0')
     except KeyError:
-        logger.info(f"guide_objects missing 'filtered_by' attribute, using all objects")
+        logger.info("guide_objects missing 'filtered_by' attribute, using all objects")
         good_guide_objects = guide_objects
 
     logger.info(f"Guide objects after filtering: {len(good_guide_objects)}")
@@ -149,45 +149,62 @@ def calculate_offsets(
     basis_vector_1 = np.insert(basis_vector_1, 2, magnitude_values, axis=1)
 
     # Detected sources filtering
-    logger.info(f"Filtering detected objects with {maxellip=} {maxsize=} {minsize=}")
-    filtered_detected_array, valid_detections = pfs.sourceFilter(
-        detected_array, maxellip, maxsize, minsize
-    )
+    logger.info(f"Filtering {len(detected_objects)} detected objects with {maxellip=} {maxsize=} {minsize=}")
+    detected_objects = pfs.sourceFilter(detected_objects, maxellip, maxsize, minsize)
+    filtered_detected_array = detected_objects.query('flags < 2')
     logger.info(f"Found {len(filtered_detected_array)} detected sources after filtering")
 
     ra_offset, de_offset, inr_offset, scale_offset, match_results = pfs.RADECInRShiftA(
-        filtered_detected_array[:, 2],
-        filtered_detected_array[:, 3],
-        filtered_detected_array[:, 4],
-        filtered_detected_array[:, 7],
+        filtered_detected_array['x_dp_mm'].values,
+        filtered_detected_array['y_dp_mm'].values,
+        filtered_detected_array['flags'].values,
         basis_vector_0,
         basis_vector_1,
         inrflag,
         scaleflag,
         maxresid,
     )
-    valid_resid_idx = match_results[:, 8] == 1.0
-    logger.info(f"Matched sources with valid residuals: {len(match_results[valid_resid_idx])}")
 
-    residual_squares = match_results[:, 6] ** 2 + match_results[:, 7] ** 2
-    residual_squares[valid_resid_idx] = np.nan
+    match_results_df = pd.DataFrame(match_results, columns=(
+        'detected_object_x_mm',
+        'detected_object_y_mm',
+        'guide_object_x_mm',
+        'guide_object_y_mm',
+        'err_x',
+        'err_y',
+        'resid_x',
+        'resid_y',
+        'valid_residual',
+        'guide_object_id',
+    ))
+                                    # , index=filtered_detected_array.index)
+    # match_detected_idx = match_results_df.guide_object_id.values
+    match_results_df['detected_object_id'] = filtered_detected_array.index
 
-    with warnings.catch_warnings():
-        warnings.simplefilter("error", RuntimeWarning)
+    # match_results_df.index = filtered_detected_array.index[match_results_df.index]
+    # match_results_df.index = filtered_detected_array.index
+    # match_results_df.index.name = 'detected_object_id'
+    # match_results_df.reset_index(inplace=True)
 
-        try:
-            median_distance = np.nanmedian(np.sqrt(residual_squares))
-        except RuntimeWarning:
-            logger.warning("All nan values for residuals, setting median_distance to np.nan")
-            median_distance = np.nan
+    # The guide_object_id values are indices into the good_guide_objects array.
+    # We need to convert them to the actual guide_object_id values.
+    matched_guide_idx = match_results_df.guide_object_id.values
+    match_results_df.guide_object_id = good_guide_objects.iloc[matched_guide_idx].index
+
+    match_results_df['agc_camera_id'] = filtered_detected_array.loc[match_results_df.detected_object_id]['agc_camera_id'].values
+
+    valid_resid_idx = match_results_df.query('valid_residual == 1').index
+    logger.info(f"Matched sources with valid residuals: {len(valid_resid_idx)}")
+    #
+    median_distance = match_results_df.eval('resid_x ** 2 + resid_y ** 2').median()
+    logger.info(f"Initial median distance: {median_distance:.02e}")
 
     return (
         ra_offset,
         de_offset,
         inr_offset,
         scale_offset,
-        match_results,
+        match_results_df,
         median_distance,
-        valid_detections,
         good_guide_objects,
     )

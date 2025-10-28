@@ -45,7 +45,7 @@ def _focus(detected_objects, logger=None, **kwargs):
                 ),  # semi-major and semi-minor axes
                 row["flags"],  # flags
             )
-            for idx, row in detected_objects.iterrows()
+            for idx, row in detected_objects.query('flags < 2').iterrows()
         ]
     )
     _kwargs = _map_kwargs(kwargs)

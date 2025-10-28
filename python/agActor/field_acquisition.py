@@ -143,7 +143,7 @@ def acquire_field(
 
     parse_kwargs(kwargs)
 
-    guide_catalog = get_guide_objects(design_id=design_id, is_guide=is_guide, **kwargs)
+    guide_catalog = get_guide_objects(design_id=design_id, frame_id=frame_id, is_guide=is_guide, **kwargs)
     guide_objects = guide_catalog.guide_objects
     ra = guide_catalog.ra
     dec = guide_catalog.dec
@@ -154,6 +154,7 @@ def acquire_field(
     taken_at = guide_catalog.taken_at
     logger.info(f"Using {ra=},{dec=},{inst_pa=}")
 
+    # TODO (wtg): Figure out why these are here and if they are being duplicated.
     if "dra" in kwargs:
         ra += kwargs.get("dra") / 3600
         logger.info(f"ra modified by dra: {ra=}")
@@ -256,40 +257,9 @@ def get_guide_offsets(
         - peak (float): Representative peak intensity
         - flux (float): Representative flux
     """
-    # Get the RA/Dec in the detector plane from the centroid XY values for guide objects.
-    logger.info("Calculating detector plane coordinates for detected objects")
-    dp_ra, dp_dec = coordinates.det2dp(
-        detected_objects["agc_camera_id"],
-        detected_objects["centroid_x_pix"],
-        detected_objects["centroid_y_pix"],
-    )
-
-    # Get the semi-major and semi-minor axes for the guide objects.
-    logger.info("Calculating major and minor semi axes for detected objects")
-    semi_major, semi_minor = semi_axes(
-        detected_objects["central_image_moment_11_pix"],
-        detected_objects["central_image_moment_20_pix"],
-        detected_objects["central_image_moment_02_pix"],
-    )
-
-    # Put the detected objects in a format for the calculate_acquisition_offsets.
-    logger.info("Building detected objects array for calculations")
-    _detected_objects = np.array(
-        [
-            detected_objects["agc_camera_id"],
-            detected_objects["spot_id"],
-            dp_ra,
-            dp_dec,
-            detected_objects["peak_intensity"],
-            semi_major,
-            semi_minor,
-            detected_objects["flags"],
-        ]
-    ).T
-
     _kwargs = _map_kwargs(kwargs)
 
-    # Convert taken_at to a UTC datetime object if it's not already
+    # Convert taken_at to a UTC datetime object if it's not already.
     if isinstance(taken_at, datetime):
         obstime = taken_at.astimezone(tz=timezone.utc)
     elif isinstance(taken_at, Number):
@@ -306,13 +276,12 @@ def get_guide_offsets(
         dec_offset,
         inr_offset,
         scale_offset,
-        match_results,
+        match_results_df,
         median_distance,
-        valid_detections,
         good_guide_objects,
     ) = calculate_offsets(
         guide_objects,
-        _detected_objects,
+        detected_objects,
         ra,
         dec,
         obstime,
@@ -345,42 +314,6 @@ def get_guide_offsets(
     guide_objects["x_dp"] = guide_x_dp
     guide_objects["y_dp"] = guide_y_dp
 
-    # 0 obj_x          1
-    # 1 obj_y          2
-    # 2 catalog_x      3
-    # 3 catalog_y      4
-    # 4 err_x
-    # 5 err_y
-    # 6 resid_x
-    # 7 resid_y
-    # 8 valid_resid    5
-    # 9 min_dist_index 0
-
-    match_results_df = pd.DataFrame(
-        match_results,
-        columns=(
-            "detected_object_x_mm",
-            "detected_object_y_mm",
-            "guide_object_x_mm",
-            "guide_object_y_mm",
-            "err_x",
-            "err_y",
-            "resid_x",
-            "resid_y",
-            "matched",
-            "guide_object_id",
-        ),
-    )
-    match_results_df.index = detected_objects[valid_detections].index
-    match_results_df.index.name = "detected_object_id"
-    match_results_df.reset_index(inplace=True)
-    matched_guide_idx = match_results_df.guide_object_id.values
-    match_results_df.guide_object_id = good_guide_objects.iloc[matched_guide_idx].index
-
-    match_results_df["agc_camera_id"] = detected_objects.loc[
-        match_results_df.detected_object_id
-    ]["agc_camera_id"].values
-
     guide_x_pix, guide_y_pix = coordinates.dp2det(
         match_results_df["agc_camera_id"],
         match_results_df["guide_object_x_mm"],
@@ -399,38 +332,42 @@ def get_guide_offsets(
     match_results_df["detected_object_x_pix"] = detected_x_pix
     match_results_df["detected_object_y_pix"] = detected_y_pix
 
-    identified_objects = match_results_df[
-        [
-            "detected_object_id",
-            "guide_object_id",
-            "detected_object_x_mm",
-            "detected_object_y_mm",
-            "guide_object_x_mm",
-            "guide_object_y_mm",
-            "detected_object_x_pix",
-            "detected_object_y_pix",
-            "guide_object_x_pix",
-            "guide_object_y_pix",
-            "agc_camera_id",
-            "matched",
-        ]
-    ]
+    identified_objects = match_results_df[[
+            'detected_object_id',
+            'guide_object_id',
+            'detected_object_x_mm',
+            'detected_object_y_mm',
+            'guide_object_x_mm',
+            'guide_object_y_mm',
+            'detected_object_x_pix',
+            'detected_object_y_pix',
+            'guide_object_x_pix',
+            'guide_object_y_pix',
+            'agc_camera_id',
+            'err_x',
+            'err_y',
+            'resid_x',
+            'resid_y',
+            'valid_residual',
+    ]]
+
+    identified_objects['valid_residual'] = identified_objects['valid_residual'].astype(bool)
+
+    good_identified = identified_objects.query("valid_residual == True")
 
     logger.info(
-        f"Identified objects: {len(identified_objects)} Number valid: {len(identified_objects.query('matched == 1'))}"
+        f"Identified objects: {len(identified_objects)} Number valid: {len(good_identified)}"
     )
-    if len(identified_objects) == 0:
-        logger.warning(f"No detected objects detected, offsets will be zero.")
+    if len(good_identified) == 0:
+        logger.warning("No detected objects matched, offsets will be zero.")
 
     # convert to arcsec
-    logger.info(
-        f"Converting ra_offset, dec_offset to arcsec: {ra_offset=},{dec_offset=}"
-    )
+    logger.info(f"Converting ra_offset, dec_offset to arcsec: {ra_offset=},{dec_offset=}")
     dx = -ra_offset * np.cos(np.deg2rad(dec))  # arcsec
     dy = dec_offset  # arcsec (HSC definition)
     logger.info(f"Converting offsets to pixels: {dx=},{dy=}")
 
-    flux, peak, size = find_representative_spot(detected_objects, identified_objects)
+    flux, peak, size = find_representative_spot(detected_objects=detected_objects, identified_objects=identified_objects)
     logger.info(f"Calculated star stats: {flux=},{peak=},{size=}")
 
     return GuideOffsets(
@@ -446,6 +383,7 @@ def get_guide_offsets(
         guide_objects=guide_objects,
         detected_objects=detected_objects,
         identified_objects=identified_objects,
+        match_results=match_results_df,
         dx=dx,
         dy=dy,
         size=size,
@@ -455,8 +393,9 @@ def get_guide_offsets(
 
 
 def find_representative_spot(
+    *,
     detected_objects: np.ndarray,
-    identified_objects: np.ndarray,
+    identified_objects: pd.DataFrame,
     ag_plate_scale: float = (206.265 * 13) / 15000,
 ) -> tuple[float, float, float]:
     """Find representative flux, peak intensity, and spot size by median of pointing errors.
@@ -475,7 +414,7 @@ def find_representative_spot(
             Peak intensity value
         - moment_00 : float
             Total flux
-    identified_objects : np.ndarray
+    identified_objects : pd.DataFrame
         Structured array containing matched guide and detected object data with:
         - detected_object_x : float
             X coordinate of detected object
