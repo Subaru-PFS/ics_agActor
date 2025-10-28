@@ -143,7 +143,7 @@ def acquire_field(
 
     parse_kwargs(kwargs)
 
-    guide_catalog = get_guide_objects(design_id=design_id, is_guide=is_guide, **kwargs)
+    guide_catalog = get_guide_objects(design_id=design_id, frame_id=frame_id, is_guide=is_guide, **kwargs)
     guide_objects = guide_catalog.guide_objects
     ra = guide_catalog.ra
     dec = guide_catalog.dec
@@ -154,6 +154,7 @@ def acquire_field(
     taken_at = guide_catalog.taken_at
     logger.info(f"Using {ra=},{dec=},{inst_pa=}")
 
+    # TODO (wtg): Figure out why these are here and if they are being duplicated.
     if "dra" in kwargs:
         ra += kwargs.get("dra") / 3600
         logger.info(f"ra modified by dra: {ra=}")
@@ -258,7 +259,7 @@ def get_guide_offsets(
     """
     _kwargs = _map_kwargs(kwargs)
 
-    # Convert taken_at to a UTC datetime object if it's not already
+    # Convert taken_at to a UTC datetime object if it's not already.
     if isinstance(taken_at, datetime):
         obstime = taken_at.astimezone(tz=timezone.utc)
     elif isinstance(taken_at, Number):
@@ -312,34 +313,6 @@ def get_guide_offsets(
     )
     guide_objects["x_dp"] = guide_x_dp
     guide_objects["y_dp"] = guide_y_dp
-
-    match_results_df = pd.DataFrame(
-        match_results,
-        columns=(
-            "detected_object_x_mm",
-            "detected_object_y_mm",
-            "guide_object_x_mm",
-            "guide_object_y_mm",
-            "err_x",
-            "err_y",
-            "resid_x",
-            "resid_y",
-            "matched",
-            "guide_object_id",
-        ),
-    )
-    match_results_df.index = detected_objects[valid_detections].index
-    match_results_df.index.name = "detected_object_id"
-    match_results_df.reset_index(inplace=True)
-
-    # The guide_object_id values are indices into the good_guide_objects array.
-    # We need to convert them to the actual guide_object_id values.
-    matched_guide_idx = match_results_df.guide_object_id.values
-    match_results_df.guide_object_id = good_guide_objects.iloc[matched_guide_idx].index
-
-    match_results_df["agc_camera_id"] = detected_objects.loc[
-        match_results_df.detected_object_id
-    ]["agc_camera_id"].values
 
     guide_x_pix, guide_y_pix = coordinates.dp2det(
         match_results_df["agc_camera_id"],
