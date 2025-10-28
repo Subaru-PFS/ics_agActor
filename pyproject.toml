@@ -39,7 +39,11 @@ dynamic = ["version"]
 [project.optional-dependencies]
 dev = [
     "black",
+    "ipykernel",
     "isort",
+    "nbval",
+    "pytest",
+    "pytest-cov",
 ]
 
 [tool.setuptools.packages.find]
@@ -59,7 +63,11 @@ line_length = 110
 known_first_party = ["agActor"]
 
 [tool.pytest.ini_options]
-addopts = "--import-mode=importlib"
+addopts = "-ra --import-mode=importlib --cov=agActor --cov-report=term-missing --nbval"
+testpaths = ["tests"]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
 
 # Ruff configuration to ignore naming capitalization/camelCase rules for functions, methods, and variables
 [tool.ruff.lint]
@@ -70,3 +78,12 @@ convention = "numpy"
 
 [tool.hatch.metadata]
 allow-direct-references = true
+
+[tool.hatch.envs.hatch-test]
+# Use the project optional dependency group `dev` so pytest and friends are installed
+features = ["dev"]
+# Pin to the project's supported Python by default; hatch will still choose a compatible interpreter
+python = "3.12"
+# Explicit test command; additional args from `hatch test` are passed through as `{args}`
+[tool.hatch.envs.hatch-test.test]
+command = "pytest"
