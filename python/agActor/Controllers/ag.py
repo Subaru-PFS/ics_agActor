@@ -9,6 +9,7 @@ from agActor import autoguide
 from agActor.utils import actorCalls
 from agActor.utils import data as data_utils
 from agActor.utils import focus as _focus
+from agActor.utils.actorCalls import send_guide_offsets
 from agActor.utils.data import GuideOffsetFlag, get_guide_objects
 from agActor.utils.telescope_center import telCenter as tel_center
 
@@ -425,23 +426,19 @@ class AgThread(threading.Thread):
                     if offset_flags == GuideOffsetFlag.OK:
                         # send corrections to mlp1 and gen2 (or iic).
                         dry_run = options.get("dry_run", ag.DRY_RUN)
-                        mlp1_result = self.actor.queueCommand(
-                            actor="mlp1",
-                            # daz, dalt: arcsec, positive feedback; dx, dy: mas, HSC -> PFS; size: mas; peak, flux: adu
-                            cmdStr="guide azel={},{} ready={} time={} delay=0 xy={},{} size={} intensity={} flux={}".format(
-                                -daz,
-                                -dalt,
-                                int(not dry_run),
-                                taken_at,
-                                dx * 1e3,
-                                -dy * 1e3,
-                                size,
-                                peak,
-                                flux,
-                            ),
-                            timeLim=5,
+                        send_guide_offsets(
+                            actor=self.actor,
+                            taken_at=taken_at,
+                            daz=daz,
+                            dalt=dalt,
+                            dx=dx,
+                            dy=dy,
+                            size=size,
+                            peak=peak,
+                            flux=flux,
+                            dry_run=dry_run,
+                            logger=self.actor.logger,
                         )
-                        mlp1_result.get()
                     else:
                         cmd.inform(
                             f'text="Calculated offset not in allowed range, skipping: {dra=} {ddec=} {max_correction=}"'

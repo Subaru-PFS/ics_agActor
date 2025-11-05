@@ -410,16 +410,16 @@ class AgCmd:
                     guide_offsets.flux,
                 )
                 send_guide_offsets(
-                    self.actor,
-                    taken_at,
-                    daz,
-                    dalt,
-                    dx,
-                    dy,
-                    size,
-                    peak,
-                    flux,
-                    dry_run,
+                    actor=self.actor,
+                    taken_at=taken_at,
+                    daz=daz,
+                    dalt=dalt,
+                    dx=dx,
+                    dy=dy,
+                    size=size,
+                    peak=peak,
+                    flux=flux,
+                    dry_run=dry_run,
                     logger=self.actor.logger,
                 )
 
