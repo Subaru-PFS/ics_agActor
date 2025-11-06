@@ -1,12 +1,33 @@
+from agActor.main import AgActor
+
+
 def send_guide_offsets(
-    actor, taken_at, daz, dalt, dx, dy, size, peak, flux, dry_run, logger
+    *, actor, taken_at, daz, dalt, dx, dy, size, peak, flux, dry_run, logger
 ):
     """Send guider offsets to mlp1.
 
     Parameters
     ----------
-    actor : `actorcore.Actor`
+    actor : `AgActor`
        where to send commands and fetch results from.
+    taken_at : float
+        Timestamp when the image was taken (MJD).
+    daz : float
+        Azimuth offset in arcseconds (positive feedback).
+    dalt : float
+        Altitude offset in arcseconds (positive feedback).
+    dx : float
+        X offset in arcseconds (HSC -> PFS).
+    dy : float
+        Y offset in arcseconds (HSC -> PFS).
+    size : float
+        Representative spot size in mas.
+    peak : float
+        Representative peak intensity in adu.
+    flux : float
+        Representative flux in adu.
+    dry_run : bool
+        If True, do not apply the corrections.
     logger : `logging.Logger`
         Logger to use.
 
@@ -44,7 +65,7 @@ def updateTelStatus(actor, logger, visit_id=None):
 
     Parameters
     ----------
-    actor : `actorcore.Actor`
+    actor : `AgActor`
        where to send commands and fetch results from.
     logger : `logging.Logger`
         Logger to use.
