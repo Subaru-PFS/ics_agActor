@@ -41,6 +41,7 @@ class ag:
             "mode",
             "design",
             "visit_id",
+            "visit0",
             "exposure_time",
             "cadence",
             "center",
@@ -107,6 +108,7 @@ class ag:
         cmd=None,
         design=None,
         visit_id=None,
+        visit0=None,
         exposure_time=EXPOSURE_TIME,
         cadence=CADENCE,
         center=None,
@@ -122,6 +124,7 @@ class ag:
             mode=mode,
             design=design,
             visit_id=visit_id,
+            visit0=visit0,
             exposure_time=exposure_time,
             cadence=cadence,
             center=center,
@@ -247,7 +250,7 @@ class AgThread(threading.Thread):
                 self._set_params(mode=ag.Mode.OFF)
 
             start = time.time()
-            mode, design, visit_id, exposure_time, cadence, center, options = (
+            mode, design, visit_id, visit0, exposure_time, cadence, center, options = (
                 self._get_params()
             )
 
@@ -256,16 +259,22 @@ class AgThread(threading.Thread):
 
             guide_catalog = None
 
-            try:
-                if guide_catalog is None:
-                    self.logger.info(
-                        f"Loading guide objects from database for {design_id=}"
-                    )
-                    guide_catalog = get_guide_objects(
-                        design_id=design_id, is_guide=True
-                    )
+            # Make sure we have a design_id and visit_id.
+            if design_id is None:
+                self.logger.info("AgThread.run: no design_id, setting mode to STOP")
+                self._set_params(mode=ag.Mode.STOP)
+                mode = ag.Mode.STOP
 
+            try:
                 if mode & (ag.Mode.ON | ag.Mode.ONCE):
+                    if guide_catalog is None:
+                        self.logger.info(
+                            f"Loading guide objects from database for {design_id=} {visit0=}"
+                        )
+                        guide_catalog = get_guide_objects(
+                            design_id=design_id, visit0=visit0, is_guide=True
+                        )
+
                     # Do the actual AG exposure.
                     exposure_delay = options.get("exposure_delay", ag.EXPOSURE_DELAY)
                     tec_off = options.get("tec_off", ag.TEC_OFF)

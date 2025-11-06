@@ -1,7 +1,7 @@
 import logging
 import os
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import IntFlag
 from typing import ClassVar, Optional
 
@@ -13,6 +13,9 @@ from ics.utils.database.db import DB
 from ics.utils.database.gaia import GaiaDB
 from ics.utils.database.opdb import OpDB
 from numpy.typing import NDArray
+from pfs.datamodel import convertToIso8601Utc
+from pfs.utils.coordinates import updateTargetPosition
+from pfs.utils.coordinates.CoordTransp import ag_pfimm_to_pixel
 from pfs.utils.datamodel.ag import AutoGuiderStarMask, SourceDetectionFlag
 
 
@@ -139,6 +142,8 @@ class GuideCatalog:
         "source_id": "<i8",  # u8 (80) not supported by FITSIO
         "ra": "<f8",
         "dec": "<f8",
+        "pm_ra": "<f8",
+        "pm_dec": "<f8",
         "mag": "<f4",
         "agc_camera_id": "<i4",
         "x": "<f4",
@@ -507,6 +512,7 @@ def get_telescope_status(*, frame_id, **kwargs):
 def get_guide_objects(
     *,
     design_id: int,
+    visit0: int | None = None,
     design_path: str | None = None,
     is_guide: bool = False,
     **kwargs,
@@ -517,6 +523,10 @@ def get_guide_objects(
     ----------
     design_id : int
         The PFS design ID.
+    visit0 : int
+        The PFS visit ID to look up proper pfs_config_agc data. If no entry exists for
+        the given visit_id or if `visit0=None`, the latest entry for the design_id
+        is used with appropriate coordinate adjustments.
     design_path : str, optional
         The path to the PFS design file. If None, guide objects are fetched from opdb if design_id is provided.
     is_guide : bool, optional
@@ -569,14 +579,29 @@ def get_guide_objects(
     if "dinr" in kwargs and inr is not None:
         inr += kwargs.get("dinr") / 3600
 
-    logger.info(f"Getting guide_objects from opdb via {design_id=}")
+    logger.info(f"Getting guide_objects from pfs_config_agc via {design_id=} {visit0=}")
     field_design = query_pfs_design(design_id)
-    guide_objects = query_pfs_design_agc(design_id, as_dataframe=True)
+    ra = ra or field_design.field_ra
+    dec = dec or field_design.field_dec
+    inst_pa = inst_pa or field_design.field_inst_pa
 
-    # Rename columns for consistency.
-    logger.info(f"Got {len(guide_objects)} guide objects, renaming columns")
-    new_cols = dict(zip(guide_objects.columns, GuideCatalog.guide_object_dtype.keys()))
-    guide_objects = guide_objects.rename(columns=new_cols)
+    guide_objects = query_pfs_config_agc(
+        design_id=design_id, visit0=visit0, as_dataframe=True
+    )
+
+    if len(guide_objects) == 0:
+        logger.info(
+            f"No pfs_config_agc entry for {visit0=}, using latest for {design_id=}"
+        )
+        guide_objects = query_pfs_design_agc(pfs_design_id=design_id, as_dataframe=True)
+
+        if len(guide_objects) == 0:
+            raise RuntimeError(f"No guide objects found for design_id={design_id}")
+
+        # Apply telescope coordinate adjustments.
+        guide_objects = tweak_target_position(
+            guide_objects, ra, dec, inst_pa, taken_at or "now"
+        )
 
     # Mark which guide objects should be filtered (only GALAXIES for now).
     logger.info(f"Guide objects before filtering: {len(guide_objects)}")
@@ -584,10 +609,6 @@ def get_guide_objects(
     logger.info(
         f"Guide objects after filtering: {len(guide_objects.query('filtered_by == 0'))}"
     )
-
-    ra = ra or field_design.field_ra
-    dec = dec or field_design.field_dec
-    inst_pa = inst_pa or field_design.field_inst_pa
 
     return GuideCatalog(
         guide_objects=guide_objects,
@@ -599,6 +620,93 @@ def get_guide_objects(
         adc=adc,
         taken_at=taken_at,
     )
+
+
+def tweak_target_position(
+    guide_objects: pd.DataFrame,
+    field_ra: float,
+    field_dec: float,
+    field_pa: float,
+    obstime: datetime | str,
+) -> pd.DataFrame:
+    """Update the RA/Dec and focal-plane positions for the pfsDesign guide objects.
+
+    Adjusts guide star positions for proper motion and parallax based on the observation
+    time and field center coordinates.
+
+    See `pfs.utils.pfsConfigUtils.tweakTargetPosition` for reference.
+
+    Parameters
+    ----------
+    guide_objects : pd.DataFrame
+        DataFrame containing guide star data with columns:
+        - guide_star_ra: Right ascension in degrees
+        - guide_star_dec: Declination in degrees
+        - pm_ra: Proper motion in RA (mas/yr)
+        - pm_dec: Proper motion in Dec (mas/yr)
+        - parallax: Parallax in mas
+        - agc_camera_id: Camera ID number
+    field_ra : float
+        Right ascension of the field center in degrees
+    field_dec : float
+        Declination of the field center in degrees
+    field_pa : float
+        Position angle of the field in degrees
+    obstime : datetime | str
+        Observation time as datetime object with timezone or 'now'
+
+    Returns
+    -------
+    pd.DataFrame
+        Copy of input DataFrame with updated columns:
+        - guide_star_ra: Position-adjusted RA
+        - guide_star_dec: Position-adjusted Dec
+        - agc_final_x_pix: X pixel coordinate on detector
+        - agc_final_y_pix: Y pixel coordinate on detector
+    """
+
+    guide_objects = guide_objects.copy()
+
+    logger.info(f"Updating guide object positions from pfsDesign for telescope pointing ({field_ra=},{field_dec=},{field_pa=}) at {obstime=})")
+
+    cent = np.vstack([field_ra, field_dec])
+    obstime = datetime.now(timezone.utc) if obstime == "now" else obstime
+
+    if obstime.tzinfo is None or obstime.tzinfo.utcoffset(obstime) is None:
+        raise ValueError("obstime must be timezone-aware (localized) or 'now'")
+
+    # converting to ISO-8601
+    obstime = convertToIso8601Utc(obstime.isoformat())
+    logger.info(f"obstime converted to ISO-8601 UTC: {obstime=}")
+
+    # updating ra/dec/position for guideStars objects.
+    radec = np.vstack([guide_objects.ra, guide_objects.dec])
+    # getting pm and par from design.
+    pm = np.vstack([guide_objects.pm_ra, guide_objects.pm_dec])
+    par = guide_objects.parallax.values
+
+    guide_ra_now, guide_dec_now, guide_x_now, guide_y_now = (
+        updateTargetPosition.update_target_position(
+            radec, field_pa, cent, pm, par, obstime, mode="sky_pfi_ag"
+        )
+    )
+
+    # converting to ag pixels
+    guide_xy_pix = np.array(
+        [
+            ag_pfimm_to_pixel(agId, x, y)
+            for agId, x, y in zip(guide_objects.agc_camera_id, guide_x_now, guide_y_now)
+        ]
+    )
+    guide_x_pix = guide_xy_pix[:, 0].astype("float32")
+    guide_y_pix = guide_xy_pix[:, 1].astype("float32")
+
+    guide_objects["ra"] = guide_ra_now
+    guide_objects["dec"] = guide_dec_now
+    guide_objects["x"] = guide_x_pix
+    guide_objects["y"] = guide_y_pix
+
+    return guide_objects
 
 
 def get_detected_objects(
@@ -970,14 +1078,17 @@ WHERE
 def query_pfs_design_agc(pfs_design_id: int, as_dataframe: bool = True, **kwargs):
     sql = """
 SELECT
-guide_star_id,
-guide_star_ra,
-guide_star_dec,
-guide_star_magnitude,
-agc_camera_id,
-agc_target_x_pix,
-agc_target_y_pix,
-guide_star_flag
+    guide_star_id as source_id,
+    guide_star_ra as ra,
+    guide_star_dec as dec,
+    guide_star_pm_ra as pm_ra,
+    guide_star_pm_dec as pm_dec,
+    guide_star_parallax as parallax,
+    guide_star_magnitude as mag,
+    agc_camera_id as agc_camera_id,
+    agc_target_x_pix as x,
+    agc_target_y_pix as y,
+    guide_star_flag as flags
 FROM pfs_design_agc
 WHERE pfs_design_id=%s
 ORDER BY guide_star_id
@@ -986,9 +1097,54 @@ ORDER BY guide_star_id
     return query_db(sql, params, as_dataframe=as_dataframe, **kwargs)
 
 
+def query_pfs_config_agc(
+    *, design_id: int, visit0: int, as_dataframe: bool = True, **kwargs
+):
+    """Get the guide star configuration for a given PFS design and visit.
+
+    Parameters
+    ----------
+    design_id : int
+        The PFS design ID.
+    visit0 : int
+        The PFS visit ID.
+    as_dataframe : bool, optional
+        Whether to return a pandas DataFrame, by default True.
+    **kwargs
+        Additional keyword arguments passed to `query_db`.
+
+    Returns
+    -------
+    pd.DataFrame or np.ndarray
+        The result of the query as a pandas DataFrame or numpy array.
+    """
+    sql = """
+          SELECT 
+                t0.guide_star_id as source_id,
+                t0.guide_star_ra as ra,
+                t0.guide_star_dec as dec,
+                t1.guide_star_pm_ra as pm_ra,
+                t1.guide_star_pm_dec as pm_dec,
+                t1.guide_star_parallax as parallax,                
+                t1.guide_star_magnitude as mag,
+                t0.agc_camera_id as agc_camera_id,
+                t0.agc_final_x_pix as x,
+                t0.agc_final_y_pix as y,
+                t1.guide_star_flag as flags
+          FROM pfs_config_agc t0, pfs_design_agc t1
+          WHERE t0.pfs_design_id = t1.pfs_design_id
+            AND t0.guide_star_id = t1.guide_star_id
+            AND t0.pfs_design_id = %s
+            AND t0.visit0 = %s
+          ORDER BY t0.guide_star_id
+          """
+    params = (design_id, visit0)
+    return query_db(sql, params, as_dataframe=as_dataframe, **kwargs)
+
+
 def query_pfs_design(pfs_design_id: int, as_dataframe: bool = True, **kwargs):
     sql = """
-          SELECT ra_center_designed as field_ra,
+          SELECT *, ra_center_designed as field_ra,
                  dec_center_designed as field_dec,
                  pa_designed as field_inst_pa
           FROM pfs_design
