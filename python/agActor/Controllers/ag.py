@@ -8,7 +8,7 @@ import numpy as np
 from agActor import autoguide
 from agActor.utils import actorCalls
 from agActor.utils import data as data_utils
-from agActor.utils import focus as _focus
+from agActor.utils.focus import focus
 from agActor.utils.actorCalls import sendAlert, send_guide_offsets
 from agActor.utils.data import GuideOffsetFlag, get_guide_objects
 from agActor.utils.telescope_center import telCenter as tel_center
@@ -381,15 +381,10 @@ class AgThread(threading.Thread):
                         kwargs["offset"] = offset
 
                     max_correction = options.get("max_correction", ag.MAX_CORRECTION)
-
-                    if "max_ellipticity" in options:
-                        kwargs["max_ellipticity"] = options.get("max_ellipticity")
-                    if "max_size" in options:
-                        kwargs["max_size"] = options.get("max_size")
-                    if "min_size" in options:
-                        kwargs["min_size"] = options.get("min_size")
-                    if "max_residual" in options:
-                        kwargs["max_residual"] = options.get("max_residual")
+                    max_ellipticity = options.get("max_ellipticity", ag.MAX_ELLIPTICITY)
+                    max_size = options.get("max_size", ag.MAX_SIZE)
+                    min_size = options.get("min_size", ag.MIN_SIZE)
+                    max_residual = options.get("max_residual", ag.MAX_RESIDUAL)
 
                     if "filter_bad_shape" in options:
                         kwargs["filter_bad_shape"] = options.get("filter_bad_shape")
@@ -401,7 +396,13 @@ class AgThread(threading.Thread):
                         f"AgThread.run: autoguide.autoguide for {frame_id=}"
                     )
                     guide_offsets = autoguide.get_exposure_offsets(
-                        frame_id=frame_id, guide_catalog=guide_catalog, **kwargs
+                        frame_id=frame_id,
+                        guide_catalog=guide_catalog,
+                        max_ellipticity=max_ellipticity,
+                        max_size=max_size,
+                        min_size=min_size,
+                        max_residual=max_residual,
+                        **kwargs
                     )
 
                     # Extract values from the AutoguideResult dataclass
@@ -477,12 +478,14 @@ class AgThread(threading.Thread):
 
                     # always compute focus offset and tilt.
                     self.logger.info(
-                        f"AgThread.run: focus._focus for frame_id={frame_id}"
+                        f"AgThread.run: focus.focus for frame_id={frame_id}"
                     )
 
-                    # TODO (wtg - 2025-10-16): deal with max_ellipticity, max_size, min_size.
-                    dz, dzs = _focus._focus(
-                        detected_objects=guide_offsets.detected_objects
+                    dz, dzs = focus(
+                        detected_objects=guide_offsets.detected_objects,
+                        max_ellipticity=max_ellipticity,
+                        max_size=max_size,
+                        min_size=min_size,
                     )
 
                     # send corrections to gen2 (or iic).

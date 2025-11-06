@@ -73,8 +73,8 @@ def parse_kwargs(kwargs):
 def acquire_field(
     *,
     design_id: int,
-    visit0: int,
     frame_id: int,
+    visit0: int | None = None,
     obswl: float = 0.62,
     altazimuth: bool = True,
     is_guide: bool = False,
@@ -86,10 +86,11 @@ def acquire_field(
     ----------
     design_id: int
         The design ID to retrieve guide stars for.
-    visit0 : int
-        The visit ID to retrieve guide stars for.
     frame_id : int
-        The frame ID to retrieve telescope status for.
+        The frame ID to use for detected objects and telescope status.
+    visit0 : int
+        The visit ID to retrieve guide stars from the pfs_config_agc table. If not
+        provided, use the pfsDesign file with transformations.
     obswl : float, optional
         Observation wavelength in nm, defaults to 0.62.
     altazimuth : bool, optional
@@ -179,9 +180,10 @@ def acquire_field(
 
     logger.info(f"Final values for calculating offsets: {ra=},{dec=},{inst_pa=},{inr=}")
 
-    _kwargs = filter_kwargs(kwargs)
 
-    logger.info(f"Calling calculate_guide_offsets with {_kwargs=}")
+    logger.info(f"Calling calculate_guide_offsets with {adc=}")
+
+    _kwargs = filter_kwargs(kwargs)
 
     guide_offsets = get_guide_offsets(
         guide_objects,
@@ -211,6 +213,10 @@ def get_guide_offsets(
     m2_pos3: float = 6.0,
     obswl: float = 0.62,
     altazimuth: bool = False,
+    max_ellipticity: float = 2.0e0,
+    max_size: float = 1.0e12,
+    min_size: float = -1.0e0,
+    max_residual: float = 0.5,
     **kwargs: Dict[str, Any],
 ) -> GuideOffsets:
     """Calculate guide offsets for the detected objects using the guide objects from the catalog.
@@ -241,6 +247,14 @@ def get_guide_offsets(
         Observation wavelength in microns. Default is 0.62.
     altazimuth : bool, optional
         If True, convert offsets to altitude-azimuth coordinates. Default is False.
+    max_ellipticity : float, optional
+        Maximum ellipticity for source filtering, by default 2.0e0.
+    max_size : float, optional
+        Maximum size for source filtering, by default 1.0e12.
+    min_size : float, optional
+        Minimum size for source filtering, by default -1.0e0.
+    max_residual : float, optional
+        Maximum residual for source filtering, by default 0.5.
     **kwargs : dict, optional
         Additional keyword arguments to pass to the field acquisition and focusing calculation.
 
@@ -297,8 +311,6 @@ def get_guide_offsets(
         ]
     ).T
 
-    _kwargs = _map_kwargs(kwargs)
-
     # Convert taken_at to a UTC datetime object if it's not already
     if isinstance(taken_at, datetime):
         obstime = taken_at.astimezone(tz=timezone.utc)
@@ -309,7 +321,7 @@ def get_guide_offsets(
 
     logger.info(f"Using {obstime=} for calculating offsets")
 
-    logger.info(f"Calling calculate_acquisition_offsets (old FAinstpa) with {_kwargs=}")
+    logger.info(f"Calling calculate_acquisition_offsets (old FAinstpa)")
 
     (
         ra_offset,
@@ -321,16 +333,19 @@ def get_guide_offsets(
         valid_detections,
         good_guide_objects,
     ) = calculate_offsets(
-        guide_objects,
-        _detected_objects,
-        ra,
-        dec,
-        obstime,
-        adc,
-        inst_pa,
-        m2_pos3,
-        obswl,
-        **_kwargs,
+        guide_objects=guide_objects,
+        detected_array=_detected_objects,
+        tel_ra=ra,
+        tel_de=dec,
+        dt=obstime,
+        adc=adc,
+        instpa=inst_pa,
+        m2pos3=m2_pos3,
+        wl=obswl,
+        max_ellipticity=max_ellipticity,
+        max_size=max_size,
+        min_size=min_size,
+        max_residual=max_residual,
     )
     ra_offset *= 3600
     dec_offset *= 3600

@@ -19,6 +19,10 @@ def get_exposure_offsets(
     frame_id: int,
     guide_catalog: GuideCatalog,
     obswl: float = 0.62,
+    max_ellipticity: float = 2.0e0,
+    max_size: float = 1.0e12,
+    min_size: float = -1.0e0,
+    max_residual: float = 0.5,
     **kwargs,
 ):
     """Calculate guiding corrections based on detected objects in a frame.
@@ -34,6 +38,10 @@ def get_exposure_offsets(
         guide_catalog (GuideCatalog): Guide objects and field center information.
         obswl (float): Observation wavelength in microns, used for atmospheric refraction
             calculations, by default 0.62 microns.
+        max_ellipticity (float): Maximum ellipticity for source filtering, by default 2.0e0.
+        max_size (float): Maximum size for source filtering, by default 1.0e12.
+        min_size (float): Minimum size for source filtering, by default -1.0e0.
+        max_residual (float): Maximum residual for source filtering, by default 0.5.
         **kwargs: Additional keyword arguments that may include:
             - dra, ddec: Small adjustments to coordinates in arcseconds
             - dpa: Small adjustment to position angle in arcseconds
@@ -80,9 +88,6 @@ def get_exposure_offsets(
     dec = guide_catalog.dec
     inst_pa = guide_catalog.inst_pa
 
-    _kwargs = field_acquisition.filter_kwargs(kwargs)
-    logger.info(f"_kwargs={_kwargs}")
-
     logger.info(
         "Calling field_acquisition.calculate_guide_offsets from autoguide.get_exposure_offsets"
     )
@@ -97,7 +102,10 @@ def get_exposure_offsets(
         m2_pos3=m2_pos3,
         obswl=obswl,
         altazimuth=True,
-        **_kwargs,
+        max_ellipticity=max_ellipticity,
+        max_size=max_size,
+        min_size=min_size,
+        max_residual=max_residual,
     )
 
     guide_offsets.ra = ra
