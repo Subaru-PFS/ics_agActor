@@ -9,7 +9,7 @@ from agActor import autoguide
 from agActor.utils import actorCalls
 from agActor.utils import data as data_utils
 from agActor.utils import focus as _focus
-from agActor.utils.actorCalls import send_guide_offsets
+from agActor.utils.actorCalls import sendAlert, send_guide_offsets
 from agActor.utils.data import GuideOffsetFlag, get_guide_objects
 from agActor.utils.telescope_center import telCenter as tel_center
 
@@ -243,6 +243,15 @@ class AgThread(threading.Thread):
         cmd.inform("detectionState=0")
         cmd.inform("guideReady=0")
 
+        # Send a message to clear any previous alerts about the control loop.
+        sendAlert(
+            actor=self.actor,
+            alert_id="AG.CONTROL_LOOP",
+            alert_name="Autoguide Control Loop Started",
+            alert_description="The AG control loop has been started successfully.",
+            alert_severity="ok",
+        )
+
         while True:
             if self.__stop.is_set():
                 self.__stop.clear()
@@ -452,6 +461,14 @@ class AgThread(threading.Thread):
                         cmd.inform(
                             f'text="Calculated offset not in allowed range, skipping: {dra=} {ddec=} {max_correction=}"'
                         )
+                        sendAlert(
+                            actor=self.actor,
+                            alert_id="AG.OFFSET_OUT_OF_RANGE",
+                            alert_name="Autoguide Offset Out of Range",
+                            alert_description="The calculated autoguide offset is out of the allowed range, no corrections have been sent to the telescope.",
+                            alert_detail=f"Calculated offsets: {frame_id=} {visit_id=} {dra=}, {ddec=}, {max_correction=}",
+                            alert_severity="warning",
+                        )
 
                     # always compute focus offset and tilt.
                     self.logger.info(
@@ -525,12 +542,28 @@ class AgThread(threading.Thread):
                     self._set_params(mode=ag.Mode.OFF)
             except RuntimeError as e:
                 self.logger.error(f"AgThread.run: RuntimeError: {e}")
+                sendAlert(
+                    actor=self.actor,
+                    alert_id="AG.CONTROL_LOOP.RUNTIME_ERROR",
+                    alert_name="Autoguide Control-loop Runtime Error",
+                    alert_description="Non-fatal error occurred, continuing to next iteration (see Details).",
+                    alert_detail=str(e),
+                    alert_severity="warning",
+                )
                 self.logger.warning(
                     "AgThread.run: Going to next iteration because of non-fatal error"
                 )
             except Exception as e:
                 self.logger.error(f"AgThread.run error: {e}")
                 self.logger.error("AgThread.run: stopping run loop due to error")
+                sendAlert(
+                    actor=self.actor,
+                    alert_id="AG.CONTROL_LOOP",
+                    alert_name="Autoguide Fatal Error",
+                    alert_description="A fatal error occurred, autoguiding has been stopped.",
+                    alert_detail=str(e),
+                    alert_severity="critical",
+                )
                 self.stop()
 
             end = time.time()

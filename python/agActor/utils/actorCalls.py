@@ -1,7 +1,5 @@
 from logging import Logger
 
-from agActor.main import AgActor
-
 
 def send_guide_offsets(
     *, actor, taken_at, daz, dalt, dx, dy, size, peak, flux, dry_run, logger
@@ -10,7 +8,7 @@ def send_guide_offsets(
 
     Parameters
     ----------
-    actor : `AgActor`
+    actor : "AgActor"
        where to send commands and fetch results from.
     taken_at : float
         Timestamp when the image was taken (MJD).
@@ -67,7 +65,7 @@ def updateTelStatus(actor, logger, visit_id=None):
 
     Parameters
     ----------
-    actor : `AgActor`
+    actor : "AgActor"
        where to send commands and fetch results from.
     logger : `logging.Logger`
         Logger to use.
@@ -100,10 +98,10 @@ def updateTelStatus(actor, logger, visit_id=None):
 
 
 def sendAlert(
-    actor: AgActor,
+    actor: "AgActor",
     alert_id: str,
     alert_name: str,
-    alert_description: str,
+    alert_description: str = "",
     alert_detail: str = "",
     alert_severity="info",
     logger: Logger | None = None,
@@ -112,9 +110,9 @@ def sendAlert(
 
     Parameters
     ----------
-    actor : `AgActor`
+    actor : "AgActor"
        where to send commands and fetch results from.
-    alert_id : int
+    alert_id : str
         Unique identifier for the alert.
     alert_name : str
         Name of the alert.
