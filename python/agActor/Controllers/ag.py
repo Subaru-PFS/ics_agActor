@@ -271,12 +271,6 @@ class AgThread(threading.Thread):
 
             guide_catalog = None
 
-            # Make sure we have a design_id and visit_id.
-            if design_id is None:
-                self.logger.info("AgThread.run: no design_id, setting mode to STOP")
-                self._set_params(mode=ag.Mode.STOP)
-                mode = ag.Mode.STOP
-
             try:
                 if mode & (ag.Mode.ON | ag.Mode.ONCE):
                     if guide_catalog is None:
