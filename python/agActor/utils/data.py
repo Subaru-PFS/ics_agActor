@@ -598,10 +598,10 @@ def get_guide_objects(
         if len(guide_objects) == 0:
             raise RuntimeError(f"No guide objects found for design_id={design_id}")
 
-        # Apply telescope coordinate adjustments.
-        guide_objects = tweak_target_position(
-            guide_objects, ra, dec, inst_pa, taken_at or "now"
-        )
+    # Apply telescope coordinate adjustments.
+    guide_objects = tweak_target_position(
+        guide_objects, ra, dec, inst_pa, taken_at or "now"
+    )
 
     # Mark which guide objects should be filtered (only GALAXIES for now).
     logger.info(f"Guide objects before filtering: {len(guide_objects)}")
@@ -679,9 +679,8 @@ def tweak_target_position(
     obstime = convertToIso8601Utc(obstime.isoformat())
     logger.info(f"obstime converted to ISO-8601 UTC: {obstime=}")
 
-    # updating ra/dec/position for guideStars objects.
+    # Updating ra/dec/position for guideStars objects.
     radec = np.vstack([guide_objects.ra, guide_objects.dec])
-    # getting pm and par from design.
     pm = np.vstack([guide_objects.pm_ra, guide_objects.pm_dec])
     par = guide_objects.parallax.values
 
@@ -1121,8 +1120,8 @@ def query_pfs_config_agc(
     sql = """
           SELECT 
                 t0.guide_star_id as source_id,
-                t0.guide_star_ra as ra,
-                t0.guide_star_dec as dec,
+                t1.guide_star_ra as ra,
+                t1.guide_star_dec as dec,
                 t1.guide_star_pm_ra as pm_ra,
                 t1.guide_star_pm_dec as pm_dec,
                 t1.guide_star_parallax as parallax,                
