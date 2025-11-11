@@ -134,7 +134,7 @@ class AgCmd:
         ]
         self.keys = keys.KeysDictionary(
             "ag_ag",
-            (1, 17),
+            (1, 18),
             keys.Key("exposure_time", types.Int(), help=""),
             keys.Key("cadence", types.Int(), help=""),
             keys.Key("guide", types.Bool("no", "yes"), help=""),
@@ -161,6 +161,7 @@ class AgCmd:
             keys.Key("max_correction", types.Float(), help=""),
             keys.Key("exposure_delay", types.Int(), help=""),
             keys.Key("tec_off", types.Bool("no", "yes"), help=""),
+            keys.Key("filter_bad_shape", types.Bool("no", "yes"), help=""),
         )
 
         # Set up the database connections.
