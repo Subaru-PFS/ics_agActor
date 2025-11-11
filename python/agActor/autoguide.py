@@ -3,7 +3,6 @@ import logging
 from pfs.utils.datamodel.ag import SourceDetectionFlag
 
 from agActor import field_acquisition
-from agActor.Controllers.ag import ag
 from agActor.utils.data import (
     BAD_DETECTION_FLAGS,
     GuideCatalog,
@@ -20,10 +19,10 @@ def get_exposure_offsets(
     frame_id: int,
     guide_catalog: GuideCatalog,
     obswl: float = 0.62,
-    max_ellipticity: float = ag.MAX_ELLIPTICITY,
-    max_size: float = ag.MAX_SIZE,
-    min_size: float = ag.MIN_SIZE,
-    max_residual: float = ag.MAX_RESIDUAL,
+    max_ellipticity: float = 2.0e0,
+    max_size: float = 1.0e12,
+    min_size: float = -1.0e0,
+    max_residual: float = 0.5,
     **kwargs,
 ):
     """Calculate guiding corrections based on detected objects in a frame.
