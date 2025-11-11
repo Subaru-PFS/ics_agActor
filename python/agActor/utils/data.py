@@ -13,7 +13,6 @@ from ics.utils.database.db import DB
 from ics.utils.database.gaia import GaiaDB
 from ics.utils.database.opdb import OpDB
 from numpy.typing import NDArray
-from pfs.datamodel import convertToIso8601Utc
 from pfs.utils.coordinates import updateTargetPosition
 from pfs.utils.coordinates.CoordTransp import ag_pfimm_to_pixel
 from pfs.utils.datamodel.ag import AutoGuiderStarMask, SourceDetectionFlag
