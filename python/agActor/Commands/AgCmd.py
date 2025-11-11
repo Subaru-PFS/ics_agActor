@@ -42,7 +42,7 @@ class AgCmd:
                 "[<min_size>] "
                 "[<max_residual>] "
                 "[<exposure_delay>] "
-                "[<tec_off>] ",
+                "[<tec_off>] "
                 "[<filter_bad_shape>]",
                 self.acquire_field,
             ),
@@ -121,7 +121,7 @@ class AgCmd:
                 "[<max_residual>] "
                 "[<max_correction>] "
                 "[<exposure_delay>] "
-                "[<tec_off>] ",
+                "[<tec_off>] "
                 "[<filter_bad_shape>]",
                 self.reconfigure_autoguide,
             ),
