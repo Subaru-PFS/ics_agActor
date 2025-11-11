@@ -1,4 +1,4 @@
-from agActor.main import AgActor
+from logging import Logger
 
 
 def send_guide_offsets(
@@ -8,7 +8,7 @@ def send_guide_offsets(
 
     Parameters
     ----------
-    actor : `AgActor`
+    actor : "AgActor"
        where to send commands and fetch results from.
     taken_at : float
         Timestamp when the image was taken (MJD).
@@ -65,7 +65,7 @@ def updateTelStatus(actor, logger, visit_id=None):
 
     Parameters
     ----------
-    actor : `AgActor`
+    actor : "AgActor"
        where to send commands and fetch results from.
     logger : `logging.Logger`
         Logger to use.
@@ -95,3 +95,64 @@ def updateTelStatus(actor, logger, visit_id=None):
     tel_status = actor.gen2.tel_status
 
     return tel_status
+
+
+def sendAlert(
+    actor: "AgActor",
+    alert_id: str,
+    alert_name: str,
+    alert_description: str = "",
+    alert_detail: str = "",
+    alert_severity="info",
+    logger: Logger | None = None,
+):
+    """Send an alert to gen2.
+
+    Parameters
+    ----------
+    actor : "AgActor"
+       where to send commands and fetch results from.
+    alert_id : str
+        Unique identifier for the alert.
+    alert_name : str
+        Name of the alert.
+    alert_description : str
+        Brief description of the alert.
+    alert_detail : str
+        Detailed information about the alert.
+    alert_severity : str
+        Severity level of the alert (e.g., "info", "warning", "error"), default is "info".
+    logger : `logging.Logger`
+        Logger to use.
+
+    Returns
+    -------
+    gen2_result : result of the gen2 command
+    """
+    assert alert_severity in [
+        "critical",
+        "warning",
+        "error",
+        "info",
+        "normal",
+        "debug",
+        "ok",
+    ], "Invalid alert severity level."
+
+    alert_cmd = (
+        f"sendAlert "
+        f"id='{alert_id}' "
+        f"name='{alert_name}' "
+        f"severity='{alert_severity}' "
+        f"description='{alert_description}' "
+        f"detail='{alert_detail}'"
+    )
+    logger.info(f"Calling gen2.sendAlert with {alert_cmd=}")
+
+    gen2_result = actor.queueCommand(
+        actor="gen2",
+        cmdStr=alert_cmd,
+        timeLim=5,
+    ).get()
+
+    return gen2_result
