@@ -681,7 +681,7 @@ def tweak_target_position(
         raise ValueError("obstime must be timezone-aware (localized) or 'now'")
 
     # converting to ISO-8601
-    obstime = convertToIso8601Utc(obstime.isoformat())
+    obstime = obstime.isoformat(timespec='milliseconds').replace("+00:00", "Z")
     logger.info(f"obstime converted to ISO-8601 UTC: {obstime=}")
 
     # Updating ra/dec/position for guideStars objects.

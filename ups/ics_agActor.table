@@ -1,5 +1,4 @@
 setupRequired(ics_actorkeys)
-setupRequired(pfs_datamodel)
 setupRequired(pfs_instdata)
 setupRequired(pfs_utils)
 
