@@ -7,6 +7,7 @@ import pandas as pd
 from numpy.typing import NDArray
 from pfs.utils.coordinates import Subaru_POPT2_PFS
 
+from agActor.Controllers.ag import ag
 from agActor.coordinates import Subaru_POPT2_PFS_AG
 
 logger = logging.getLogger(__name__)
@@ -14,9 +15,9 @@ logger = logging.getLogger(__name__)
 
 def calculate_focus_errors(
     agarray: NDArray[np.float64],
-    maxellip: float = 2.0e00,
-    maxsize: float = 1.0e12,
-    minsize: float = -1.0e00,
+    maxellip: float = ag.MAX_ELLIPTICITY,
+    maxsize: float = ag.MAX_SIZE,
+    minsize: float = ag.MIN_SIZE,
 ) -> NDArray[np.float64]:
     """
     Calculate focus errors from auto-guider array data.
@@ -54,6 +55,7 @@ def calculate_focus_errors(
 
 
 def calculate_offsets(
+    *,
     guide_objects: pd.DataFrame,
     detected_array: NDArray[np.float64],
     tel_ra: float,
@@ -65,10 +67,10 @@ def calculate_offsets(
     wl: Any,
     inrflag: int = 1,
     scaleflag: int = 1,
-    maxellip: float = 0.6,
-    maxsize: float = 20.0,
-    minsize: float = 0.92,
-    maxresid: float = 0.5,
+    max_ellipticity: float = ag.MAX_ELLIPTICITY,
+    max_size: float = ag.MAX_SIZE,
+    min_size: float = ag.MIN_SIZE,
+    max_residual: float = ag.MAX_RESIDUAL,
 ) -> Tuple[float, float, float, float, NDArray[np.float64], float, int]:
     """
     Perform field acquisition calculations with the instrument position angle.
@@ -101,13 +103,13 @@ def calculate_offsets(
         Flag for instrument rotation calculation, by default 1
     scaleflag : int, optional
         Flag for scale calculation, by default 1
-    maxellip : float, optional
-        Maximum ellipticity for source filtering, by default 0.6
-    maxsize : float, optional
-        Maximum size for source filtering, by default 20.0
-    minsize : float, optional
-        Minimum size for source filtering, by default 0.92
-    maxresid : float, optional
+    max_ellipticity : float, optional
+        Maximum ellipticity for source filtering, by default 2.0e0.
+    max_size : float, optional
+        Maximum size for source filtering, by default 1.0e12.
+    min_size : float, optional
+        Minimum size for source filtering, by default -1.0e0.
+    max_residual : float, optional
         Maximum residual for source filtering, by default 0.5
 
     Returns
@@ -149,9 +151,9 @@ def calculate_offsets(
     basis_vector_1 = np.insert(basis_vector_1, 2, magnitude_values, axis=1)
 
     # Detected sources filtering
-    logger.info(f"Filtering detected objects with {maxellip=} {maxsize=} {minsize=}")
+    logger.info(f"Filtering detected objects with {max_ellipticity=} {max_size=} {min_size=}")
     filtered_detected_array, valid_detections = pfs.sourceFilter(
-        detected_array, maxellip, maxsize, minsize
+        detected_array, max_ellipticity, max_size, min_size
     )
     logger.info(f"Found {len(filtered_detected_array)} detected sources after filtering")
 
@@ -164,7 +166,7 @@ def calculate_offsets(
         basis_vector_1,
         inrflag,
         scaleflag,
-        maxresid,
+        max_residual,
     )
     valid_resid_idx = match_results[:, 8] == 1.0
     logger.info(f"Matched sources with valid residuals: {len(match_results[valid_resid_idx])}")

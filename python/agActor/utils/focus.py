@@ -1,35 +1,59 @@
-import numpy as np
+import logging
 
+import numpy as np
+import pandas as pd
+from pfs.utils.datamodel.ag import SourceDetectionFlag
+
+from agActor.Controllers.ag import ag
 from agActor.coordinates.FieldAcquisitionAndFocusing import calculate_focus_errors
-from agActor.utils.logging import log_message
 from agActor.utils.math import semi_axes
 from agActor.utils.data import query_agc_data
 
-# mapping of keys and value types between focus.py and FieldAcquisitionAndFocusing.py
-_KEYMAP = {
-    "max_ellipticity": ("maxellip", float),
-    "max_size": ("maxsize", float),
-    "min_size": ("minsize", float),
-}
+logger = logging.getLogger(__name__)
 
 
-def _filter_kwargs(kwargs):
-    return {k: v for k, v in kwargs.items() if k in _KEYMAP}
+def focus(
+    *,
+    frame_id: int | None = None,
+    detected_objects: pd.DataFrame | None = None,
+    max_ellipticity: float = ag.MAX_ELLIPTICITY,
+    max_size: float = ag.MAX_SIZE,
+    min_size: float = ag.MIN_SIZE,
+    **kwargs,
+):
+    """Calculate focus error from detected objects in an auto-guider frame.
 
+    Parameters
+    ----------
+    frame_id : int | None
+        Frame ID to use for retrieving detected objects. Either frame_id or detected_objects must be provided.
+    detected_objects : pd.DataFrame | None
+        DataFrame of detected objects. Either frame_id or detected_objects must be provided.
+    max_ellipticity : float
+        Maximum ellipticity for source filtering, by default 2.0e0
+    max_size : float
+        Maximum size for source filtering, by default 1.0e12
+    min_size : float
+        Minimum size for source filtering, by default -1.0e0
+    **kwargs
+        Additional keyword arguments (currently unused).
 
-def _map_kwargs(kwargs):
-    return {_KEYMAP[k][0]: _KEYMAP[k][1](v) for k, v in kwargs.items() if k in _KEYMAP}
+    Returns
+    -------
+    dz : float
+        Median focus error across all auto-guider cameras.
+    dzs : NDArray[np.float64]
+        Array of focus errors for each auto-guider camera.
+    """
+    if frame_id is None and detected_objects is None:
+        raise ValueError("Either frame_id or detected_objects must be provided.")
 
+    if frame_id is not None and detected_objects is None:
+        logger.info(f"In focus, getting detected objects for {frame_id=}")
+        detected_objects = query_agc_data(frame_id)
 
-def focus(*, frame_id, logger=None, **kwargs):
-    log_message(logger, f"frame_id={frame_id}")
-    detected_objects = query_agc_data(frame_id)
-    _kwargs = _filter_kwargs(kwargs)
-    log_message(logger, f"In focus with _kwargs={_kwargs}")
-    return _focus(detected_objects, logger=logger, **_kwargs)
+    logger.info(f"In focus with {max_ellipticity=}, {max_size=}, {min_size=}")
 
-
-def _focus(detected_objects, logger=None, **kwargs):
     _detected_objects = np.array(
         [
             (
@@ -45,13 +69,14 @@ def _focus(detected_objects, logger=None, **kwargs):
                 ),  # semi-major and semi-minor axes
                 row["flags"],  # flags
             )
-            for idx, row in detected_objects.iterrows()
+            for idx, row in detected_objects.query(f'flags <= {SourceDetectionFlag.RIGHT.value}').iterrows()
         ]
     )
-    _kwargs = _map_kwargs(kwargs)
-    log_message(logger, f"In _focus with _kwargs={_kwargs}")
-    dzs = calculate_focus_errors(_detected_objects, **_kwargs)
-    log_message(logger, f"dzs={dzs}")
+
+    dzs = calculate_focus_errors(
+        _detected_objects, maxellip=max_ellipticity, maxsize=max_size, minsize=min_size
+    )
     dz = np.nanmedian(dzs)
-    log_message(logger, f"dz={dz}")
+    logger.info(f"Focus values: {dz=} {dzs=}")
+
     return dz, dzs

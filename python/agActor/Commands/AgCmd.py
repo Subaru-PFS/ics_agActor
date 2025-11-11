@@ -9,7 +9,8 @@ from pfs.utils.coordinates import Subaru_POPT2_PFS
 from agActor import field_acquisition
 from agActor.Controllers.ag import ag
 from agActor.catalog import pfs_design
-from agActor.utils import actorCalls, data as data_utils, focus as _focus
+from agActor.utils import actorCalls, data as data_utils
+from agActor.utils.focus import focus
 from agActor.utils.actorCalls import send_guide_offsets
 from agActor.utils.data import setup_db
 from agActor.utils.telescope_center import telCenter as tel_center
@@ -253,6 +254,7 @@ class AgCmd:
         dinr = None
         if "dinr" in cmd.cmd.keywords:
             dinr = float(cmd.cmd.keywords["dinr"].values[0])
+
         kwargs = {}
         if "magnitude" in cmd.cmd.keywords:
             magnitude = float(cmd.cmd.keywords["magnitude"].values[0])
@@ -266,6 +268,12 @@ class AgCmd:
         if "fit_dscale" in cmd.cmd.keywords:
             fit_dscale = bool(cmd.cmd.keywords["fit_dscale"].values[0])
             kwargs["fit_dscale"] = fit_dscale
+
+        max_ellipticity = ag.MAX_ELLIPTICITY
+        max_size = ag.MAX_SIZE
+        min_size = ag.MIN_SIZE
+        max_residual = ag.MAX_RESIDUAL
+
         if "max_ellipticity" in cmd.cmd.keywords:
             max_ellipticity = float(cmd.cmd.keywords["max_ellipticity"].values[0])
             kwargs["max_ellipticity"] = max_ellipticity
@@ -278,6 +286,7 @@ class AgCmd:
         if "max_residual" in cmd.cmd.keywords:
             max_residual = float(cmd.cmd.keywords["max_residual"].values[0])
             kwargs["max_residual"] = max_residual
+
         exposure_delay = ag.EXPOSURE_DELAY
         if "exposure_delay" in cmd.cmd.keywords:
             exposure_delay = int(cmd.cmd.keywords["exposure_delay"].values[0])
@@ -312,12 +321,14 @@ class AgCmd:
             # the middle of the exposure.
             time.sleep((exposure_time + 7 * exposure_delay) / 1000 / 2)
             telescope_state = None
+
             if self.with_mlp1_status:
                 telescope_state = self.actor.mlp1.telescopeState
                 self.actor.logger.info(
                     f"AgCmd.acquire_field: telescopeState={telescope_state}"
                 )
                 kwargs["inr"] = telescope_state["rotator_real_angle"]
+
             if self.with_gen2_status or self.with_opdb_tel_status:
                 if self.with_gen2_status:
                     # update gen2 status values
@@ -334,6 +345,7 @@ class AgCmd:
                         design=design,
                         tel_status=tel_status,
                     )
+
                     if all(x is None for x in (center, design)):
                         center, _offset = (
                             _tel_center.dither
@@ -343,9 +355,11 @@ class AgCmd:
                         _offset = (
                             _tel_center.offset
                         )  # dithering and guide offset correction
+
                     if offset is None:
                         offset = _offset
                         self.actor.logger.info(f"AgCmd.acquire_field: offset={offset}")
+
                 if self.with_opdb_tel_status:
                     status_update = self.actor.gen2.statusUpdate
                     status_id = (status_update["visit"], status_update["sequenceNum"])
@@ -353,6 +367,7 @@ class AgCmd:
                         f"AgCmd.acquire_field: status_id={status_id}"
                     )
                     kwargs["status_id"] = status_id
+
             # wait for an exposure to complete
             agcc_exposure_result.get()
             frame_id = self.actor.agcc.frameId
@@ -439,10 +454,12 @@ class AgCmd:
                 )
 
             # always compute focus offset and tilt
-            self.actor.logger.info("AgCmd.acquire_field: Calling focus._focus")
-            dz, dzs = _focus._focus(
+            self.actor.logger.info("AgCmd.acquire_field: Calling focus")
+            dz, dzs = focus(
                 detected_objects=guide_offsets.detected_objects,
-                logger=self.actor.logger,
+                max_ellipticity=max_ellipticity,
+                max_size=max_size,
+                min_size=min_size,
             )
             # send corrections to gen2 (or iic)
             guide_status = "OK"
@@ -511,16 +528,18 @@ class AgCmd:
             exposure_time = int(cmd.cmd.keywords["exposure_time"].values[0])
             if exposure_time < 100:
                 exposure_time = 100
-        kwargs = {}
+
+        max_ellipticity = ag.MAX_ELLIPTICITY
+        max_size = ag.MAX_SIZE
+        min_size = ag.MIN_SIZE
+
         if "max_ellipticity" in cmd.cmd.keywords:
             max_ellipticity = float(cmd.cmd.keywords["max_ellipticity"].values[0])
-            kwargs["max_ellipticity"] = max_ellipticity
         if "max_size" in cmd.cmd.keywords:
             max_size = float(cmd.cmd.keywords["max_size"].values[0])
-            kwargs["max_size"] = max_size
         if "min_size" in cmd.cmd.keywords:
             min_size = float(cmd.cmd.keywords["min_size"].values[0])
-            kwargs["min_size"] = min_size
+
         exposure_delay = ag.EXPOSURE_DELAY
         if "exposure_delay" in cmd.cmd.keywords:
             exposure_delay = int(cmd.cmd.keywords["exposure_delay"].values[0])
@@ -547,10 +566,13 @@ class AgCmd:
             agcc_result.get()
             frame_id = self.actor.agcc.frameId
             self.actor.logger.info(f"AgCmd.focus: frameId={frame_id}")
-            # retrieve detected objects from agcc (or opdb)
+
             # compute focus offset and tilt
-            dz, dzs = _focus.focus(
-                frame_id=frame_id, logger=self.actor.logger, **kwargs
+            dz, dzs = focus(
+                frame_id=frame_id,
+                max_ellipticity=max_ellipticity,
+                max_size=max_size,
+                min_size=min_size,
             )
             if np.isnan(dz):
                 cmd.fail(f'text="AgCmd.focus: dz={dz}"')
