@@ -252,6 +252,7 @@ class AgThread(threading.Thread):
             alert_name="Autoguide Control Loop Started",
             alert_description="The AG control loop has been started successfully.",
             alert_severity="ok",
+            logger=self.actor.logger,
         )
 
         while True:
@@ -474,6 +475,7 @@ class AgThread(threading.Thread):
                             alert_description="The calculated autoguide offset is out of the allowed range, no corrections have been sent to the telescope.",
                             alert_detail=f"Calculated offsets: {frame_id=} {visit_id=} {dra=}, {ddec=}, {max_correction=}",
                             alert_severity="warning",
+                            logger=self.actor.logger,
                         )
 
                     # always compute focus offset and tilt.
@@ -559,6 +561,7 @@ class AgThread(threading.Thread):
                     alert_description="Non-fatal error occurred, continuing to next iteration (see Details).",
                     alert_detail=str(e),
                     alert_severity="warning",
+                    logger=self.actor.logger,
                 )
                 self.logger.warning(
                     "AgThread.run: Going to next iteration because of non-fatal error"
@@ -573,6 +576,7 @@ class AgThread(threading.Thread):
                     alert_description="A fatal error occurred, autoguiding has been stopped.",
                     alert_detail=str(e),
                     alert_severity="critical",
+                    logger=self.actor.logger,
                 )
                 self.stop()
 
