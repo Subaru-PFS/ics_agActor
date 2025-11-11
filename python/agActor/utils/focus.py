@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from pfs.utils.datamodel.ag import SourceDetectionFlag
 
+from agActor.Controllers.ag import ag
 from agActor.coordinates.FieldAcquisitionAndFocusing import calculate_focus_errors
 from agActor.utils.math import semi_axes
 from agActor.utils.data import query_agc_data
@@ -15,9 +16,9 @@ def focus(
     *,
     frame_id: int | None = None,
     detected_objects: pd.DataFrame | None = None,
-    max_ellipticity: float = 2.0e0,
-    max_size: float = 1.0e12,
-    min_size: float = -1.0e0,
+    max_ellipticity: float = ag.MAX_ELLIPTICITY,
+    max_size: float = ag.MAX_SIZE,
+    min_size: float = ag.MIN_SIZE,
     **kwargs,
 ):
     """Calculate focus error from detected objects in an auto-guider frame.

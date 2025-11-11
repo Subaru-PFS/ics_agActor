@@ -8,6 +8,7 @@ import pandas as pd
 from pfs.utils.coordinates import coordinates
 from pfs.utils.datamodel.ag import SourceDetectionFlag
 
+from agActor.Controllers.ag import ag
 from agActor.coordinates.FieldAcquisitionAndFocusing import calculate_offsets
 from agActor.utils import to_altaz
 from agActor.utils.data import BAD_DETECTION_FLAGS, GuideOffsets, get_detected_objects, get_guide_objects
@@ -88,7 +89,7 @@ def acquire_field(
         The design ID to retrieve guide stars for.
     frame_id : int
         The frame ID to use for detected objects and telescope status.
-    visit0 : int
+    visit0 : int or None
         The visit ID to retrieve guide stars from the pfs_config_agc table. If not
         provided, use the pfsDesign file with transformations.
     obswl : float, optional
@@ -213,10 +214,10 @@ def get_guide_offsets(
     m2_pos3: float = 6.0,
     obswl: float = 0.62,
     altazimuth: bool = False,
-    max_ellipticity: float = 2.0e0,
-    max_size: float = 1.0e12,
-    min_size: float = -1.0e0,
-    max_residual: float = 0.5,
+    max_ellipticity: float = ag.MAX_ELLIPTICITY,
+    max_size: float = ag.MAX_SIZE,
+    min_size: float = ag.MIN_SIZE,
+    max_residual: float = ag.MAX_RESIDUAL,
     **kwargs: Dict[str, Any],
 ) -> GuideOffsets:
     """Calculate guide offsets for the detected objects using the guide objects from the catalog.

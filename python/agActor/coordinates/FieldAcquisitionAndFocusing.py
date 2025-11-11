@@ -7,6 +7,7 @@ import pandas as pd
 from numpy.typing import NDArray
 from pfs.utils.coordinates import Subaru_POPT2_PFS
 
+from agActor.Controllers.ag import ag
 from agActor.coordinates import Subaru_POPT2_PFS_AG
 
 logger = logging.getLogger(__name__)
@@ -14,9 +15,9 @@ logger = logging.getLogger(__name__)
 
 def calculate_focus_errors(
     agarray: NDArray[np.float64],
-    maxellip: float = 2.0e00,
-    maxsize: float = 1.0e12,
-    minsize: float = -1.0e00,
+    maxellip: float = ag.MAX_ELLIPTICITY,
+    maxsize: float = ag.MAX_SIZE,
+    minsize: float = ag.MIN_SIZE,
 ) -> NDArray[np.float64]:
     """
     Calculate focus errors from auto-guider array data.
@@ -66,10 +67,10 @@ def calculate_offsets(
     wl: Any,
     inrflag: int = 1,
     scaleflag: int = 1,
-    max_ellipticity: float = 2.0e0,
-    max_size: float = 1.0e12,
-    min_size: float = -1.0e0,
-    max_residual: float = 0.5,
+    max_ellipticity: float = ag.MAX_ELLIPTICITY,
+    max_size: float = ag.MAX_SIZE,
+    min_size: float = ag.MIN_SIZE,
+    max_residual: float = ag.MAX_RESIDUAL,
 ) -> Tuple[float, float, float, float, NDArray[np.float64], float, int]:
     """
     Perform field acquisition calculations with the instrument position angle.

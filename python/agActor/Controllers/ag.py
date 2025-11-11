@@ -28,9 +28,9 @@ class ag:
     CADENCE = 0  # ms
     MAGNITUDE = 20.0
     DRY_RUN = False
-    MAX_ELLIPTICITY = 0.6
-    MAX_SIZE = 20.0  # pix
-    MIN_SIZE = 0.92  # pix
+    MAX_ELLIPTICITY = 2.0
+    MAX_SIZE = 1.0e12  # pix
+    MIN_SIZE = -1.0e0  # pix
     MAX_RESIDUAL = 0.2  # mm
     MAX_CORRECTION = 10  # arcsec
     EXPOSURE_DELAY = 100  # ms
