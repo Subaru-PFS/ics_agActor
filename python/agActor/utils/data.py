@@ -674,6 +674,10 @@ def tweak_target_position(
     logger.info(f"Updating guide object positions from pfsDesign for telescope pointing ({field_ra=},{field_dec=},{field_pa=}) at {obstime=})")
 
     cent = np.vstack([field_ra, field_dec])
+
+    if isinstance(obstime, float):
+        obstime = datetime.fromtimestamp(obstime, tz=timezone.utc)
+
     obstime = datetime.now(timezone.utc) if obstime == "now" else obstime
 
     if obstime.tzinfo is None or obstime.tzinfo.utcoffset(obstime) is None:
