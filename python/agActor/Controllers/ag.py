@@ -28,6 +28,8 @@ class ag:
     CADENCE = 0  # ms
     MAGNITUDE = 20.0
     DRY_RUN = False
+    FIT_DINR = True
+    FIT_DSCALE = False
     MAX_ELLIPTICITY = 2.0
     MAX_SIZE = 1.0e12  # pix
     MIN_SIZE = -1.0e0  # pix
@@ -52,6 +54,8 @@ class ag:
         _OPTIONS = (
             "magnitude",
             "dry_run",
+            "fit_dinr",
+            "fit_dscale",
             "max_ellipticity",
             "max_size",
             "min_size",
@@ -111,6 +115,7 @@ class ag:
         design=None,
         visit_id=None,
         visit0=None,
+        from_sky=None,
         exposure_time=EXPOSURE_TIME,
         cadence=CADENCE,
         center=None,
@@ -144,6 +149,7 @@ class ag:
         cmd=None,
         design=None,
         visit_id=None,
+        from_sky=None,
         exposure_time=EXPOSURE_TIME,
         cadence=CADENCE,
         center=None,
@@ -261,15 +267,29 @@ class AgThread(threading.Thread):
                 self.logger.info("AgThread.run: stop has been set, setting mode to OFF")
                 self._set_params(mode=ag.Mode.OFF)
 
-            start = time.time()
-            mode, design, visit_id, visit0, exposure_time, cadence, center, options = (
-                self._get_params()
-            )
+            try:
+                start = time.time()
+                mode, design, visit_id, visit0, exposure_time, cadence, center, options = (
+                    self._get_params()
+                )
 
-            design_id, design_path = design if design is not None else (None, None)
-            dither, offset = None, None
+                design_id, design_path = design if design is not None else (None, None)
+                dither, offset = None, None
 
-            guide_catalog = None
+                guide_catalog = None
+            except Exception as e:
+                self.logger.error(f"AgThread.run error during parameter fetch: {e}")
+                self.logger.error("AgThread.run: stopping run loop due to error")
+                sendAlert(
+                    actor=self.actor,
+                    alert_id="AG.CONTROL_LOOP",
+                    alert_name="Autoguide Fatal Error",
+                    alert_description="A fatal error occurred while fetching parameters, autoguiding has been stopped.",
+                    alert_detail=str(e),
+                    alert_severity="critical",
+                    logger=self.actor.logger,
+                )
+                break
 
             try:
                 if mode & (ag.Mode.ON | ag.Mode.ONCE):
