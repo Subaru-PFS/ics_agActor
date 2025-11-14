@@ -51,6 +51,10 @@ def focus(
         logger.info(f"In focus, getting detected objects for {frame_id=}")
         detected_objects = query_agc_data(frame_id)
 
+    if len(detected_objects) == 0:
+        logger.warning("No detected objects found, returning nan focus values.")
+        return np.nan, np.full(6, np.nan)
+
     logger.info(f"In focus with {max_ellipticity=}, {max_size=}, {min_size=}")
 
     _detected_objects = np.array(
