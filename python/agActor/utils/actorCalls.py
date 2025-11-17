@@ -149,10 +149,12 @@ def sendAlert(
     )
     logger.info(f"Calling gen2.sendAlert with {alert_cmd=}")
 
-    gen2_result = actor.queueCommand(
-        actor="gen2",
-        cmdStr=alert_cmd,
-        timeLim=5,
-    ).get()
-
-    return gen2_result
+    try:
+        gen2_result = actor.queueCommand(
+            actor="gen2",
+            cmdStr=alert_cmd,
+            timeLim=5,
+        ).get()
+        return gen2_result
+    except Exception as e:
+        logger.error(f"Failed to send alert to gen2: {e}")
