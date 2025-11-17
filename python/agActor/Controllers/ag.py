@@ -5,6 +5,8 @@ import time
 
 import numpy as np
 
+from opscore.utility.qstr import qstr
+
 from agActor import autoguide
 from agActor.utils import actorCalls
 from agActor.utils import data as data_utils
@@ -573,7 +575,7 @@ class AgThread(threading.Thread):
                     alert_id="AG.CONTROL_LOOP.RUNTIME_ERROR",
                     alert_name="Autoguide Control-loop Runtime Error",
                     alert_description="Non-fatal error occurred, continuing to next iteration (see Details).",
-                    alert_detail=str(e),
+                    alert_detail=qstr(e),
                     alert_severity="warning",
                     logger=self.actor.logger,
                 )
@@ -588,7 +590,7 @@ class AgThread(threading.Thread):
                     alert_id="AG.CONTROL_LOOP",
                     alert_name="Autoguide Fatal Error",
                     alert_description="A fatal error occurred, autoguiding has been stopped.",
-                    alert_detail=str(e),
+                    alert_detail=qstr(e),
                     alert_severity="critical",
                     logger=self.actor.logger,
                 )
