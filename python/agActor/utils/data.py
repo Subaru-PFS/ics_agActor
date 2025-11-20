@@ -489,9 +489,14 @@ def get_telescope_status(*, frame_id, **kwargs):
     if any(value is None for value in (taken_at, inr, adc, m2_pos3)):
         # First, query the agc_exposure table to get basic information, including visit_id.
         logger.info(f"Getting agc_exposure from opdb for frame_id={frame_id}")
-        _, visit_id, _, _, db_taken_at, _, _, db_inr, db_adc, _, _, _, db_m2_pos3 = (
-            query_agc_exposure(frame_id, as_dataframe=False)
+        agc_exposure_info = (
+            query_agc_exposure(frame_id, as_dataframe=True)
         )
+        visit_id = int(agc_exposure_info.pfs_visit_id) if pd.notna(agc_exposure_info.pfs_visit_id) else 0
+        db_taken_at = agc_exposure_info.taken_at
+        db_inr = float(agc_exposure_info.insrot) if pd.notna(agc_exposure_info.insrot) else None
+        db_adc = float(agc_exposure_info.adc_pa) if pd.notna(agc_exposure_info.adc_pa) else None
+        db_m2_pos3 = float(agc_exposure_info.m2_pos3) if pd.notna(agc_exposure_info.m2_pos3) else None
 
         # If sequence_id is provided, get more accurate information from tel_status table
         sequence_id = kwargs.get("sequence_id")
@@ -499,9 +504,13 @@ def get_telescope_status(*, frame_id, **kwargs):
             logger.info(
                 f"Getting telescope status from opdb for {visit_id=},{sequence_id=}"
             )
-            _, _, db_inr, db_adc, db_m2_pos3, _, _, _, _, db_taken_at = (
-                query_tel_status(visit_id, sequence_id, as_dataframe=False)
+            tel_status_info = (
+                query_tel_status(visit_id, sequence_id, as_dataframe=True)
             )
+            db_inr = float(tel_status_info.insrot) if pd.notna(tel_status_info.insrot) else db_inr
+            db_adc = float(tel_status_info.adc_pa) if pd.notna(tel_status_info.adc_pa) else db_adc
+            db_m2_pos3 = float(tel_status_info.m2_pos3) if pd.notna(tel_status_info.m2_pos3) else db_m2_pos3
+            db_taken_at = tel_status_info.created_at
 
         # Use database values for any missing parameters
         taken_at = taken_at or db_taken_at
@@ -1035,18 +1044,22 @@ def query_tel_status(
 ):
     sql = """
 SELECT
-altitude,
-azimuth,
-insrot,
-adc_pa,
-m2_pos3,
-tel_ra,
-tel_dec,
-dome_shutter_status,
-dome_light_status,
-created_at
-FROM tel_status
-WHERE pfs_visit_id=%s AND status_sequence_id=%s
+    altitude,
+    azimuth,
+    insrot,
+    adc_pa,
+    m2_pos3,
+    tel_ra,
+    tel_dec,
+    dome_shutter_status,
+    dome_light_status,
+    created_at AT TIME ZONE 'Pacific/Honolulu' AS created_at
+FROM 
+    tel_status
+WHERE 
+    pfs_visit_id=%s 
+  AND 
+    status_sequence_id=%s
 """
     params = (pfs_visit_id, status_sequence_id)
     return query_db(
@@ -1061,7 +1074,7 @@ SELECT
     t0.pfs_visit_id,
     t1.pfs_design_id,
     t0.agc_exptime,
-    t0.taken_at,
+    t0.taken_at AT TIME ZONE 'Pacific/Honolulu' AS taken_at,
     t0.azimuth,
     t0.altitude,
     t0.insrot,
@@ -1127,24 +1140,24 @@ def query_pfs_config_agc(
         The result of the query as a pandas DataFrame or numpy array.
     """
     sql = """
-          SELECT 
-                t0.guide_star_id as source_id,
-                t1.guide_star_ra as ra,
-                t1.guide_star_dec as dec,
-                t1.guide_star_pm_ra as pm_ra,
-                t1.guide_star_pm_dec as pm_dec,
-                t1.guide_star_parallax as parallax,                
-                t1.guide_star_magnitude as mag,
-                t0.agc_camera_id as agc_camera_id,
-                t0.agc_final_x_pix as x,
-                t0.agc_final_y_pix as y,
-                t1.guide_star_flag as flags
-          FROM pfs_config_agc t0, pfs_design_agc t1
-          WHERE t0.pfs_design_id = t1.pfs_design_id
-            AND t0.guide_star_id = t1.guide_star_id
-            AND t0.pfs_design_id = %s
-            AND t0.visit0 = %s
-          ORDER BY t0.guide_star_id
+SELECT 
+    t0.guide_star_id as source_id,
+    t1.guide_star_ra as ra,
+    t1.guide_star_dec as dec,
+    t1.guide_star_pm_ra as pm_ra,
+    t1.guide_star_pm_dec as pm_dec,
+    t1.guide_star_parallax as parallax,                
+    t1.guide_star_magnitude as mag,
+    t0.agc_camera_id as agc_camera_id,
+    t0.agc_final_x_pix as x,
+    t0.agc_final_y_pix as y,
+    t1.guide_star_flag as flags
+FROM pfs_config_agc t0, pfs_design_agc t1
+WHERE t0.pfs_design_id = t1.pfs_design_id
+    AND t0.guide_star_id = t1.guide_star_id
+    AND t0.pfs_design_id = %s
+    AND t0.visit0 = %s
+ORDER BY t0.guide_star_id
           """
     params = (design_id, visit0)
     return query_db(sql, params, as_dataframe=as_dataframe, **kwargs)
