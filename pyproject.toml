@@ -27,7 +27,6 @@ dependencies = [
     "pfs-tron-actorcore @ git+https://github.com/Subaru-PFS/tron_actorcore.git",
     "pfs-utils @ git+https://github.com/Subaru-PFS/pfs_utils.git",
     "ics-utils @ git+https://github.com/Subaru-PFS/ics_utils.git",
-    "psycopg2-binary",
 ]
 dynamic = ["version"]
 
