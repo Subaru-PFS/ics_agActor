@@ -6,13 +6,14 @@ from enum import IntFlag
 from typing import ClassVar, Optional
 
 import numpy as np
+from numpy.typing import NDArray
 import pandas as pd
 from astropy import units as u
 from astropy.table import Table
-from ics.utils.database.db import DB
-from ics.utils.database.gaia import GaiaDB
-from ics.utils.database.opdb import OpDB
-from numpy.typing import NDArray
+
+from pfs.utils.database.db import DB
+from pfs.utils.database.gaia import GaiaDB
+from pfs.utils.database.opdb import OpDB
 from pfs.utils.coordinates import updateTargetPosition
 from pfs.utils.coordinates.CoordTransp import ag_pfimm_to_pixel
 from pfs.utils.datamodel.ag import AutoGuiderStarMask, SourceDetectionFlag
@@ -42,7 +43,7 @@ class Database:
             Database name, either "opdb" or "gaia".
         dsn : str or dict
             Database connection parameters. Can be anything accepted by
-            `ics.utils.database.opdb.DB`, namely a string or dict of
+            `pfs.utils.database.opdb.DB`, namely a string or dict of
             connection parameters.
         **kwargs : dict
             Additional keyword arguments to pass to OpDB constructor
@@ -90,7 +91,7 @@ def setup_db(dbname: str, dsn: str | dict, **kwargs):
         Database name, either "opdb" or "gaia".
     dsn : str or dict
         Database connection parameters. Can be anything accepted by
-        `ics.utils.database.opdb.DB`, namely a string or dict of
+        `pfs.utils.database.opdb.DB`, namely a string or dict of
         connection parameters.
     **kwargs : dict
         Additional keyword arguments to pass to OpDB constructor
@@ -966,7 +967,7 @@ def search_gaia(ra, dec, radius=0.027 + 0.003):
     )
 
     try:
-        objects = get_db("gaia").fetchall(query)
+        objects = get_db("gaia").query_array(query)
     except Exception as e:
         raise RuntimeError(f"Failed to query Gaia DR3 sources: {e:r}")
 
@@ -1005,11 +1006,11 @@ def query_db(
     """
     db = db or get_db("opdb")
     if as_dataframe:
-        result = pd.read_sql(sql, db.engine, params=params)
+        result = db.query_dataframe(sql, params=params)
         if len(result) == 1 and single_as_series:
             result = result.iloc[0]
     else:
-        result = db.fetchall(query=sql, params=params)
+        result = db.query_array(sql, params=params)
         if len(result) == 1:
             result = result[0]
 
@@ -1032,10 +1033,10 @@ SELECT agc_camera_id,
  background,
  COALESCE(flags, CAST(centroid_x_pix >= 511.5 + 24 AS INTEGER)) AS flags
 FROM agc_data
-WHERE agc_exposure_id = %s
+WHERE agc_exposure_id = :agc_exposure_id
 ORDER BY agc_camera_id, spot_id
 """
-    params = (agc_exposure_id,)
+    params = {"agc_exposure_id": agc_exposure_id}
     return query_db(sql, params, as_dataframe=as_dataframe, **kwargs)
 
 
@@ -1057,11 +1058,11 @@ SELECT
 FROM 
     tel_status
 WHERE 
-    pfs_visit_id=%s 
+    pfs_visit_id=:pfs_visit_id
   AND 
-    status_sequence_id=%s
+    status_sequence_id=:status_sequence_id
 """
-    params = (pfs_visit_id, status_sequence_id)
+    params = {"pfs_visit_id": pfs_visit_id, "status_sequence_id": status_sequence_id}
     return query_db(
         sql, params, as_dataframe=as_dataframe, single_as_series=True, **kwargs
     )
@@ -1088,9 +1089,9 @@ FROM
 WHERE 
     t0.pfs_visit_id=t1.pfs_visit_id
     AND
-    t0.agc_exposure_id=%s
+    t0.agc_exposure_id=:agc_exposure_id
 """
-    params = (agc_exposure_id,)
+    params = {"agc_exposure_id": agc_exposure_id}
     return query_db(
         sql, params, as_dataframe=as_dataframe, single_as_series=True, **kwargs
     )
@@ -1111,10 +1112,10 @@ SELECT
     agc_target_y_pix as y,
     guide_star_flag as flags
 FROM pfs_design_agc
-WHERE pfs_design_id=%s
+WHERE pfs_design_id=:pfs_design_id
 ORDER BY guide_star_id
 """
-    params = (pfs_design_id,)
+    params = {"pfs_design_id": pfs_design_id}
     return query_db(sql, params, as_dataframe=as_dataframe, **kwargs)
 
 
@@ -1155,11 +1156,11 @@ SELECT
 FROM pfs_config_agc t0, pfs_design_agc t1
 WHERE t0.pfs_design_id = t1.pfs_design_id
     AND t0.guide_star_id = t1.guide_star_id
-    AND t0.pfs_design_id = %s
-    AND t0.visit0 = %s
+    AND t0.pfs_design_id = :pfs_design_id
+    AND t0.visit0 = :visit0
 ORDER BY t0.guide_star_id
           """
-    params = (design_id, visit0)
+    params = {"pfs_design_id": design_id, "visit0": visit0}
     return query_db(sql, params, as_dataframe=as_dataframe, **kwargs)
 
 
@@ -1169,9 +1170,9 @@ def query_pfs_design(pfs_design_id: int, as_dataframe: bool = True, **kwargs):
                  dec_center_designed as field_dec,
                  pa_designed as field_inst_pa
           FROM pfs_design
-          WHERE pfs_design_id = %s
+          WHERE pfs_design_id = :pfs_design_id
           """
-    params = (pfs_design_id,)
+    params = {"pfs_design_id": pfs_design_id}
     return query_db(
         sql, params, as_dataframe=as_dataframe, single_as_series=True, **kwargs
     )
