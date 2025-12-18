@@ -5,6 +5,8 @@ import numpy as np
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
 from pfs.utils.coordinates import Subaru_POPT2_PFS
+from pfs.utils.database.opdb import OpDB
+from pfs.utils.database.gaia import GaiaDB
 
 from agActor import field_acquisition
 from agActor.Controllers.ag import ag
@@ -12,7 +14,6 @@ from agActor.catalog import pfs_design
 from agActor.utils import actorCalls, data as data_utils
 from agActor.utils.focus import focus
 from agActor.utils.actorCalls import send_guide_offsets
-from agActor.utils.data import setup_db
 from agActor.utils.telescope_center import telCenter as tel_center
 
 
@@ -165,9 +166,10 @@ class AgCmd:
         )
 
         # Set up the database connections.
-        self.db_params = actor.actorConfig.get("db", {})
-        setup_db(dbname="opdb", dsn=self.db_params.get("opdb", None))
-        setup_db(dbname="gaia", dsn=self.db_params.get("gaia", None))
+        db_params = actor.actorConfig.get("db", {})
+        self.actor.logger.info(f"AgCmd: Setting default db_params={db_params}")
+        OpDB.set_default_connection(**db_params.get("opdb", {}))
+        GaiaDB.set_default_connection(**db_params.get("gaia", {}))
 
         self.with_opdb_agc_guide_offset = actor.actorConfig.get(
             "agc_guide_offset", False
