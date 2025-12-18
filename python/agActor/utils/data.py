@@ -6,118 +6,29 @@ from enum import IntFlag
 from typing import ClassVar, Optional
 
 import numpy as np
-from numpy.typing import NDArray
 import pandas as pd
 from astropy import units as u
 from astropy.table import Table
 
-from pfs.utils.database.db import DB
-from pfs.utils.database.gaia import GaiaDB
-from pfs.utils.database.opdb import OpDB
+from numpy.typing import NDArray
 from pfs.utils.coordinates import updateTargetPosition
 from pfs.utils.coordinates.CoordTransp import ag_pfimm_to_pixel
-from pfs.utils.datamodel.ag import AutoGuiderStarMask, SourceDetectionFlag
 
+from pfs.utils.database.db import DB
+from pfs.utils.database.opdb import OpDB
+from pfs.utils.database.gaia import GaiaDB
+
+from pfs.utils.datamodel.ag import AutoGuiderStarMask, SourceDetectionFlag
 
 logger = logging.getLogger(__name__)
 
 
-DB_CLASSES = {"opdb": OpDB, "gaia": GaiaDB}
 BAD_DETECTION_FLAGS = (
     SourceDetectionFlag.SATURATED
     | SourceDetectionFlag.EDGE
     | SourceDetectionFlag.BAD_ELLIP
     | SourceDetectionFlag.FLAT_TOP
 )
-
-class Database:
-    def __init__(self):
-        self.dbs: dict[str, DB | None] = {"opdb": None, "gaia": None}
-
-    def setup_db(self, dbname: str, dsn: str | dict | None = None, **kwargs) -> DB:
-        """Sets up the database.
-
-        Parameters
-        ----------
-        dbname : str
-            Database name, either "opdb" or "gaia".
-        dsn : str or dict
-            Database connection parameters. Can be anything accepted by
-            `pfs.utils.database.opdb.DB`, namely a string or dict of
-            connection parameters.
-        **kwargs : dict
-            Additional keyword arguments to pass to OpDB constructor
-        """
-        if self.dbs[dbname] is None:
-            self.dbs[dbname] = DB_CLASSES[dbname](dsn=dsn, **kwargs)
-            logger.info(f"Created database {dbname} with {dsn=}")
-        else:
-            logger.debug(f"Database {dbname} already setup: {self.dbs[dbname].dsn}")
-
-        return self.dbs[dbname]
-
-    def get_db(self, dbname: str) -> DB | None:
-        """Returns the database object for the given database name.
-
-        Parameters
-        ----------
-        dbname : str
-            Database name, either "opdb" or "gaia".
-
-        Returns
-        -------
-        DB | None
-            Database object for the given database name otherwise None.
-        """
-        try:
-            db = self.setup_db(dbname=dbname)
-            logger.debug(f"Returning database {dbname}: {db.dsn}")
-            return db
-        except KeyError:
-            logger.warning(f"Database {dbname} not found.")
-            return None
-
-
-# Create the global database holder.
-_DATABASE = Database()
-
-
-def setup_db(dbname: str, dsn: str | dict, **kwargs):
-    """Sets up the specific database using the global Database instance.
-
-    Parameters
-    ----------
-    dbname : str
-        Database name, either "opdb" or "gaia".
-    dsn : str or dict
-        Database connection parameters. Can be anything accepted by
-        `pfs.utils.database.opdb.DB`, namely a string or dict of
-        connection parameters.
-    **kwargs : dict
-        Additional keyword arguments to pass to OpDB constructor
-    """
-    _DATABASE.setup_db(dbname=dbname, dsn=dsn, **kwargs)
-
-
-def get_db(dbname: str) -> DB | None:
-    """Returns the database object for the given database name.
-
-    Parameters
-    ----------
-    dbname : str
-        Database name, either "opdb" or "gaia".
-
-    Returns
-    -------
-    db : DB | None
-        Database object for the given database name otherwise None.
-    """
-    db = _DATABASE.get_db(dbname=dbname)
-    if db is None:
-        logger.warning(f"Database {dbname} not found.")
-        return None
-
-    return db
 
 
 @dataclass
@@ -778,6 +689,7 @@ def write_agc_guide_offset(
     delta_z: float | None = None,
     delta_zs: NDArray | None = None,
     offset_flags: GuideOffsetFlag = GuideOffsetFlag.OK,
+    db: DB | None = None,
 ):
     """Write the guide offsets to the database.
 
@@ -799,7 +711,9 @@ def write_agc_guide_offset(
         delta_zs (NDArray | None): Focus offset per camera.
         offset_flags (GuideOffsetFlag): Any flags for the data, stored in
             the `mask` column, defaults to `GuideOffsetFlag.OK`.
+        db (DB | None): The database to use. Defaults to None, which uses `pfs.utils.database.opdb.OpDB`.
     """
+    db = db or OpDB()
     try:
         params = dict(
             agc_exposure_id=frame_id,
@@ -824,7 +738,7 @@ def write_agc_guide_offset(
             params.update(guide_delta_z6=float(delta_zs[5]))
 
         logger.info(f"Writing agc_guide_offsets with {params=}")
-        get_db("opdb").insert("agc_guide_offset", **params)
+        db.insert_kw("agc_guide_offset", **params)
     except Exception as e:
         logger.warning(f"Failed to write agc_guide_offsets: {e}")
 
@@ -836,6 +750,7 @@ def write_agc_match(
     guide_objects: pd.DataFrame,
     detected_objects: pd.DataFrame,
     identified_objects: pd.DataFrame,
+    db: DB | None = None,
 ) -> int | None:
     """Insert AG identified objects into opdb.agc_match.
 
@@ -849,12 +764,14 @@ def write_agc_match(
                                    indices and coordinate data for a matched object.
                                    Expected format: (detected_idx, guide_idx,
                                    center_x, center_y, nominal_x, nominal_y, ...)
+    db (DB | None): The database to use. Defaults to None, which uses `pfs.utils.database.opdb.OpDB`.
 
     Returns:
     --------
     int | None
         The number of identified objects inserted or None if no matches.
     """
+    db = db or OpDB()
     try:
         rows_to_insert = []
         for idx, match in identified_objects.iterrows():
@@ -885,7 +802,7 @@ def write_agc_match(
         if rows_to_insert:
             df = pd.DataFrame(rows_to_insert)
             logger.debug("Inserting data into database")
-            n_rows = get_db("opdb").insert_dataframe(df=df, table="agc_match")
+            n_rows = db.insert_dataframe(df=df, table="agc_match")
             logger.info(f"Finished inserting agc_match data: {n_rows} rows inserted")
 
             return n_rows
@@ -967,7 +884,7 @@ def search_gaia(ra, dec, radius=0.027 + 0.003):
     )
 
     try:
-        objects = get_db("gaia").query_array(query)
+        objects = GaiaDB().query_array(query)
     except Exception as e:
         raise RuntimeError(f"Failed to query Gaia DR3 sources: {e:r}")
 
@@ -997,14 +914,14 @@ def query_db(
         Whether to return a pandas series from the sql query. If only one row
         is returned, return a pandas Series. Defaults to False.
     db : DB | None
-        The database to use. Defaults to None, which uses `get_db("opdb").
+        The database to use. Defaults to None, which uses `pfs.utils.database.opdb.OpDB`.
 
     Returns
     -------
     pd.DataFrame | pd.Series | np.ndarray | None
         The results from the query.
     """
-    db = db or get_db("opdb")
+    db = db or OpDB()
     if as_dataframe:
         result = db.query_dataframe(sql, params=params)
         if len(result) == 1 and single_as_series:
