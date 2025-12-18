@@ -37,12 +37,11 @@ dynamic = ["version"]
 
 [project.optional-dependencies]
 dev = [
-    "black",
     "ipykernel",
-    "isort",
     "nbval",
     "pytest",
     "pytest-cov",
+    "ruff",
 ]
 
 [tool.setuptools.packages.find]
