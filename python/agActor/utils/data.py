@@ -1138,7 +1138,7 @@ def filter_guide_objects(
         )
         logger.info(f"Filtered {galaxy_idx.sum()} galaxies from results.")
 
-        if is_guide:
+        if is_guide is False:
             filters_for_inclusion = [
                 AutoGuiderStarMask.NON_BINARY,
                 AutoGuiderStarMask.GAIA,
