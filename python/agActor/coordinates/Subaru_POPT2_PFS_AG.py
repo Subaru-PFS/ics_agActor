@@ -1,5 +1,6 @@
 import numpy as np
 from pfs.utils.coordinates import Subaru_POPT2_PFS as pfs
+from pfs.utils.datamodel.ag import SourceDetectionFlags
 
 ### perturbation
 d_ra  = 1.0/3600.0
@@ -26,10 +27,7 @@ class PFS():
         # size condition (lower)
         csizeL = np.sqrt(ag_smmi*ag_smma) > minsize
 
-        # flag condition (0: no glass, 1: with glass, 2-7 : edge and/or satulate)
-        cflag  = ag_flag < 2
-
-        v = cellip*csizeU*csizeL*cflag
+        v = cellip*csizeU*csizeL
 
         vdatanum = np.sum(v)
 
@@ -81,7 +79,7 @@ class PFS():
         dxscl = (dxscl_0 + dxscl_1)/2.0
         dyscl = (dyscl_0 + dyscl_1)/2.0
 
-        flg = np.where(obj_flag==1.0)
+        flg = np.where((obj_flag.astype(int) & SourceDetectionFlags.RIGHT) == SourceDetectionFlags.RIGHT)
 
         n_obj = (obj_xdp.shape)[0]
 
@@ -161,7 +159,7 @@ class PFS():
         match_dxscl   = np.copy(match_dxscl_0)
         match_dyscl   = np.copy(match_dyscl_0)
 
-        flg = np.where(match_obj_flag==1.0)
+        flg = np.where((match_obj_flag.astype(int) & SourceDetectionFlags.RIGHT) == SourceDetectionFlags.RIGHT)
 
         match_cat_xdp[flg] = match_cat_xdp_1[flg]
         match_cat_ydp[flg] = match_cat_ydp_1[flg]
