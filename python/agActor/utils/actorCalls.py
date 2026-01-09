@@ -145,9 +145,9 @@ def sendAlert(
         f"name='{alert_name}' "
         f"severity='{alert_severity}' "
         f"description='{alert_description}' "
-        f"detail='{alert_detail}'"
     )
     logger.info(f"Calling gen2.sendAlert with {alert_cmd=}")
+    logger.info(f"Detail: {alert_detail}")
 
     try:
         gen2_result = actor.queueCommand(
