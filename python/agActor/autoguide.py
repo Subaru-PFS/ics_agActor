@@ -77,7 +77,7 @@ def get_exposure_offsets(
     # Get the detected_objects, which will raise an exception if no valid spots are detected.
 
     filter_flags = BAD_DETECTION_FLAGS
-    filter_bad_shape = kwargs.get("filter_bad_shape", False)
+    filter_bad_shape = kwargs.get("filter_bad_shape", True)
     if filter_bad_shape:
         filter_flags = filter_flags | SourceDetectionFlag.BAD_SHAPE
     else:
