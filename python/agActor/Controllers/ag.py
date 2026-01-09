@@ -39,7 +39,7 @@ class ag:
     MAX_CORRECTION = 10  # arcsec
     EXPOSURE_DELAY = 100  # ms
     TEC_OFF = False
-    FILTER_BAD_SHAPE = False # By default we don't want to filter bad shape objects.
+    FILTER_BAD_SHAPE = True # By default we don't want to filter bad shape objects.
 
     class Params:
         __slots__ = (
