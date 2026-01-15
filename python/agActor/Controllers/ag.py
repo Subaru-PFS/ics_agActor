@@ -225,6 +225,8 @@ class AgThread(threading.Thread):
             self.params.set(**self.input_params)
             self.input_params.clear()
             p = self.params.get()
+            if p[0] != ag.Mode.OFF:
+                self.logger.info(f"AgThread._get_params: {p}")
             return p
 
     def _set_params(self, **kwargs):
@@ -597,9 +599,10 @@ class AgThread(threading.Thread):
                 self.stop()
 
             end = time.time()
-            timeout = (
-                max(0, cadence / 1000 - (end - start)) if mode == ag.Mode.ON else 0.5
-            )
+            elapsed = end - start
+            self.logger.info(f"AgThread.run: iteration took {elapsed:.3f} s")
+            timeout = (max(0, cadence / 1000 - elapsed) if mode & ag.Mode.ON else 0.5)
+            self.logger.info(f"AgThread.run: Control loop delay {timeout=:.3f} {self.__abort.is_set()=}")
             self.__abort.wait(timeout)
 
         cmd.inform("guideReady=0")
