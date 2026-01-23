@@ -215,3 +215,4 @@ cython_debug/
 .DS_Store
 
 python/agActor/coordinates/updates
+notebooks/
