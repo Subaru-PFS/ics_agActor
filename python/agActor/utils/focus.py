@@ -5,8 +5,8 @@ import pandas as pd
 from pfs.utils.datamodel.ag import SourceDetectionFlag
 
 from agActor.coordinates.FieldAcquisitionAndFocusing import calculate_focus_errors
-from agActor.utils.math import semi_axes
 from agActor.utils.data import query_agc_data
+from agActor.utils.math import semi_axes
 
 logger = logging.getLogger(__name__)
 
@@ -51,10 +51,6 @@ def focus(
         logger.info(f"In focus, getting detected objects for {frame_id=}")
         detected_objects = query_agc_data(frame_id)
 
-    if len(detected_objects) == 0:
-        logger.warning("No detected objects found, returning nan focus values.")
-        return np.nan, np.full(6, np.nan)
-
     logger.info(f"In focus with {max_ellipticity=}, {max_size=}, {min_size=}")
 
     _detected_objects = np.array(
@@ -76,10 +72,23 @@ def focus(
         ]
     )
 
-    dzs = calculate_focus_errors(
-        _detected_objects, maxellip=max_ellipticity, maxsize=max_size, minsize=min_size
-    )
-    dz = np.nanmedian(dzs)
-    logger.info(f"Focus values: {dz=} {dzs=}")
+    num_objects = _detected_objects.shape[0]
 
+    if num_objects == 0:
+        logger.warning("No valid detected objects found, returning nan focus values.")
+        return np.nan, np.full(6, np.nan)
+
+    logger.info(f"Calculating focus errors from {num_objects} detected objects")
+
+    try:
+        dzs = calculate_focus_errors(
+            _detected_objects, maxellip=max_ellipticity, maxsize=max_size, minsize=min_size
+        )
+        dz = np.nanmedian(dzs)
+    except Exception as e:
+        logger.error(f"Error calculating focus errors, returning nan values: {e}")
+        dz = np.nan
+        dzs = np.full(6, np.nan)
+
+    logger.info(f"Focus values: {dz=} {dzs=}")
     return dz, dzs

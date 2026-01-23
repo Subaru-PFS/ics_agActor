@@ -717,17 +717,17 @@ def write_agc_guide_offset(
     try:
         params = dict(
             agc_exposure_id=frame_id,
-            guide_ra=float(ra),
-            guide_dec=float(dec),
-            guide_pa=float(pa),
-            guide_delta_ra=float(delta_ra),
-            guide_delta_dec=float(delta_dec),
-            guide_delta_insrot=float(delta_insrot),
-            guide_delta_scale=float(delta_scale),
+            guide_ra=float(ra) if ra is not None else None,
+            guide_dec=float(dec) if dec is not None else None,
+            guide_pa=float(pa) if pa is not None else None,
+            guide_delta_ra=float(delta_ra) if delta_ra is not None else None,
+            guide_delta_dec=float(delta_dec) if delta_dec is not None else None,
+            guide_delta_insrot=float(delta_insrot) if delta_insrot is not None else None,
+            guide_delta_scale=float(delta_scale) if delta_scale is not None else None,
             guide_delta_az=float(delta_az) if delta_az is not None else None,
             guide_delta_el=float(delta_el) if delta_el is not None else None,
             mask=offset_flags.value,
-            guide_delta_z=float(delta_z),
+            guide_delta_z=float(delta_z) if delta_z is not None else None,
         )
         if delta_zs is not None:
             params.update(guide_delta_z1=float(delta_zs[0]))
