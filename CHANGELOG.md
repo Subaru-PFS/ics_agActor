@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- INSTRM-2881 - Adding filter_bad_shape options to autoguide initialize and autoguide start.
+
 ## [1.1.73] - 2026-01-23
 
 - INSTRM-2840 - Better error handling for focus when very few stars.

@@ -79,7 +79,8 @@ class AgCmd:
                 "[<max_residual>] "
                 "[<max_correction>] "
                 "[<exposure_delay>] "
-                "[<tec_off>]",
+                "[<tec_off>] "
+                "[<filter_bad_shape>]",
                 self.start_autoguide,
             ),
             (
@@ -102,7 +103,8 @@ class AgCmd:
                 "[<max_residual>] "
                 "[<max_correction>] "
                 "[<exposure_delay>] "
-                "[<tec_off>]",
+                "[<tec_off>] "
+                "[<filter_bad_shape>]",
                 self.initialize_autoguide,
             ),
             ("autoguide", "@restart", self.restart_autoguide),
@@ -687,6 +689,8 @@ class AgCmd:
         if "max_correction" in cmd.cmd.keywords:
             max_correction = float(cmd.cmd.keywords["max_correction"].values[0])
             kwargs["max_correction"] = max_correction
+        if "filter_bad_shape" in cmd.cmd.keywords:
+            kwargs["filter_bad_shape"] = bool(cmd.cmd.keywords["filter_bad_shape"].values[0])
 
         try:
             self.actor.logger.info(f"AgCmd.start_autoguide: kwargs={kwargs}")
@@ -777,6 +781,8 @@ class AgCmd:
         if "max_correction" in cmd.cmd.keywords:
             max_correction = float(cmd.cmd.keywords["max_correction"].values[0])
             kwargs["max_correction"] = max_correction
+        if "filter_bad_shape" in cmd.cmd.keywords:
+            kwargs["filter_bad_shape"] = bool(cmd.cmd.keywords["filter_bad_shape"].values[0])
 
         try:
             self.actor.logger.info(f"AgCmd.initialize_autoguide: kwargs={kwargs}")
