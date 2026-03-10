@@ -278,7 +278,7 @@ class AgThread(threading.Thread):
                 )
 
                 design_id, design_path = design if design is not None else (None, None)
-                dither, offset = None, None
+                offset = None
 
                 guide_catalog = None
             except Exception as e:
