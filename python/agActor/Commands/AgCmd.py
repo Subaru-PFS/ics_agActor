@@ -9,6 +9,7 @@ from pfs.utils.database.opdb import OpDB
 from pfs.utils.database.gaia import GaiaDB
 
 from agActor import field_acquisition
+from agActor.config import AgConfig
 from agActor.Controllers.ag import ag
 from agActor.catalog import pfs_design
 from agActor.utils import actorCalls, data as data_utils
@@ -171,27 +172,17 @@ class AgCmd:
         OpDB.set_default_connection(**db_params.get("opdb", {}))
         GaiaDB.set_default_connection(**db_params.get("gaia", {}))
 
-        self.with_opdb_agc_guide_offset = actor.actorConfig.get(
-            "agc_guide_offset", False
-        )
-        self.with_opdb_agc_match = actor.actorConfig.get("agc_match", False)
-        self.with_agcc_timestamp = actor.actorConfig.get("agcc_timestamp", False)
-
-        tel_status = [
-            x.strip()
-            for x in actor.actorConfig.get("tel_status", ("agc_exposure",)).split(",")
-        ]
-        self.with_gen2_status = "gen2" in tel_status
-        self.with_mlp1_status = "mlp1" in tel_status
-        self.with_opdb_tel_status = "tel_status" in tel_status
-        self.with_design_path = actor.actorConfig.get("design_path", "").strip() or None
+        # Parse shared configuration once and store on the actor for AgThread to use.
+        self.cfg = AgConfig.from_actor_config(actor.actorConfig)
+        actor.ag_config = self.cfg
+        self.actor.logger.info(f"AgCmd: ag_config={self.cfg}")
 
     def _parse_design(self, cmd):
         """Parse design_id/design_path keywords into a design tuple or None."""
         design_id = None
         if "design_id" in cmd.cmd.keywords:
             design_id = int(cmd.cmd.keywords["design_id"].values[0], 0)
-        design_path = self.with_design_path if design_id is not None else None
+        design_path = self.cfg.with_design_path if design_id is not None else None
         if "design_path" in cmd.cmd.keywords:
             design_path = str(cmd.cmd.keywords["design_path"].values[0])
         design = (
@@ -348,15 +339,15 @@ class AgCmd:
             time.sleep((exposure_time + 7 * exposure_delay) / 1000 / 2)
             telescope_state = None
 
-            if self.with_mlp1_status:
+            if self.cfg.with_mlp1_status:
                 telescope_state = self.actor.mlp1.telescopeState
                 self.actor.logger.info(
                     f"AgCmd.acquire_field: telescopeState={telescope_state}"
                 )
                 kwargs["inr"] = telescope_state["rotator_real_angle"]
 
-            if self.with_gen2_status or self.with_opdb_tel_status:
-                if self.with_gen2_status:
+            if self.cfg.with_gen2_status or self.cfg.with_opdb_tel_status:
+                if self.cfg.with_gen2_status:
                     # update gen2 status values
                     tel_status = actorCalls.updateTelStatus(
                         self.actor, self.actor.logger, visit_id
@@ -386,7 +377,7 @@ class AgCmd:
                         offset = _offset
                         self.actor.logger.info(f"AgCmd.acquire_field: offset={offset}")
 
-                if self.with_opdb_tel_status:
+                if self.cfg.with_opdb_tel_status:
                     status_update = self.actor.gen2.statusUpdate
                     status_id = (status_update["visit"], status_update["sequenceNum"])
                     self.actor.logger.info(
@@ -402,11 +393,11 @@ class AgCmd:
             self.actor.logger.info(f"AgCmd.acquire_field: dataTime={data_time}")
             taken_at = data_time + (exposure_time + 7 * exposure_delay) / 1000 / 2
             self.actor.logger.info(f"AgCmd.acquire_field: taken_at={taken_at}")
-            if self.with_agcc_timestamp:
+            if self.cfg.with_agcc_timestamp:
                 kwargs["taken_at"] = (
                     taken_at  # unix timestamp, not timezone-aware datetime
                 )
-            if self.with_mlp1_status:
+            if self.cfg.with_mlp1_status:
                 # possibly override timestamp from agcc
                 taken_at = self.actor.mlp1.setUnixDay(
                     telescope_state["az_el_detect_time"], taken_at
@@ -501,7 +492,7 @@ class AgCmd:
             )
             cmd.inform("focusErrors={},{},{},{},{},{},{}".format(frame_id, *dzs))
             # store results in opdb
-            if self.with_opdb_agc_guide_offset:
+            if self.cfg.with_opdb_agc_guide_offset:
                 data_utils.write_agc_guide_offset(
                     frame_id=frame_id,
                     ra=ra,
@@ -516,7 +507,7 @@ class AgCmd:
                     delta_z=dz,
                     delta_zs=dzs,
                 )
-            if self.with_opdb_agc_match:
+            if self.cfg.with_opdb_agc_match:
                 data_utils.write_agc_match(
                     design_id=(
                         design_id
@@ -602,7 +593,7 @@ class AgCmd:
             )
             cmd.inform("focusErrors={},{},{},{},{},{},{}".format(frame_id, *dzs))
             # store results in opdb
-            if self.with_opdb_agc_guide_offset:
+            if self.cfg.with_opdb_agc_guide_offset:
                 self.actor.logger.info(
                     f"AgCmd.focus: Writing opdb_agc_guide_offset: {dz=} {dzs=}"
                 )

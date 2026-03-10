@@ -198,18 +198,14 @@ class AgThread(threading.Thread):
         self.__abort = threading.Event()
         self.__stop = threading.Event()
 
-        self.with_opdb_agc_guide_offset = actor.actorConfig.get(
-            "agc_guide_offset", False
-        )
-        self.with_opdb_agc_match = actor.actorConfig.get("agc_match", False)
-        self.with_agcc_timestamp = actor.actorConfig.get("agcc_timestamp", False)
-        tel_status = [
-            x.strip()
-            for x in actor.actorConfig.get("tel_status", ("agc_exposure",)).split(",")
-        ]
-        self.with_gen2_status = "gen2" in tel_status
-        self.with_mlp1_status = "mlp1" in tel_status
-        self.with_opdb_tel_status = "tel_status" in tel_status
+        # Use the shared config that was parsed by AgCmd.__init__ and stored on the actor.
+        cfg = actor.ag_config
+        self.with_opdb_agc_guide_offset = cfg.with_opdb_agc_guide_offset
+        self.with_opdb_agc_match = cfg.with_opdb_agc_match
+        self.with_agcc_timestamp = cfg.with_agcc_timestamp
+        self.with_gen2_status = cfg.with_gen2_status
+        self.with_mlp1_status = cfg.with_mlp1_status
+        self.with_opdb_tel_status = cfg.with_opdb_tel_status
 
     def __del__(self):
         self.logger.info("AgThread.__del__:")
