@@ -186,6 +186,78 @@ class AgCmd:
         self.with_opdb_tel_status = "tel_status" in tel_status
         self.with_design_path = actor.actorConfig.get("design_path", "").strip() or None
 
+    def _parse_design(self, cmd):
+        """Parse design_id/design_path keywords into a design tuple or None."""
+        design_id = None
+        if "design_id" in cmd.cmd.keywords:
+            design_id = int(cmd.cmd.keywords["design_id"].values[0], 0)
+        design_path = self.with_design_path if design_id is not None else None
+        if "design_path" in cmd.cmd.keywords:
+            design_path = str(cmd.cmd.keywords["design_path"].values[0])
+        design = (
+            (design_id, design_path)
+            if any(x is not None for x in (design_id, design_path))
+            else None
+        )
+        return design_id, design_path, design
+
+    def _parse_visit(self, cmd):
+        """Parse visit_id/visit keywords."""
+        visit_id = None
+        if "visit_id" in cmd.cmd.keywords:
+            visit_id = int(cmd.cmd.keywords["visit_id"].values[0])
+        elif "visit" in cmd.cmd.keywords:
+            visit_id = int(cmd.cmd.keywords["visit"].values[0])
+        return visit_id
+
+    def _parse_exposure_time(self, cmd, default=2000):
+        """Parse exposure_time keyword with a minimum of 100 ms."""
+        exposure_time = default
+        if "exposure_time" in cmd.cmd.keywords:
+            exposure_time = int(cmd.cmd.keywords["exposure_time"].values[0])
+            if exposure_time < 100:
+                exposure_time = 100
+        return exposure_time
+
+    def _parse_cadence(self, cmd, default=0):
+        """Parse cadence keyword with a minimum of 0 ms."""
+        cadence = default
+        if "cadence" in cmd.cmd.keywords:
+            cadence = int(cmd.cmd.keywords["cadence"].values[0])
+            if cadence < 0:
+                cadence = 0
+        return cadence
+
+    # Mapping of keyword name -> (type_converter, default_value_or_None).
+    # Keywords with a default of None are only added to the options dict when present.
+    _OPTION_KEYWORDS = {
+        "magnitude": (float, None),
+        "dry_run": (bool, None),
+        "fit_dinr": (bool, None),
+        "fit_dscale": (bool, None),
+        "max_ellipticity": (float, None),
+        "max_size": (float, None),
+        "min_size": (float, None),
+        "max_residual": (float, None),
+        "max_correction": (float, None),
+        "exposure_delay": (int, None),
+        "tec_off": (bool, None),
+        "filter_bad_shape": (bool, None),
+    }
+
+    def _parse_options(self, cmd):
+        """Parse optional keywords that map into the options/kwargs dict.
+
+        Only keywords that are present in the command are included in the
+        returned dict, so callers can distinguish "not provided" from an
+        explicit value.
+        """
+        options = {}
+        for key, (converter, _) in self._OPTION_KEYWORDS.items():
+            if key in cmd.cmd.keywords:
+                options[key] = converter(cmd.cmd.keywords[key].values[0])
+        return options
+
     def ping(self, cmd):
         """Return a product name."""
 
@@ -219,32 +291,15 @@ class AgCmd:
             cmd.fail(f'text="AgCmd.acquire_field: mode={mode}"')
             return
 
-        design_id = None
-        if "design_id" in cmd.cmd.keywords:
-            design_id = int(cmd.cmd.keywords["design_id"].values[0], 0)
-        design_path = self.with_design_path if design_id is not None else None
-        if "design_path" in cmd.cmd.keywords:
-            design_path = str(cmd.cmd.keywords["design_path"].values[0])
-        design = (
-            (design_id, design_path)
-            if any(x is not None for x in (design_id, design_path))
-            else None
-        )
-        visit_id = None
-        if "visit_id" in cmd.cmd.keywords:
-            visit_id = int(cmd.cmd.keywords["visit_id"].values[0])
-        elif "visit" in cmd.cmd.keywords:
-            visit_id = int(cmd.cmd.keywords["visit"].values[0])
+        design_id, design_path, design = self._parse_design(cmd)
+        visit_id = self._parse_visit(cmd)
 
         visit0 = None
         if "visit0" in cmd.cmd.keywords:
             visit0 = int(cmd.cmd.keywords["visit0"].values[0])
 
-        exposure_time = 2000  # ms
-        if "exposure_time" in cmd.cmd.keywords:
-            exposure_time = int(cmd.cmd.keywords["exposure_time"].values[0])
-            if exposure_time < 100:
-                exposure_time = 100
+        exposure_time = self._parse_exposure_time(cmd)
+
         guide = True
         if "guide" in cmd.cmd.keywords:
             guide = bool(cmd.cmd.keywords["guide"].values[0])
@@ -258,48 +313,16 @@ class AgCmd:
         if "dinr" in cmd.cmd.keywords:
             dinr = float(cmd.cmd.keywords["dinr"].values[0])
 
-        kwargs = {}
-        if "magnitude" in cmd.cmd.keywords:
-            magnitude = float(cmd.cmd.keywords["magnitude"].values[0])
-            kwargs["magnitude"] = magnitude
-        dry_run = ag.DRY_RUN
-        if "dry_run" in cmd.cmd.keywords:
-            dry_run = bool(cmd.cmd.keywords["dry_run"].values[0])
-        if "fit_dinr" in cmd.cmd.keywords:
-            fit_dinr = bool(cmd.cmd.keywords["fit_dinr"].values[0])
-            kwargs["fit_dinr"] = fit_dinr
-        if "fit_dscale" in cmd.cmd.keywords:
-            fit_dscale = bool(cmd.cmd.keywords["fit_dscale"].values[0])
-            kwargs["fit_dscale"] = fit_dscale
+        kwargs = self._parse_options(cmd)
 
-        max_ellipticity = ag.MAX_ELLIPTICITY
-        max_size = ag.MAX_SIZE
-        min_size = ag.MIN_SIZE
-        max_residual = ag.MAX_RESIDUAL
-
-        if "max_ellipticity" in cmd.cmd.keywords:
-            max_ellipticity = float(cmd.cmd.keywords["max_ellipticity"].values[0])
-            kwargs["max_ellipticity"] = max_ellipticity
-        if "max_size" in cmd.cmd.keywords:
-            max_size = float(cmd.cmd.keywords["max_size"].values[0])
-            kwargs["max_size"] = max_size
-        if "min_size" in cmd.cmd.keywords:
-            min_size = float(cmd.cmd.keywords["min_size"].values[0])
-            kwargs["min_size"] = min_size
-        if "max_residual" in cmd.cmd.keywords:
-            max_residual = float(cmd.cmd.keywords["max_residual"].values[0])
-            kwargs["max_residual"] = max_residual
-
-        exposure_delay = ag.EXPOSURE_DELAY
-        if "exposure_delay" in cmd.cmd.keywords:
-            exposure_delay = int(cmd.cmd.keywords["exposure_delay"].values[0])
-        tec_off = ag.TEC_OFF
-        if "tec_off" in cmd.cmd.keywords:
-            tec_off = bool(cmd.cmd.keywords["tec_off"].values[0])
-
-        kwargs["filter_bad_shape"] = ag.FILTER_BAD_SHAPE
-        if "filter_bad_shape" in cmd.cmd.keywords:
-            kwargs["filter_bad_shape"] = bool(cmd.cmd.keywords["filter_bad_shape"].values[0])
+        # acquire_field-specific defaults for options not provided by the user.
+        dry_run = kwargs.pop("dry_run", ag.DRY_RUN)
+        max_ellipticity = kwargs.get("max_ellipticity", ag.MAX_ELLIPTICITY)
+        max_size = kwargs.get("max_size", ag.MAX_SIZE)
+        min_size = kwargs.get("min_size", ag.MIN_SIZE)
+        exposure_delay = kwargs.pop("exposure_delay", ag.EXPOSURE_DELAY)
+        tec_off = kwargs.pop("tec_off", ag.TEC_OFF)
+        kwargs.setdefault("filter_bad_shape", ag.FILTER_BAD_SHAPE)
 
         self.actor.logger.info(f"AgCmd.acquire_field: kwargs={kwargs}")
 
@@ -521,34 +544,15 @@ class AgCmd:
             cmd.fail(f'text="AgCmd.focus: mode={mode}"')
             return
 
-        visit_id = None
-        if "visit_id" in cmd.cmd.keywords:
-            visit_id = int(cmd.cmd.keywords["visit_id"].values[0])
-        elif "visit" in cmd.cmd.keywords:
-            visit_id = int(cmd.cmd.keywords["visit"].values[0])
-        exposure_time = 2000  # ms
-        if "exposure_time" in cmd.cmd.keywords:
-            exposure_time = int(cmd.cmd.keywords["exposure_time"].values[0])
-            if exposure_time < 100:
-                exposure_time = 100
+        visit_id = self._parse_visit(cmd)
+        exposure_time = self._parse_exposure_time(cmd)
 
-        max_ellipticity = ag.MAX_ELLIPTICITY
-        max_size = ag.MAX_SIZE
-        min_size = ag.MIN_SIZE
-
-        if "max_ellipticity" in cmd.cmd.keywords:
-            max_ellipticity = float(cmd.cmd.keywords["max_ellipticity"].values[0])
-        if "max_size" in cmd.cmd.keywords:
-            max_size = float(cmd.cmd.keywords["max_size"].values[0])
-        if "min_size" in cmd.cmd.keywords:
-            min_size = float(cmd.cmd.keywords["min_size"].values[0])
-
-        exposure_delay = ag.EXPOSURE_DELAY
-        if "exposure_delay" in cmd.cmd.keywords:
-            exposure_delay = int(cmd.cmd.keywords["exposure_delay"].values[0])
-        tec_off = ag.TEC_OFF
-        if "tec_off" in cmd.cmd.keywords:
-            tec_off = bool(cmd.cmd.keywords["tec_off"].values[0])
+        options = self._parse_options(cmd)
+        max_ellipticity = options.get("max_ellipticity", ag.MAX_ELLIPTICITY)
+        max_size = options.get("max_size", ag.MAX_SIZE)
+        min_size = options.get("min_size", ag.MIN_SIZE)
+        exposure_delay = options.get("exposure_delay", ag.EXPOSURE_DELAY)
+        tec_off = options.get("tec_off", ag.TEC_OFF)
 
         try:
             cmd.inform(f"exposureTime={exposure_time}")
@@ -615,78 +619,23 @@ class AgCmd:
         self.actor.logger.info(f"AgCmd.start_autoguide: {cmd.cmd.keywords}")
         controller = self.actor.controllers["ag"]
 
-        design_id = None
-        if "design_id" in cmd.cmd.keywords:
-            design_id = int(cmd.cmd.keywords["design_id"].values[0], 0)
-        design_path = self.with_design_path if design_id is not None else None
-        if "design_path" in cmd.cmd.keywords:
-            design_path = str(cmd.cmd.keywords["design_path"].values[0])
-        design = (
-            (design_id, design_path)
-            if any(x is not None for x in (design_id, design_path))
-            else None
-        )
-        visit_id = None
-        if "visit_id" in cmd.cmd.keywords:
-            visit_id = int(cmd.cmd.keywords["visit_id"].values[0])
-        elif "visit" in cmd.cmd.keywords:
-            visit_id = int(cmd.cmd.keywords["visit"].values[0])
+        design_id, design_path, design = self._parse_design(cmd)
+        visit_id = self._parse_visit(cmd)
 
         visit0 = None
         if "visit0" in cmd.cmd.keywords:
             visit0 = int(cmd.cmd.keywords["visit0"].values[0])
 
-
         from_sky = None
         if "from_sky" in cmd.cmd.keywords:
             from_sky = bool(cmd.cmd.keywords["from_sky"].values[0])
-        exposure_time = 2000  # ms
-        if "exposure_time" in cmd.cmd.keywords:
-            exposure_time = int(cmd.cmd.keywords["exposure_time"].values[0])
-            if exposure_time < 100:
-                exposure_time = 100
-        cadence = 0  # ms
-        if "cadence" in cmd.cmd.keywords:
-            cadence = int(cmd.cmd.keywords["cadence"].values[0])
-            if cadence < 0:
-                cadence = 0
+        exposure_time = self._parse_exposure_time(cmd)
+        cadence = self._parse_cadence(cmd)
         center = None
         if "center" in cmd.cmd.keywords:
             center = tuple([float(x) for x in cmd.cmd.keywords["center"].values])
-        kwargs = {}
-        if "magnitude" in cmd.cmd.keywords:
-            magnitude = float(cmd.cmd.keywords["magnitude"].values[0])
-            kwargs["magnitude"] = magnitude
-        if "dry_run" in cmd.cmd.keywords:
-            dry_run = bool(cmd.cmd.keywords["dry_run"].values[0])
-            kwargs["dry_run"] = dry_run
-        if "fit_dinr" in cmd.cmd.keywords:
-            fit_dinr = bool(cmd.cmd.keywords["fit_dinr"].values[0])
-            kwargs["fit_dinr"] = fit_dinr
-        if "fit_dscale" in cmd.cmd.keywords:
-            fit_dscale = bool(cmd.cmd.keywords["fit_dscale"].values[0])
-            kwargs["fit_dscale"] = fit_dscale
-        if "max_ellipticity" in cmd.cmd.keywords:
-            max_ellipticity = float(cmd.cmd.keywords["max_ellipticity"].values[0])
-            kwargs["max_ellipticity"] = max_ellipticity
-        if "max_size" in cmd.cmd.keywords:
-            max_size = float(cmd.cmd.keywords["max_size"].values[0])
-            kwargs["max_size"] = max_size
-        if "min_size" in cmd.cmd.keywords:
-            min_size = float(cmd.cmd.keywords["min_size"].values[0])
-            kwargs["min_size"] = min_size
-        if "max_residual" in cmd.cmd.keywords:
-            max_residual = float(cmd.cmd.keywords["max_residual"].values[0])
-            kwargs["max_residual"] = max_residual
-        if "exposure_delay" in cmd.cmd.keywords:
-            exposure_delay = int(cmd.cmd.keywords["exposure_delay"].values[0])
-            kwargs["exposure_delay"] = exposure_delay
-        if "tec_off" in cmd.cmd.keywords:
-            tec_off = bool(cmd.cmd.keywords["tec_off"].values[0])
-            kwargs["tec_off"] = tec_off
-        if "max_correction" in cmd.cmd.keywords:
-            max_correction = float(cmd.cmd.keywords["max_correction"].values[0])
-            kwargs["max_correction"] = max_correction
+
+        kwargs = self._parse_options(cmd)
 
         try:
             self.actor.logger.info(f"AgCmd.start_autoguide: kwargs={kwargs}")
@@ -711,72 +660,19 @@ class AgCmd:
         self.actor.logger.info(f"AgCmd.initialize_autoguide: {cmd.cmd.keywords}")
         controller = self.actor.controllers["ag"]
 
-        design_id = None
-        if "design_id" in cmd.cmd.keywords:
-            design_id = int(cmd.cmd.keywords["design_id"].values[0], 0)
-        design_path = self.with_design_path if design_id is not None else None
-        if "design_path" in cmd.cmd.keywords:
-            design_path = str(cmd.cmd.keywords["design_path"].values[0])
-        design = (
-            (design_id, design_path)
-            if any(x is not None for x in (design_id, design_path))
-            else None
-        )
-        visit_id = None
-        if "visit_id" in cmd.cmd.keywords:
-            visit_id = int(cmd.cmd.keywords["visit_id"].values[0])
-        elif "visit" in cmd.cmd.keywords:
-            visit_id = int(cmd.cmd.keywords["visit"].values[0])
+        design_id, design_path, design = self._parse_design(cmd)
+        visit_id = self._parse_visit(cmd)
+
         from_sky = None
         if "from_sky" in cmd.cmd.keywords:
             from_sky = bool(cmd.cmd.keywords["from_sky"].values[0])
-        exposure_time = 2000  # ms
-        if "exposure_time" in cmd.cmd.keywords:
-            exposure_time = int(cmd.cmd.keywords["exposure_time"].values[0])
-            if exposure_time < 100:
-                exposure_time = 100
-        cadence = 0  # ms
-        if "cadence" in cmd.cmd.keywords:
-            cadence = int(cmd.cmd.keywords["cadence"].values[0])
-            if cadence < 0:
-                cadence = 0
+        exposure_time = self._parse_exposure_time(cmd)
+        cadence = self._parse_cadence(cmd)
         center = None
         if "center" in cmd.cmd.keywords:
             center = tuple([float(x) for x in cmd.cmd.keywords["center"].values])
-        kwargs = {}
-        if "magnitude" in cmd.cmd.keywords:
-            magnitude = float(cmd.cmd.keywords["magnitude"].values[0])
-            kwargs["magnitude"] = magnitude
-        if "dry_run" in cmd.cmd.keywords:
-            dry_run = bool(cmd.cmd.keywords["dry_run"].values[0])
-            kwargs["dry_run"] = dry_run
-        if "fit_dinr" in cmd.cmd.keywords:
-            fit_dinr = bool(cmd.cmd.keywords["fit_dinr"].values[0])
-            kwargs["fit_dinr"] = fit_dinr
-        if "fit_dscale" in cmd.cmd.keywords:
-            fit_dscale = bool(cmd.cmd.keywords["fit_dscale"].values[0])
-            kwargs["fit_dscale"] = fit_dscale
-        if "max_ellipticity" in cmd.cmd.keywords:
-            max_ellipticity = float(cmd.cmd.keywords["max_ellipticity"].values[0])
-            kwargs["max_ellipticity"] = max_ellipticity
-        if "max_size" in cmd.cmd.keywords:
-            max_size = float(cmd.cmd.keywords["max_size"].values[0])
-            kwargs["max_size"] = max_size
-        if "min_size" in cmd.cmd.keywords:
-            min_size = float(cmd.cmd.keywords["min_size"].values[0])
-            kwargs["min_size"] = min_size
-        if "max_residual" in cmd.cmd.keywords:
-            max_residual = float(cmd.cmd.keywords["max_residual"].values[0])
-            kwargs["max_residual"] = max_residual
-        if "exposure_delay" in cmd.cmd.keywords:
-            exposure_delay = int(cmd.cmd.keywords["exposure_delay"].values[0])
-            kwargs["exposure_delay"] = exposure_delay
-        if "tec_off" in cmd.cmd.keywords:
-            tec_off = bool(cmd.cmd.keywords["tec_off"].values[0])
-            kwargs["tec_off"] = tec_off
-        if "max_correction" in cmd.cmd.keywords:
-            max_correction = float(cmd.cmd.keywords["max_correction"].values[0])
-            kwargs["max_correction"] = max_correction
+
+        kwargs = self._parse_options(cmd)
 
         try:
             self.actor.logger.info(f"AgCmd.initialize_autoguide: kwargs={kwargs}")
@@ -825,55 +721,15 @@ class AgCmd:
         controller = self.actor.controllers["ag"]
 
         kwargs = {}
-        if "visit_id" in cmd.cmd.keywords:
-            visit_id = int(cmd.cmd.keywords["visit_id"].values[0])
-            kwargs["visit_id"] = visit_id
-        elif "visit" in cmd.cmd.keywords:
-            visit_id = int(cmd.cmd.keywords["visit"].values[0])
+        visit_id = self._parse_visit(cmd)
+        if visit_id is not None:
             kwargs["visit_id"] = visit_id
         if "exposure_time" in cmd.cmd.keywords:
-            exposure_time = int(cmd.cmd.keywords["exposure_time"].values[0])
-            if exposure_time < 100:
-                exposure_time = 100
-            kwargs["exposure_time"] = exposure_time
+            kwargs["exposure_time"] = self._parse_exposure_time(cmd)
         if "cadence" in cmd.cmd.keywords:
-            cadence = int(cmd.cmd.keywords["cadence"].values[0])
-            if cadence < 0:
-                cadence = 0
-            kwargs["cadence"] = cadence
-        if "dry_run" in cmd.cmd.keywords:
-            dry_run = bool(cmd.cmd.keywords["dry_run"].values[0])
-            kwargs["dry_run"] = dry_run
-        if "fit_dinr" in cmd.cmd.keywords:
-            fit_dinr = bool(cmd.cmd.keywords["fit_dinr"].values[0])
-            kwargs["fit_dinr"] = fit_dinr
-        if "fit_dscale" in cmd.cmd.keywords:
-            fit_dscale = bool(cmd.cmd.keywords["fit_dscale"].values[0])
-            kwargs["fit_dscale"] = fit_dscale
-        if "max_ellipticity" in cmd.cmd.keywords:
-            max_ellipticity = float(cmd.cmd.keywords["max_ellipticity"].values[0])
-            kwargs["max_ellipticity"] = max_ellipticity
-        if "max_size" in cmd.cmd.keywords:
-            max_size = float(cmd.cmd.keywords["max_size"].values[0])
-            kwargs["max_size"] = max_size
-        if "min_size" in cmd.cmd.keywords:
-            min_size = float(cmd.cmd.keywords["min_size"].values[0])
-            kwargs["min_size"] = min_size
-        if "max_residual" in cmd.cmd.keywords:
-            max_residual = float(cmd.cmd.keywords["max_residual"].values[0])
-            kwargs["max_residual"] = max_residual
-        if "exposure_delay" in cmd.cmd.keywords:
-            exposure_delay = int(cmd.cmd.keywords["exposure_delay"].values[0])
-            kwargs["exposure_delay"] = exposure_delay
-        if "tec_off" in cmd.cmd.keywords:
-            tec_off = bool(cmd.cmd.keywords["tec_off"].values[0])
-            kwargs["tec_off"] = tec_off
-        if "max_correction" in cmd.cmd.keywords:
-            max_correction = float(cmd.cmd.keywords["max_correction"].values[0])
-            kwargs["max_correction"] = max_correction
+            kwargs["cadence"] = self._parse_cadence(cmd)
 
-        if "filter_bad_shape" in cmd.cmd.keywords:
-            kwargs["filter_bad_shape"] = bool(cmd.cmd.keywords['filter_bad_shape'].values[0])
+        kwargs.update(self._parse_options(cmd))
 
         try:
             controller.reconfigure_autoguide(cmd=cmd, **kwargs)
