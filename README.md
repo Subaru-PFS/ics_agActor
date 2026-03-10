@@ -59,12 +59,49 @@ Alternatively, you can install the package using pip:
 
 The actor is typically started as a service in the PFS ICS environment using the `sdss-actorcore` tools.
 
+## Exposure Pipeline
+
+The AG actor has two operational modes that share a common exposure pipeline (`exposure.py`):
+
+### Field Acquisition (one-shot)
+
+Performed via the `acquire_field` command (`AgCmd.acquire_field`). This is a one-off procedure used to initially find the field. It:
+
+- Fetches its own guide catalog internally (with `is_guide=False`) for this single frame.
+- Does **not** apply correction range checking (`max_correction=None`) because the initial offset from the expected field center can be large.
+- Whether corrections are actually sent to the telescope is controlled by the user's `guide` keyword (`send_offsets` parameter).
+
+### Autoguiding (continuous loop)
+
+Performed via `AgThread.run` in the AG controller. This is the continuous guiding mode that takes consecutive exposures and computes incremental offsets. It:
+
+- Pre-loads a `GuideCatalog` once (with `is_guide=True`) before the guide loop starts, and reuses it across all iterations.
+- Each iteration only re-fetches telescope status and detected objects for the current frame.
+- Applies correction range checking (`max_correction`, default 10″) — corrections that exceed this threshold are rejected and an alert is raised.
+- Always sends corrections to the telescope when the offset is within the allowed range.
+
+### Shared Pipeline Steps
+
+Both modes delegate to `run_exposure_pipeline()` in `exposure.py`, which executes the following steps in order:
+
+1. **Take AGCC exposure** — build and queue the AG camera command.
+2. **Gather telescope state** — at mid-exposure, collect status from mlp1/gen2/opDB as configured.
+3. **Wait for exposure** — block until the AGCC exposure completes.
+4. **Compute `taken_at` timestamp** — calculate the effective observation time.
+5. **Compute guide offsets** — either via `field_acquisition.acquire_field` (acquisition) or `autoguide.get_exposure_offsets` (guiding).
+6. **Report results** — emit `cmd.inform` messages with offset values and save NumPy files.
+7. **Range check & send corrections** — validate offsets against `max_correction` (if set) and send to the telescope.
+8. **Compute focus** — calculate focus offset and tilt from matched detected objects.
+9. **Write to opDB** — persist guide offsets and match results to the operational database.
+
 ## Project Structure
 
 - `python/agActor/`: Main source code
   - `main.py`: Actor entry point and core functionality
-  - `autoguide.py`: Auto-guiding implementation
-  - `field_acquisition.py`: Field acquisition functionality
+  - `exposure.py`: Shared AG exposure pipeline (see [Exposure Pipeline](#exposure-pipeline))
+  - `config.py`: Shared configuration parsed from `actorConfig`
+  - `autoguide.py`: Auto-guiding offset computation (uses pre-loaded guide catalog)
+  - `field_acquisition.py`: Field acquisition offset computation (fetches its own guide catalog)
   - `Commands/`: Command handlers for actor commands
   - `Controllers/`: Hardware controllers
   - `catalog/`: Star catalog integration
