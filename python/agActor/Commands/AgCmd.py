@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import time
 
 import numpy as np
 import opscore.protocols.keys as keys
@@ -8,14 +7,11 @@ from pfs.utils.coordinates import Subaru_POPT2_PFS
 from pfs.utils.database.opdb import OpDB
 from pfs.utils.database.gaia import GaiaDB
 
-from agActor import field_acquisition
 from agActor.config import AgConfig
 from agActor.Controllers.ag import ag
-from agActor.catalog import pfs_design
-from agActor.utils import actorCalls, data as data_utils
+from agActor.exposure import run_exposure_pipeline
+from agActor.utils import data as data_utils
 from agActor.utils.focus import focus
-from agActor.utils.actorCalls import send_guide_offsets
-from agActor.utils.telescope_center import telCenter as tel_center
 
 
 class AgCmd:
@@ -318,209 +314,30 @@ class AgCmd:
         self.actor.logger.info(f"AgCmd.acquire_field: kwargs={kwargs}")
 
         try:
-            cmd.inform(f"exposureTime={exposure_time}")
-            # start an exposure
-            cmdStr = f"expose object exptime={exposure_time / 1000} centroid=1"
-            if visit_id is not None:
-                cmdStr += f" visit={visit_id}"
-            if exposure_delay > 0:
-                cmdStr += f" threadDelay={exposure_delay}"
-            if tec_off:
-                cmdStr += " tecOFF"
-
-            self.actor.logger.info(f"AgCmd.acquire_field: Sending agcc cmdStr={cmdStr}")
-            agcc_exposure_result = self.actor.queueCommand(
-                actor="agcc",
-                cmdStr=cmdStr,
-                timeLim=((exposure_time + 6 * exposure_delay) // 1000 + 15),
-            )
-            # This synchronous sleep is to defer the request for telescope info to roughly
-            # the middle of the exposure.
-            time.sleep((exposure_time + 7 * exposure_delay) / 1000 / 2)
-            telescope_state = None
-
-            if self.cfg.with_mlp1_status:
-                telescope_state = self.actor.mlp1.telescopeState
-                self.actor.logger.info(
-                    f"AgCmd.acquire_field: telescopeState={telescope_state}"
-                )
-                kwargs["inr"] = telescope_state["rotator_real_angle"]
-
-            if self.cfg.with_gen2_status or self.cfg.with_opdb_tel_status:
-                if self.cfg.with_gen2_status:
-                    # update gen2 status values
-                    tel_status = actorCalls.updateTelStatus(
-                        self.actor, self.actor.logger, visit_id
-                    )
-                    self.actor.logger.info(
-                        f"AgCmd.acquire_field: tel_status={tel_status}"
-                    )
-                    kwargs["tel_status"] = tel_status
-                    _tel_center = tel_center(
-                        actor=self.actor,
-                        center=center,
-                        design=design,
-                        tel_status=tel_status,
-                    )
-
-                    if all(x is None for x in (center, design)):
-                        center, _offset = (
-                            _tel_center.dither
-                        )  # dithered center and guide offset correction (insrot only)
-                        self.actor.logger.info(f"AgCmd.acquire_field: center={center}")
-                    else:
-                        _offset = (
-                            _tel_center.offset
-                        )  # dithering and guide offset correction
-
-                    if offset is None:
-                        offset = _offset
-                        self.actor.logger.info(f"AgCmd.acquire_field: offset={offset}")
-
-                if self.cfg.with_opdb_tel_status:
-                    status_update = self.actor.gen2.statusUpdate
-                    status_id = (status_update["visit"], status_update["sequenceNum"])
-                    self.actor.logger.info(
-                        f"AgCmd.acquire_field: status_id={status_id}"
-                    )
-                    kwargs["status_id"] = status_id
-
-            # wait for an exposure to complete
-            agcc_exposure_result.get()
-            frame_id = self.actor.agcc.frameId
-            self.actor.logger.info(f"AgCmd.acquire_field: frameId={frame_id}")
-            data_time = self.actor.agcc.dataTime
-            self.actor.logger.info(f"AgCmd.acquire_field: dataTime={data_time}")
-            taken_at = data_time + (exposure_time + 7 * exposure_delay) / 1000 / 2
-            self.actor.logger.info(f"AgCmd.acquire_field: taken_at={taken_at}")
-            if self.cfg.with_agcc_timestamp:
-                kwargs["taken_at"] = (
-                    taken_at  # unix timestamp, not timezone-aware datetime
-                )
-            if self.cfg.with_mlp1_status:
-                # possibly override timestamp from agcc
-                taken_at = self.actor.mlp1.setUnixDay(
-                    telescope_state["az_el_detect_time"], taken_at
-                )
-                kwargs["taken_at"] = taken_at
-            if center is not None:
-                kwargs["center"] = center
-            if offset is not None:
-                kwargs["offset"] = offset
-            if dinr is not None:
-                kwargs["dinr"] = dinr
-
-            # retrieve field center coordinates from opdb
-            # retrieve exposure information from opdb
-            # retrieve guide star coordinates from opdb
-            # retrieve metrics of detected objects from opdb
-            # compute offsets, scale, transparency, and seeing
-            cmd.inform("detectionState=1")
-
-            self.actor.logger.info(
-                "AgCmd.acquire_field: Calling field_acquisition.acquire_field for guiding"
-            )
-            guide_offsets = field_acquisition.acquire_field(
+            run_exposure_pipeline(
+                actor=self.actor,
+                cmd=cmd,
+                cfg=self.cfg,
                 design_id=design_id,
+                design_path=design_path,
+                design=design,
+                visit_id=visit_id,
                 visit0=visit0,
-                frame_id=frame_id,
-                **kwargs,
-            )
-
-            ra = guide_offsets.ra
-            dec = guide_offsets.dec
-            inst_pa = guide_offsets.inst_pa
-            dra = guide_offsets.ra_offset
-            ddec = guide_offsets.dec_offset
-            dinr = guide_offsets.inr_offset
-            dscale = guide_offsets.scale_offset
-            dalt = guide_offsets.dalt
-            daz = guide_offsets.daz
-
-            cmd.inform(
-                f'text="{ra=},{dec=},{inst_pa=},{dra=},{ddec=},{dinr=},{dscale=},{dalt=},{daz=}"'
-            )
-
-            filenames = guide_offsets.save_numpy_files()
-
-            cmd.inform(
-                'data={},{},{},"{}","{}","{}"'.format(ra, dec, inst_pa, *filenames)
-            )
-            cmd.inform("detectionState=0")
-
-            if guide:
-                dx, dy, size, peak, flux = (
-                    guide_offsets.dx,
-                    guide_offsets.dy,
-                    guide_offsets.size,
-                    guide_offsets.peak,
-                    guide_offsets.flux,
-                )
-                send_guide_offsets(
-                    actor=self.actor,
-                    taken_at=taken_at,
-                    daz=daz,
-                    dalt=dalt,
-                    dx=dx,
-                    dy=dy,
-                    size=size,
-                    peak=peak,
-                    flux=flux,
-                    dry_run=dry_run,
-                    logger=self.actor.logger,
-                )
-
-            # always compute focus offset and tilt
-            self.actor.logger.info("AgCmd.acquire_field: Calling focus")
-            dz, dzs = focus(
-                detected_objects=guide_offsets.detected_objects,
+                exposure_time=exposure_time,
+                exposure_delay=exposure_delay,
+                tec_off=tec_off,
+                center=center,
+                offset=offset,
+                dinr=dinr,
+                guide_catalog=None,
+                send_offsets=guide,
+                dry_run=dry_run,
+                max_correction=None,  # no range checking for acquire_field
                 max_ellipticity=max_ellipticity,
                 max_size=max_size,
                 min_size=min_size,
+                **kwargs,
             )
-            # send corrections to gen2 (or iic)
-            guide_status = "OK"
-            if dalt is None:
-                dalt = np.nan
-            if daz is None:
-                daz = np.nan
-
-            cmd.inform(
-                "guideErrors={},{},{},{},{},{},{},{},{}".format(
-                    frame_id, dra, ddec, dinr, daz, dalt, dz, dscale, guide_status
-                )
-            )
-            cmd.inform("focusErrors={},{},{},{},{},{},{}".format(frame_id, *dzs))
-            # store results in opdb
-            if self.cfg.with_opdb_agc_guide_offset:
-                data_utils.write_agc_guide_offset(
-                    frame_id=frame_id,
-                    ra=ra,
-                    dec=dec,
-                    pa=inst_pa,
-                    delta_ra=dra,
-                    delta_dec=ddec,
-                    delta_insrot=dinr,
-                    delta_scale=dscale,
-                    delta_az=daz,
-                    delta_el=dalt,
-                    delta_z=dz,
-                    delta_zs=dzs,
-                )
-            if self.cfg.with_opdb_agc_match:
-                data_utils.write_agc_match(
-                    design_id=(
-                        design_id
-                        if design_id is not None
-                        else pfs_design.pfsDesign.to_design_id(design_path)
-                        if design_path is not None
-                        else 0
-                    ),
-                    frame_id=frame_id,
-                    guide_objects=guide_offsets.guide_objects,
-                    detected_objects=guide_offsets.detected_objects,
-                    identified_objects=guide_offsets.identified_objects,
-                )
         except Exception as e:
             self.actor.logger.exception("AgCmd.acquire_field:")
             cmd.fail(f'text="AgCmd.acquire_field: {e}"')
