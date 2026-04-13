@@ -88,6 +88,20 @@ def get_exposure_offsets(
     dec = guide_catalog.dec
     inst_pa = guide_catalog.inst_pa
 
+    if "dra" in kwargs:
+        ra += kwargs.get("dra") / 3600
+        logger.info(f"ra modified by dra: {ra=}")
+    if "ddec" in kwargs:
+        dec += kwargs.get("ddec") / 3600
+        logger.info(f"dec modified by ddec: {dec=}")
+    if "dpa" in kwargs:
+        inst_pa += kwargs.get("dpa") / 3600
+        logger.info(f"inst_pa modified by dpa: {inst_pa=}")
+    if "dinr" in kwargs:
+        # Note: inr is updated but calculate_guide_offsets uses inst_pa for matching.
+        inr += kwargs.get("dinr") / 3600
+        logger.info(f"inr modified by dinr: {inr=}")
+
     logger.info(
         "Calling field_acquisition.calculate_guide_offsets from autoguide.get_exposure_offsets"
     )
