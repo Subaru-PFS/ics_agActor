@@ -572,6 +572,8 @@ class AgCmd:
             frame_id = self.actor.agcc.frameId
             self.actor.logger.info(f"AgCmd.focus: frameId={frame_id}")
             data_time = self.actor.agcc.dataTime
+            taken_at = data_time + (exposure_time + 7 * exposure_delay) / 1000 / 2
+            self.actor.logger.info(f"AgCmd.focus: taken_at={taken_at}")
 
             # compute focus offset and tilt
             dz, dzs = focus(
@@ -607,7 +609,7 @@ class AgCmd:
                 )
                 data_utils.write_agc_guide_offset(
                     frame_id=frame_id,
-                    taken_at=data_time,
+                    taken_at=taken_at,
                     delta_z=dz,
                     delta_zs=dzs
                 )
