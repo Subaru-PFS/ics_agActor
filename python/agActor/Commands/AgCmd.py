@@ -382,9 +382,8 @@ class AgCmd:
             taken_at = data_time + (exposure_time + 7 * exposure_delay) / 1000 / 2
             self.actor.logger.info(f"AgCmd.acquire_field: taken_at={taken_at}")
             if self.with_agcc_timestamp:
-                kwargs["taken_at"] = (
-                    taken_at  # unix timestamp, not timezone-aware datetime
-                )
+                # unix timestamp, not timezone-aware datetime
+                kwargs["taken_at"] = taken_at
             if self.with_mlp1_status:
                 # possibly override timestamp from agcc
                 taken_at = self.actor.mlp1.setUnixDay(
@@ -483,6 +482,7 @@ class AgCmd:
             if self.with_opdb_agc_guide_offset:
                 data_utils.write_agc_guide_offset(
                     frame_id=frame_id,
+                    taken_at=taken_at,
                     ra=ra,
                     dec=dec,
                     pa=inst_pa,
@@ -571,6 +571,9 @@ class AgCmd:
             agcc_result.get()
             frame_id = self.actor.agcc.frameId
             self.actor.logger.info(f"AgCmd.focus: frameId={frame_id}")
+            data_time = self.actor.agcc.dataTime
+            taken_at = data_time + (exposure_time + 7 * exposure_delay) / 1000 / 2
+            self.actor.logger.info(f"AgCmd.focus: taken_at={taken_at}")
 
             # compute focus offset and tilt
             dz, dzs = focus(
@@ -605,7 +608,10 @@ class AgCmd:
                     f"AgCmd.focus: Writing opdb_agc_guide_offset: {dz=} {dzs=}"
                 )
                 data_utils.write_agc_guide_offset(
-                    frame_id=frame_id, delta_z=dz, delta_zs=dzs
+                    frame_id=frame_id,
+                    taken_at=taken_at,
+                    delta_z=dz,
+                    delta_zs=dzs
                 )
         except Exception as e:
             self.actor.logger.exception("AgCmd.focus:")

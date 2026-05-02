@@ -538,6 +538,7 @@ class AgThread(threading.Thread):
                         )
                         data_utils.write_agc_guide_offset(
                             frame_id=frame_id,
+                            taken_at=taken_at,
                             ra=ra,
                             dec=dec,
                             pa=inst_pa,
