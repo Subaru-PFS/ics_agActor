@@ -744,6 +744,7 @@ def write_agc_guide_offset(
         db.insert_kw("agc_guide_offset", **params)
     except Exception as e:
         logger.warning(f"Failed to write agc_guide_offsets: {e}")
+        raise e
 
 
 def write_agc_match(
@@ -811,6 +812,7 @@ def write_agc_match(
             return n_rows
     except Exception as e:
         logger.warning(f"Failed to insert agc_match data: {e}")
+        raise e
 
     return None
 
