@@ -601,9 +601,8 @@ class AgThread(threading.Thread):
 
             end = time.time()
             elapsed = end - start
-            self.logger.info(f"AgThread.run: iteration took {elapsed:.3f} s")
             timeout = (max(0, cadence / 1000 - elapsed) if mode & ag.Mode.ON else 0.5)
-            self.logger.info(f"AgThread.run: Control loop delay {timeout=:.3f} {self.__abort.is_set()=}")
+            self.logger.debug(f"AgThread.run: Control loop delay {timeout=:.3f} {self.__abort.is_set()=}")
             self.__abort.wait(timeout)
 
         cmd.inform("guideReady=0")
