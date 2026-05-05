@@ -677,7 +677,7 @@ def get_detected_objects(
 def write_agc_guide_offset(
     *,
     frame_id: int,
-    taken_at: datetime | None = None,
+    taken_at: datetime | float | None = None,
     ra: float | None = None,
     dec: float | None = None,
     pa: float | None = None,
@@ -699,7 +699,8 @@ def write_agc_guide_offset(
 
     Parameters:
         frame_id (int): The frame id of the frame.
-        taken_at (datetime | None): The time the frame was taken.
+        taken_at (datetime | float | None): The time the frame was taken. A Unix
+            timestamp (float) is converted to a local naive datetime.
         ra (float | None): Right ascension of the field in degrees.
         dec (float | None): Declination of the field in degrees.
         pa (float | None): Instrument position angle in degrees.
@@ -717,6 +718,8 @@ def write_agc_guide_offset(
     """
     db = db or OpDB()
     try:
+        if isinstance(taken_at, (int, float)):
+            taken_at = datetime.fromtimestamp(taken_at)
         params = dict(
             agc_exposure_id=frame_id,
             taken_at=taken_at if taken_at is not None else None,
