@@ -10,7 +10,9 @@ from pfs.utils.datamodel.ag import SourceDetectionFlag
 
 from agActor.coordinates.FieldAcquisitionAndFocusing import calculate_offsets
 from agActor.utils import to_altaz
-from agActor.utils.data import BAD_DETECTION_FLAGS, GuideOffsets, get_detected_objects, get_guide_objects
+from agActor.utils.data import BAD_DETECTION_FLAGS, GuideOffsets
+from agActor.utils.guide_catalog import get_guide_objects
+from agActor.utils.queries import get_detected_objects
 from agActor.utils.math import semi_axes
 
 logger = logging.getLogger(__name__)

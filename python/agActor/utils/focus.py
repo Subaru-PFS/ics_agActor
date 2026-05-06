@@ -5,7 +5,7 @@ import pandas as pd
 from pfs.utils.datamodel.ag import SourceDetectionFlag
 
 from agActor.coordinates.FieldAcquisitionAndFocusing import calculate_focus_errors
-from agActor.utils.data import query_agc_data
+from agActor.utils.queries import query_agc_data
 from agActor.utils.math import semi_axes
 
 logger = logging.getLogger(__name__)

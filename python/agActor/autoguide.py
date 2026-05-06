@@ -7,9 +7,8 @@ from agActor.utils.data import (
     BAD_DETECTION_FLAGS,
     GuideCatalog,
     GuideOffsets,
-    get_detected_objects,
-    get_telescope_status,
 )
+from agActor.utils.queries import get_detected_objects, get_telescope_status
 
 logger = logging.getLogger(__name__)
 
