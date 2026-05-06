@@ -424,11 +424,15 @@ def get_telescope_status(*, frame_id, **kwargs):
             db_m2_pos3 = float(tel_status_info.m2_pos3) if pd.notna(tel_status_info.m2_pos3) else db_m2_pos3
             db_taken_at = tel_status_info.created_at
 
-        # Use database values for any missing parameters
-        taken_at = taken_at or db_taken_at
-        inr = inr or db_inr
-        adc = adc or db_adc
-        m2_pos3 = m2_pos3 or db_m2_pos3
+        # Use database values for any missing parameters.
+        if taken_at is None:
+            taken_at = db_taken_at
+        if inr is None:
+            inr = db_inr
+        if adc is None:
+            adc = db_adc
+        if m2_pos3 is None:
+            m2_pos3 = db_m2_pos3
 
     logger.info(f"tel_status: {taken_at=},{inr=},{adc=},{m2_pos3=}")
     return taken_at, inr, adc, m2_pos3
@@ -506,9 +510,13 @@ def get_guide_objects(
 
     logger.info(f"Getting guide_objects from pfs_config_agc via {design_id=} {visit0=}")
     field_design = query_pfs_design(design_id)
-    ra = ra or field_design.field_ra
-    dec = dec or field_design.field_dec
-    inst_pa = inst_pa or field_design.field_inst_pa
+    # Fall back to field design values only if the caller did not supply them.
+    if ra is None:
+        ra = field_design.field_ra
+    if dec is None:
+        dec = field_design.field_dec
+    if inst_pa is None:
+        inst_pa = field_design.field_inst_pa
 
     guide_objects = query_pfs_config_agc(
         design_id=design_id, visit0=visit0, as_dataframe=True
