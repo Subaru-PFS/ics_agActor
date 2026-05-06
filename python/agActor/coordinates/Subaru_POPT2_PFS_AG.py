@@ -98,6 +98,13 @@ class PFS():
           6. Iterative outlier rejection
           7. Unit conversion
 
+        Notes
+        -----
+        In practice we always set `fit_inr` and `fit_scale` to `True` at acquisition,
+        so the returned `inr_offset` and `scale_offset` are always valid.  The
+        option to disable either fit is available for testing and experimentation,
+        but it is not currently used in the standard acquisition sequence.
+
         Parameters
         ----------
         obj_xdp : np.ndarray, shape (N,)
@@ -106,7 +113,7 @@ class PFS():
             Detected source y positions on the detector plane [mm].
         obj_int : np.ndarray, shape (N,)
             Detected source intensities / fluxes [counts].  Accepted but
-            currently unused in the fitting (see plan note B1).
+            currently unused in the fitting.
         obj_flag : np.ndarray, shape (N,), dtype int
             Per-source detection flags (see ``SourceDetectionFlags``).
             The ``RIGHT`` bit is used to select which detector-half
@@ -132,7 +139,7 @@ class PFS():
             column layout as ``catalog_left``.
         fit_inr : bool
             ``True`` to include instrument rotation (InR) in the fit,
-            ``False`` to fix InR at its current value.
+            ``False`` to fix InR at its current value
         fit_scale : bool
             ``True`` to include a radial scale term in the fit,
             ``False`` to omit it.
