@@ -52,26 +52,17 @@ def focus(
 
     if frame_id is not None and detected_objects is None:
         logger.info(f"In focus, getting detected objects for {frame_id=}")
-        cameras = None
-        if enabledCameras is not None:
-            try:
-                cameras = [int(camera_id) - 1 for camera_id in enabledCameras]
-            except Exception as e:
-                logger.warning(
-                    f"Failed to parse enabled camera list {enabledCameras}: {e}; using all cameras"
-                )
-                cameras = None
-        detected_objects = query_agc_data(frame_id, cameras=cameras)
+        detected_objects = query_agc_data(frame_id)
 
-    if frame_id is None and detected_objects is not None:
-        if enabledCameras is not None:
-            try:
-                enabled_set = {int(camera_id) - 1 for camera_id in enabledCameras}
-                detected_objects = detected_objects[detected_objects["agc_camera_id"].isin(enabled_set)]
-            except Exception as e:
-                logger.warning(
-                    f"Failed to filter detected objects with enabled cameras {enabledCameras}: {e}; using all cameras"
-                )
+    if enabledCameras is not None:
+        try:
+            # agc_camera_id in the DataFrame is zero-based; enabledCameras is one-based.
+            enabled_set = {int(camera_id) - 1 for camera_id in enabledCameras}
+            detected_objects = detected_objects[detected_objects["agc_camera_id"].isin(enabled_set)]
+        except Exception as e:
+            logger.warning(
+                f"Failed to filter detected objects with enabled cameras {enabledCameras}: {e}; using all cameras"
+            )
 
     logger.info(f"In focus with {max_ellipticity=}, {max_size=}, {min_size=}")
 
