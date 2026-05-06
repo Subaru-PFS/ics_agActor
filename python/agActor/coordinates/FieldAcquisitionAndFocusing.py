@@ -64,8 +64,8 @@ def calculate_offsets(
     instpa: float,
     m2pos3: Any,
     wl: Any,
-    inrflag: int = 1,
-    scaleflag: int = 1,
+    fit_inr: bool = True,
+    fit_scale: bool = True,
     max_ellipticity: float = 2.0e0,
     max_size: float = 1.0e12,
     min_size: float = -1.0e0,
@@ -98,10 +98,10 @@ def calculate_offsets(
         Secondary mirror position information
     wl : Any
         Wavelength information
-    inrflag : int, optional
-        Flag for instrument rotation calculation, by default 1
-    scaleflag : int, optional
-        Flag for scale calculation, by default 1
+    fit_inr : bool, optional
+        Whether to include instrument rotation in the fit, by default True
+    fit_scale : bool, optional
+        Whether to include scale in the fit, by default True
     max_ellipticity : float, optional
         Maximum ellipticity for source filtering, by default 2.0e0.
     max_size : float, optional
@@ -163,8 +163,8 @@ def calculate_offsets(
         filtered_detected_array[:, 7],
         basis_vector_0,
         basis_vector_1,
-        inrflag,
-        scaleflag,
+        fit_inr,
+        fit_scale,
         max_residual,
     )
     valid_resid_idx = match_results[:, 8] == 1.0

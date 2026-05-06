@@ -42,7 +42,7 @@ class PFS():
             Subset of ``agarray`` containing only the M sources that
             pass all three criteria.  Column layout is identical to the
             input.
-        v : np.ndarray, shape (N,), dtype bool
+        valid_mask : np.ndarray, shape (N,), dtype bool
             Boolean mask over the original ``agarray`` rows; ``True``
             where the source passed every filter criterion.
         """
@@ -62,24 +62,24 @@ class PFS():
         # size condition (lower)
         csizeL = np.sqrt(ag_smmi*ag_smma) > minsize
 
-        v = cellip*csizeU*csizeL
+        valid_mask = cellip*csizeU*csizeL
 
-        vdatanum = np.sum(v)
+        oarray = np.zeros((valid_mask.sum(),8))
+        oarray[:,0] = ag_ccd[valid_mask]
+        oarray[:,1] = ag_id[valid_mask]
+        oarray[:,2] = ag_xc[valid_mask]
+        oarray[:,3] = ag_yc[valid_mask]
+        oarray[:,4] = ag_flx[valid_mask]
+        oarray[:,5] = ag_smma[valid_mask]
+        oarray[:,6] = ag_smmi[valid_mask]
+        oarray[:,7] = ag_flag[valid_mask]
 
-        oarray = np.zeros((vdatanum,8))
-        oarray[:,0] = ag_ccd[v]
-        oarray[:,1] = ag_id[v]
-        oarray[:,2] = ag_xc[v]
-        oarray[:,3] = ag_yc[v]
-        oarray[:,4] = ag_flx[v]
-        oarray[:,5] = ag_smma[v]
-        oarray[:,6] = ag_smmi[v]
-        oarray[:,7] = ag_flag[v]
-
-        return oarray, v
+        return oarray, valid_mask
 
 
-    def RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag, v0, v1, inrflag, scaleflag, maxresid=0.5):
+    def RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag,
+                       catalog_left, catalog_right,
+                       fit_inr: bool, fit_scale: bool, maxresid=0.5):
         """Perform a full astrometric solve: match detected sources to a catalog
         and determine the pointing offsets (RA, Dec, InR, scale).
 
@@ -104,8 +104,9 @@ class PFS():
         obj_flag : np.ndarray, shape (N,), dtype int
             Per-source detection flags (see ``SourceDetectionFlags``).
             The ``RIGHT`` bit is used to select which detector-half
-            catalog (``v0`` or ``v1``) applies to each source.
-        v0 : np.ndarray, shape (M, 9)
+            catalog (``catalog_left`` or ``catalog_right``) applies to
+            each source.
+        catalog_left : np.ndarray, shape (M, 9)
             Catalog basis array for the LEFT detector half.  Each row
             corresponds to one catalog star and contains:
               col 0: xdp  — detector-plane x position [mm]
@@ -120,15 +121,15 @@ class PFS():
               col 8: dy/dInR  — ∂y_dp/∂(InR perturbation)
             Scale Jacobians (dxscl, dyscl) are derived internally as
             ``xdp * d_scl`` and ``ydp * d_scl`` (pure radial stretch model).
-        v1 : np.ndarray, shape (M, 9)
+        catalog_right : np.ndarray, shape (M, 9)
             Catalog basis array for the RIGHT detector half.  Same
-            column layout as ``v0``.
-        inrflag : int
-            ``1`` to include instrument rotation (InR) in the fit,
-            ``0`` to fix InR at its current value.
-        scaleflag : int
-            ``1`` to include a radial scale term in the fit,
-            ``0`` to omit it.
+            column layout as ``catalog_left``.
+        fit_inr : bool
+            ``True`` to include instrument rotation (InR) in the fit,
+            ``False`` to fix InR at its current value.
+        fit_scale : bool
+            ``True`` to include a radial scale term in the fit,
+            ``False`` to omit it.
         maxresid : float, optional
             Hard upper limit on the outlier-rejection threshold [mm].
             Defaults to 0.5 mm.
@@ -141,11 +142,11 @@ class PFS():
             Declination offset [degrees].
         inr_offset : float or nan
             Instrument-rotation offset [degrees].  ``nan`` when
-            ``inrflag == 0``.
+            ``fit_inr`` is ``False``.
         scale_offset : float or nan
             Radial scale offset [dimensionless].  ``nan`` when
-            ``scaleflag == 0``.
-        mr : np.ndarray, shape (N, 10)
+            ``fit_scale`` is ``False``.
+        match_result : np.ndarray, shape (N, 10)
             Per-match result matrix with columns:
               0:  obj_x   — detected object x [mm]
               1:  obj_y   — detected object y [mm]
@@ -161,32 +162,33 @@ class PFS():
 
         # ── Phase 1: Catalog unpacking ────────────────────────────────────────
         # Extract detector-plane positions, magnitudes, and RA/Dec/InR Jacobians
-        # from the left (v0) and right (v1) detector-half catalog basis arrays.
-        # Scale Jacobians are not stored in the basis; they are derived here from
-        # the catalog position multiplied by d_scl (pure radial stretch model).
-        cat_xdp_0 = v0[:,0]
-        cat_ydp_0 = v0[:,1]
-        cat_mag_0 = v0[:,2]
-        dxra_0    = v0[:,3]
-        dyra_0    = v0[:,4]
-        dxde_0    = v0[:,5]
-        dyde_0    = v0[:,6]
-        dxinr_0   = v0[:,7]
-        dyinr_0   = v0[:,8]
-        dxscl_0   = v0[:,0]*d_scl
-        dyscl_0   = v0[:,1]*d_scl
+        # from the left (catalog_left) and right (catalog_right) detector-half
+        # catalog basis arrays.  Scale Jacobians are not stored in the basis;
+        # they are derived here from the catalog position multiplied by d_scl
+        # (pure radial stretch model).
+        cat_xdp_0 = catalog_left[:,0]
+        cat_ydp_0 = catalog_left[:,1]
+        cat_mag_0 = catalog_left[:,2]
+        dxra_0    = catalog_left[:,3]
+        dyra_0    = catalog_left[:,4]
+        dxde_0    = catalog_left[:,5]
+        dyde_0    = catalog_left[:,6]
+        dxinr_0   = catalog_left[:,7]
+        dyinr_0   = catalog_left[:,8]
+        dxscl_0   = catalog_left[:,0]*d_scl
+        dyscl_0   = catalog_left[:,1]*d_scl
 
-        cat_xdp_1 = v1[:,0]
-        cat_ydp_1 = v1[:,1]
-        cat_mag_1 = v1[:,2]
-        dxra_1    = v1[:,3]
-        dyra_1    = v1[:,4]
-        dxde_1    = v1[:,5]
-        dyde_1    = v1[:,6]
-        dxinr_1   = v1[:,7]
-        dyinr_1   = v1[:,8]
-        dxscl_1   = v1[:,0]*d_scl
-        dyscl_1   = v1[:,1]*d_scl
+        cat_xdp_1 = catalog_right[:,0]
+        cat_ydp_1 = catalog_right[:,1]
+        cat_mag_1 = catalog_right[:,2]
+        dxra_1    = catalog_right[:,3]
+        dyra_1    = catalog_right[:,4]
+        dxde_1    = catalog_right[:,5]
+        dyde_1    = catalog_right[:,6]
+        dxinr_1   = catalog_right[:,7]
+        dyinr_1   = catalog_right[:,8]
+        dxscl_1   = catalog_right[:,0]*d_scl
+        dyscl_1   = catalog_right[:,1]*d_scl
 
         # ── Phase 2: Jacobian averaging ───────────────────────────────────────
         # Average the left- and right-half Jacobians to obtain a single set of
@@ -205,13 +207,13 @@ class PFS():
         # ── Phase 3: Coarse nearest-neighbour match + Cramer's rule ──────────
         # For each detected object find its nearest catalog star, then solve
         # the 2×2 linear system:
-        #   [dxra  dxde] [rCRA]   [Δx]
-        #   [dyra  dyde] [rCDE] = [Δy]
+        #   [dxra  dxde] [coarse_ra_coeff]   [Δx]
+        #   [dyra  dyde] [coarse_dec_coeff] = [Δy]
         # analytically via Cramer's rule to get a median RA/Dec-only initial
-        # offset in perturbation units (rCRA, rCDE).  Note: InR/scale errors
-        # are not corrected here — they typically dominate only at fine-guiding
-        # level, not at acquisition (see plan note B5).
-        flg = np.where((obj_flag.astype(int) & SourceDetectionFlags.RIGHT) == SourceDetectionFlags.RIGHT)
+        # offset in perturbation units.  Note: InR/scale errors are not
+        # corrected here — they typically dominate only at fine-guiding level,
+        # not at acquisition (see plan note B5).
+        right_detector_mask = np.where((obj_flag.astype(int) & SourceDetectionFlags.RIGHT) == SourceDetectionFlags.RIGHT)
 
         n_obj = (obj_xdp.shape)[0]
 
@@ -222,32 +224,33 @@ class PFS():
 
         xdiff = np.copy(xdiff_0)
         ydiff = np.copy(ydiff_0)
-        xdiff[flg]=xdiff_1[flg]
-        ydiff[flg]=ydiff_1[flg]
+        xdiff[right_detector_mask]=xdiff_1[right_detector_mask]
+        ydiff[right_detector_mask]=ydiff_1[right_detector_mask]
 
         dist  = np.sqrt(xdiff**2+ydiff**2)
 
         min_dist_index   = np.nanargmin(dist, axis=1)
         min_dist_indices = np.array(range(n_obj), dtype='int'),min_dist_index
         # Cramer's-rule solution for the RA/Dec perturbation coefficients.
-        # rCRA and rCDE are still in perturbation units (not arcsec).
-        rCRA = np.median((xdiff[min_dist_indices]*dyde[min_dist_index]-ydiff[min_dist_indices]*dxde[min_dist_index])/(dxra[min_dist_index]*dyde[min_dist_index]-dyra[min_dist_index]*dxde[min_dist_index]))
-        rCDE = np.median((xdiff[min_dist_indices]*dyra[min_dist_index]-ydiff[min_dist_indices]*dxra[min_dist_index])/(dxde[min_dist_index]*dyra[min_dist_index]-dyde[min_dist_index]*dxra[min_dist_index]))
+        # coarse_ra_coeff and coarse_dec_coeff are still in perturbation units
+        # (not arcsec).
+        coarse_ra_coeff = np.median((xdiff[min_dist_indices]*dyde[min_dist_index]-ydiff[min_dist_indices]*dxde[min_dist_index])/(dxra[min_dist_index]*dyde[min_dist_index]-dyra[min_dist_index]*dxde[min_dist_index]))
+        coarse_dec_coeff = np.median((xdiff[min_dist_indices]*dyra[min_dist_index]-ydiff[min_dist_indices]*dxra[min_dist_index])/(dxde[min_dist_index]*dyra[min_dist_index]-dyde[min_dist_index]*dxra[min_dist_index]))
 
         # ── Phase 4: Refined nearest-neighbour match ──────────────────────────
-        # Apply the coarse RA/Dec offset (rCRA, rCDE) to shift the catalog
-        # positions, then redo the nearest-neighbour search.  Only pairs within
-        # 2 mm of each other are accepted for the least-squares solve.
-        xdiff_0 = np.transpose([obj_xdp])-(cat_xdp_0+rCRA*dxra+rCDE*dxde)
-        ydiff_0 = np.transpose([obj_ydp])-(cat_ydp_0+rCRA*dyra+rCDE*dyde)
+        # Apply the coarse RA/Dec offset to shift the catalog positions, then
+        # redo the nearest-neighbour search.  Only pairs within 2 mm of each
+        # other are accepted for the least-squares solve.
+        xdiff_0 = np.transpose([obj_xdp])-(cat_xdp_0+coarse_ra_coeff*dxra+coarse_dec_coeff*dxde)
+        ydiff_0 = np.transpose([obj_ydp])-(cat_ydp_0+coarse_ra_coeff*dyra+coarse_dec_coeff*dyde)
 
-        xdiff_1 = np.transpose([obj_xdp])-(cat_xdp_1+rCRA*dxra+rCDE*dxde)
-        ydiff_1 = np.transpose([obj_ydp])-(cat_ydp_1+rCRA*dyra+rCDE*dyde)
+        xdiff_1 = np.transpose([obj_xdp])-(cat_xdp_1+coarse_ra_coeff*dxra+coarse_dec_coeff*dxde)
+        ydiff_1 = np.transpose([obj_ydp])-(cat_ydp_1+coarse_ra_coeff*dyra+coarse_dec_coeff*dyde)
 
         xdiff = np.copy(xdiff_0)
         ydiff = np.copy(ydiff_0)
-        xdiff[flg]=xdiff_1[flg]
-        ydiff[flg]=ydiff_1[flg]
+        xdiff[right_detector_mask]=xdiff_1[right_detector_mask]
+        ydiff[right_detector_mask]=ydiff_1[right_detector_mask]
 
         dist  = np.sqrt(xdiff**2+ydiff**2)
 
@@ -255,7 +258,7 @@ class PFS():
         min_dist_indices = np.array(range(n_obj), dtype='int'),min_dist_index
 
         # Boolean mask: True where the refined match distance is within 2 mm.
-        f  = dist[min_dist_indices] < 2.0
+        close_match_mask  = dist[min_dist_indices] < 2.0
 
         match_obj_xdp  = obj_xdp
         match_obj_ydp  = obj_ydp
@@ -300,34 +303,34 @@ class PFS():
         match_dxscl   = np.copy(match_dxscl_0)
         match_dyscl   = np.copy(match_dyscl_0)
 
-        flg = np.where((match_obj_flag.astype(int) & SourceDetectionFlags.RIGHT) == SourceDetectionFlags.RIGHT)
+        right_detector_mask = np.where((match_obj_flag.astype(int) & SourceDetectionFlags.RIGHT) == SourceDetectionFlags.RIGHT)
 
-        match_cat_xdp[flg] = match_cat_xdp_1[flg]
-        match_cat_ydp[flg] = match_cat_ydp_1[flg]
-        match_cat_mag[flg] = match_cat_mag_1[flg]
-        match_dxra[flg]    = match_dxra_1[flg]
-        match_dyra[flg]    = match_dyra_1[flg]
-        match_dxde[flg]    = match_dxde_1[flg]
-        match_dyde[flg]    = match_dyde_1[flg]
-        match_dxinr[flg]   = match_dxinr_1[flg]
-        match_dyinr[flg]   = match_dyinr_1[flg]
-        match_dxscl[flg]   = match_dxscl_1[flg]
-        match_dyscl[flg]   = match_dyscl_1[flg]
+        match_cat_xdp[right_detector_mask] = match_cat_xdp_1[right_detector_mask]
+        match_cat_ydp[right_detector_mask] = match_cat_ydp_1[right_detector_mask]
+        match_cat_mag[right_detector_mask] = match_cat_mag_1[right_detector_mask]
+        match_dxra[right_detector_mask]    = match_dxra_1[right_detector_mask]
+        match_dyra[right_detector_mask]    = match_dyra_1[right_detector_mask]
+        match_dxde[right_detector_mask]    = match_dxde_1[right_detector_mask]
+        match_dyde[right_detector_mask]    = match_dyde_1[right_detector_mask]
+        match_dxinr[right_detector_mask]   = match_dxinr_1[right_detector_mask]
+        match_dyinr[right_detector_mask]   = match_dyinr_1[right_detector_mask]
+        match_dxscl[right_detector_mask]   = match_dxscl_1[right_detector_mask]
+        match_dyscl[right_detector_mask]   = match_dyscl_1[right_detector_mask]
 
         # ── Phase 5: Least-squares solve + initial residuals ─────────────────
         # Build the design matrix (basis) by stacking the x and y Jacobian
         # columns for each enabled degree of freedom.  Only close-matched
-        # pairs (mask f) enter the initial solve.
+        # pairs (close_match_mask) enter the initial solve.
         dra  = np.concatenate([match_dxra,match_dyra])
         dde  = np.concatenate([match_dxde,match_dyde])
         dinr = np.concatenate([match_dxinr,match_dyinr])
         dscl = np.concatenate([match_dxscl,match_dyscl])
 
-        if inrflag == 1 and scaleflag == 1:
+        if fit_inr == 1 and fit_scale == 1:
             basis= np.stack([dra,dde,dinr,dscl]).transpose()
-        elif inrflag == 1 and scaleflag == 0:
+        elif fit_inr == 1 and fit_scale == 0:
             basis= np.stack([dra,dde,dinr]).transpose()
-        elif inrflag == 0 and scaleflag == 1:
+        elif fit_inr == 0 and fit_scale == 1:
             basis= np.stack([dra,dde,dscl]).transpose()
         else:
             basis= np.stack([dra,dde]).transpose()
@@ -336,41 +339,41 @@ class PFS():
         erry = match_obj_ydp - match_cat_ydp
         err  = np.array([np.concatenate([errx,erry])]).transpose()
 
-        newbasis = basis[np.concatenate([f,f])]
-        newerr   = err[np.concatenate([f,f])]
-        A, residual, rank, sv = np.linalg.lstsq(newbasis, newerr, rcond = None)
+        newbasis = basis[np.concatenate([close_match_mask,close_match_mask])]
+        newerr   = err[np.concatenate([close_match_mask,close_match_mask])]
+        lstsq_coeffs, residual, rank, sv = np.linalg.lstsq(newbasis, newerr, rcond = None)
 
         match_obj_xy = np.stack([match_obj_xdp,match_obj_ydp]).transpose()
         match_cat_xy = np.stack([match_cat_xdp,match_cat_ydp]).transpose()
         err_xy       = np.stack([errx,erry]).transpose()
-        resid_xy = (((err-np.dot(basis,A))[:,0]).reshape([2,-1])).transpose()
+        resid_xy = (((err-np.dot(basis,lstsq_coeffs))[:,0]).reshape([2,-1])).transpose()
 
         # ── Phase 6: Iterative outlier rejection ──────────────────────────────
         # Up to 5 iterations: reject matches whose residual exceeds
         # min(3 × median_residual, maxresid), refit on the surviving inliers,
         # and update the threshold.  Loop terminates early once the threshold
         # stops changing (convergence).
-        rej_thres_lim = maxresid
-        rej_thres = np.min(np.array([np.nanmedian(np.sqrt(np.sum(resid_xy**2,axis=1)))*3, rej_thres_lim]))
+        max_rejection_threshold = maxresid
+        rejection_threshold = np.min(np.array([np.nanmedian(np.sqrt(np.sum(resid_xy**2,axis=1)))*3, max_rejection_threshold]))
         for rej_itr in range(5):
             resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
 
-            vc  = np.where(np.concatenate([resid_r, resid_r], 0) < rej_thres)
-            vch = np.where(np.concatenate([resid_r], 0) < rej_thres)
+            inlier_flat_mask  = np.where(np.concatenate([resid_r, resid_r], 0) < rejection_threshold)
+            inlier_mask = np.where(np.concatenate([resid_r], 0) < rejection_threshold)
 
-            basis2 = basis[vc]
-            err2   = err[vc]
-            A, residual, rank, sv = np.linalg.lstsq(basis2, err2, rcond = None)
-            resid_xy = (((err-np.dot(basis,A))[:,0]).reshape([2,-1])).transpose()
-            rej_thres_old = rej_thres
+            basis2 = basis[inlier_flat_mask]
+            err2   = err[inlier_flat_mask]
+            lstsq_coeffs, residual, rank, sv = np.linalg.lstsq(basis2, err2, rcond = None)
+            resid_xy = (((err-np.dot(basis,lstsq_coeffs))[:,0]).reshape([2,-1])).transpose()
+            rejection_threshold_old = rejection_threshold
             resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
-            rej_thres = np.min(np.array([np.nanmedian(resid_r[vch])*3,rej_thres_lim]))
-            if(rej_thres == rej_thres_old):
+            rejection_threshold = np.min(np.array([np.nanmedian(resid_r[inlier_mask])*3,max_rejection_threshold]))
+            if(rejection_threshold == rejection_threshold_old):
                 break
 
         resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
-        vcx = np.array([resid_r<rej_thres]).transpose()
-        mr = np.block([match_obj_xy, match_cat_xy, err_xy, resid_xy, vcx, min_dist_index.reshape(-1,1)])
+        vcx = np.array([resid_r<rejection_threshold]).transpose()
+        match_result = np.block([match_obj_xy, match_cat_xy, err_xy, resid_xy, vcx, min_dist_index.reshape(-1,1)])
 
         # ── Phase 7: Unit conversion ──────────────────────────────────────────
         # Multiply the dimensionless least-squares coefficients by the
@@ -380,24 +383,24 @@ class PFS():
         inr_offset   = np.nan
         scale_offset = np.nan
 
-        if inrflag == 1 and scaleflag == 1:
-            ra_offset    = A[0][0] * d_ra
-            de_offset    = A[1][0] * d_de
-            inr_offset   = A[2][0] * d_inr
-            scale_offset = A[3][0] * d_scl
-        elif inrflag == 1 and scaleflag == 0:
-            ra_offset    = A[0][0] * d_ra
-            de_offset    = A[1][0] * d_de
-            inr_offset   = A[2][0] * d_inr
-        elif inrflag == 0 and scaleflag == 1:
-            ra_offset    = A[0][0] * d_ra
-            de_offset    = A[1][0] * d_de
-            scale_offset = A[2][0] * d_scl
+        if fit_inr == 1 and fit_scale == 1:
+            ra_offset    = lstsq_coeffs[0][0] * d_ra
+            de_offset    = lstsq_coeffs[1][0] * d_de
+            inr_offset   = lstsq_coeffs[2][0] * d_inr
+            scale_offset = lstsq_coeffs[3][0] * d_scl
+        elif fit_inr == 1 and fit_scale == 0:
+            ra_offset    = lstsq_coeffs[0][0] * d_ra
+            de_offset    = lstsq_coeffs[1][0] * d_de
+            inr_offset   = lstsq_coeffs[2][0] * d_inr
+        elif fit_inr == 0 and fit_scale == 1:
+            ra_offset    = lstsq_coeffs[0][0] * d_ra
+            de_offset    = lstsq_coeffs[1][0] * d_de
+            scale_offset = lstsq_coeffs[2][0] * d_scl
         else:
-            ra_offset    = A[0][0] * d_ra
-            de_offset    = A[1][0] * d_de
+            ra_offset    = lstsq_coeffs[0][0] * d_ra
+            de_offset    = lstsq_coeffs[1][0] * d_de
 
-        return ra_offset, de_offset, inr_offset, scale_offset, mr
+        return ra_offset, de_offset, inr_offset, scale_offset, match_result
 
     def makeBasis(self, tel_ra, tel_de, str_ra, str_de, t, adc, inr, m2pos3, wl):
         """Compute the catalog basis arrays for both detector halves.
@@ -540,7 +543,6 @@ class PFS():
         v_0 = np.transpose(np.stack([xdp0_0,ydp0_0,dxdpdra_0,dydpdra_0,dxdpdde_0,dydpdde_0,dxdpdinr_0,dydpdinr_0]))
         v_1 = np.transpose(np.stack([xdp0_1,ydp0_1,dxdpdra_1,dydpdra_1,dxdpdde_1,dydpdde_1,dxdpdinr_1,dydpdinr_1]))
 
-        # return xdp0,ydp0, dxdpdra,dydpdra, dxdpdde,dydpdde, dxdpdinr,dydpdinr
         return v_0,v_1
 
     def agarray2momentdifference(self, array, maxellip, maxsize, minsize):
@@ -577,7 +579,7 @@ class PFS():
 
         Returns
         -------
-        outarray : np.ndarray, shape (6,)
+        moment_diff_per_ccd : np.ndarray, shape (6,)
             Per-CCD moment difference
             ``median(a² + b²)_without_spider − median(a² + b²)_with_spider``
             [pixels²], where ``a`` and ``b`` are the semi-major and
@@ -588,20 +590,20 @@ class PFS():
         """
         ##### array
         ### ccdid objectid xcent[mm] ycent[mm] flx[counts] semimajor[pix] semiminor[pix] Flag[0 or 1]
-        filtered_agarray, v = PFS.sourceFilter(self, array, maxellip, maxsize, minsize)
-        outarray=np.array([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
+        filtered_agarray, valid_mask = PFS.sourceFilter(self, array, maxellip, maxsize, minsize)
+        moment_diff_per_ccd=np.array([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
 
         for ccdid in range(1,7):
-            array = filtered_agarray[np.where(filtered_agarray[:,0]==ccdid)]
-            array_wosp = array[np.where(array[:,7]==0)]
-            array_wisp = array[np.where(array[:,7]==1)]
+            ccd_array = filtered_agarray[np.where(filtered_agarray[:,0]==ccdid)]
+            array_wosp = ccd_array[np.where(ccd_array[:,7]==0)]
+            array_wisp = ccd_array[np.where(ccd_array[:,7]==1)]
 
             moment_wosp = np.median((array_wosp[:,5]**2+array_wosp[:,6]**2))
             moment_wisp = np.median((array_wisp[:,5]**2+array_wisp[:,6]**2))
 
-            outarray[ccdid-1]=moment_wosp-moment_wisp
+            moment_diff_per_ccd[ccdid-1]=moment_wosp-moment_wisp
 
-        return outarray
+        return moment_diff_per_ccd
 
     def momentdifference2focuserror(self, momentdifference):
         """Convert a per-CCD second-moment difference to a focus error.
