@@ -158,4 +158,3 @@ def sendAlert(
         return gen2_result
     except Exception as e:
         logger.error(f"Failed to send alert to gen2: {e}")
-        raise

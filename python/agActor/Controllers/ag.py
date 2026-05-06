@@ -9,10 +9,11 @@ from opscore.utility.qstr import qstr
 
 from agActor import autoguide
 from agActor.utils import actorCalls
-from agActor.utils import data as data_utils
+from agActor.utils import queries as data_utils
 from agActor.utils.focus import focus
 from agActor.utils.actorCalls import sendAlert, send_guide_offsets
-from agActor.utils.data import GuideOffsetFlag, get_guide_objects
+from agActor.utils.data import GuideOffsetFlag
+from agActor.utils.guide_catalog import get_guide_objects
 from agActor.utils.telescope_center import telCenter as tel_center
 
 
