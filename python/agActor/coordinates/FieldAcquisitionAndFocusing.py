@@ -163,6 +163,8 @@ def calculate_offsets(
     )
     logger.info(f"Found {len(filtered_detected_array)} detected sources after filtering")
 
+    logger.info(f"Calling RADECInRShiftA with {enabled_camera_ids=}")
+
     ra_offset, de_offset, inr_offset, scale_offset, match_results = pfs.RADECInRShiftA(
         filtered_detected_array[:, 2],
         filtered_detected_array[:, 3],
