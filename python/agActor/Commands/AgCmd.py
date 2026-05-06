@@ -174,7 +174,7 @@ class AgCmd:
         GaiaDB.set_default_connection(**db_params.get("gaia", {}))
 
         # Enabled cameras are configured as one-indexed ids, e.g. [1, 2, 3].
-        self.enabledCameras = list(actor.actorConfig.get("enabledCameras", [1, 2, 3, 4, 5, 6]))
+        self.enabledCameras = list(actor.actorConfig.get("enabled", [1, 2, 3, 4, 5, 6]))
 
         self.with_opdb_agc_guide_offset = actor.actorConfig.get(
             "agc_guide_offset", False
