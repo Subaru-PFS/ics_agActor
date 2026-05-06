@@ -9,15 +9,12 @@ import numpy as np
 import pandas as pd
 from astropy import units as u
 from astropy.table import Table
-
 from numpy.typing import NDArray
 from pfs.utils.coordinates import updateTargetPosition
 from pfs.utils.coordinates.CoordTransp import ag_pfimm_to_pixel
-
 from pfs.utils.database.db import DB
-from pfs.utils.database.opdb import OpDB
 from pfs.utils.database.gaia import GaiaDB
-
+from pfs.utils.database.opdb import OpDB
 from pfs.utils.datamodel.ag import AutoGuiderStarMask, SourceDetectionFlag
 
 logger = logging.getLogger(__name__)
@@ -646,7 +643,9 @@ def tweak_target_position(
 
 
 def get_detected_objects(
-    frame_id: int, filter_flags: int | None = BAD_DETECTION_FLAGS
+    frame_id: int,
+    filter_flags: int | None = BAD_DETECTION_FLAGS,
+    cameras: list[int] | None = None
 ) -> pd.DataFrame:
     """Get the detected objects from opdb.agc_data.
 
@@ -656,6 +655,9 @@ def get_detected_objects(
             The frame id of the frame.
         filter_flags: SourceDetectionFlag | int
             Flag to filter out detected objects. Defaults to BAD_DETECTION_FLAGS.
+        cameras: list[int] | None
+            One-indexed camera ids to include, e.g. [1, 2, 6]. If None, includes all
+            cameras.
 
     Returns:
     --------
@@ -667,8 +669,16 @@ def get_detected_objects(
     RuntimeError:
         If no detected objects are found.
     """
-    logger.info("Getting detected objects from opdb.agc_data")
-    detected_objects = query_agc_data(frame_id)
+    # query_agc_data wants a list of zero-based camera ids. `1` -> `0`
+    if cameras is not None:
+        try:
+            cameras = [int(camera_id) - 1 for camera_id in cameras]
+        except Exception as e:
+            logger.warning(f"Failed to parse cameras list {cameras}: {e} using all cameras")
+            cameras = None
+
+    logger.info(f"Getting detected objects from opdb.agc_data with {cameras=}")
+    detected_objects = query_agc_data(frame_id, cameras=cameras)
     logger.debug(f"Detected objects: {len(detected_objects)}")
 
     if filter_flags:
@@ -950,7 +960,29 @@ def query_db(
     return result
 
 
-def query_agc_data(agc_exposure_id: int, as_dataframe: bool = True, **kwargs):
+def query_agc_data(agc_exposure_id: int, as_dataframe: bool = True, cameras: list | None = None, **kwargs):
+    """Query AGC detected sources for one exposure.
+
+    Parameters
+    ----------
+    agc_exposure_id : int
+        AGC exposure ID to query from ``agc_data``.
+    as_dataframe : bool, optional
+        If True, return a pandas DataFrame. If False, return a NumPy array.
+    cameras : list | None, optional
+        List of AG camera IDs to include. Camera IDs are **zero-based**
+        (valid values are typically ``[0, 1, 2, 3, 4, 5]``). If None,
+        all zero-based AG cameras are queried.
+    **kwargs
+        Additional keyword arguments forwarded to ``query_db``.
+
+    Returns
+    -------
+    pd.DataFrame | np.ndarray
+        Rows from ``agc_data`` filtered by exposure ID and camera IDs.
+    """
+    cameras = cameras or [0, 1, 2, 3, 4, 5]
+
     sql = """
 SELECT agc_camera_id,
  spot_id,
@@ -966,10 +998,13 @@ SELECT agc_camera_id,
  background,
  COALESCE(flags, CAST(centroid_x_pix >= 511.5 + 24 AS INTEGER)) AS flags
 FROM agc_data
-WHERE agc_exposure_id = :agc_exposure_id
+WHERE 
+    agc_exposure_id = :agc_exposure_id 
+  AND
+    agc_camera_id = ANY(:cameras)
 ORDER BY agc_camera_id, spot_id
 """
-    params = {"agc_exposure_id": agc_exposure_id}
+    params = {"agc_exposure_id": agc_exposure_id, "cameras": cameras}
     return query_db(sql, params, as_dataframe=as_dataframe, **kwargs)
 
 

@@ -75,6 +75,7 @@ def acquire_field(
     design_id: int,
     frame_id: int,
     visit0: int | None = None,
+    cameras: list[int] | None = None,
     obswl: float = 0.62,
     altazimuth: bool = True,
     is_guide: bool = False,
@@ -91,6 +92,8 @@ def acquire_field(
     visit0 : int or None
         The visit ID to retrieve guide stars from the pfs_config_agc table. If not
         provided, use the pfsDesign file with transformations.
+    cameras : list[int] or None
+        One-indexed camera ids (1-6). If not provided, all cameras will be used.
     obswl : float, optional
         Observation wavelength in nm, defaults to 0.62.
     altazimuth : bool, optional
@@ -111,6 +114,8 @@ def acquire_field(
             Secondary mirror position in mm
         - sequence_id : int
             Sequence ID for querying telescope status
+        - enabledCameras : list[int]
+            One-indexed enabled camera ids (1-6).
 
     Returns
     -------
@@ -149,7 +154,8 @@ def acquire_field(
         filter_flags = filter_flags | SourceDetectionFlag.BAD_SHAPE
     else:
         filter_flags = filter_flags & ~SourceDetectionFlag.BAD_SHAPE
-    detected_objects = get_detected_objects(frame_id, filter_flags=filter_flags)
+
+    detected_objects = get_detected_objects(frame_id, filter_flags=filter_flags, cameras=cameras)
     logger.info(f"Detected objects: {len(detected_objects)}")
 
     parse_kwargs(kwargs)
@@ -178,10 +184,7 @@ def acquire_field(
         inr += kwargs.get("dinr") / 3600
         logger.info(f"inr modified by dinr: {inr=}")
 
-    logger.info(f"Final values for calculating offsets: {ra=},{dec=},{inst_pa=},{inr=}")
-
-
-    logger.info(f"Calling calculate_guide_offsets with {adc=}")
+    logger.info(f"Final values for calculating offsets: {ra=},{dec=},{inst_pa=},{inr=},{adc=}")
 
     _kwargs = filter_kwargs(kwargs)
 
