@@ -13,6 +13,12 @@ class PFS():
     def sourceFilter(self, agarray, maxellip, maxsize, minsize):
         """Filter detected AG sources by shape quality criteria.
 
+        Notes
+        -----
+        This method is essentially not used anymore because we always call it with
+        such permissive values for each of the respective filters.  The real filtering
+        logic is done further up the chain and uses the `filtered_by` column.
+
         Parameters
         ----------
         agarray : np.ndarray, shape (N, 8)
