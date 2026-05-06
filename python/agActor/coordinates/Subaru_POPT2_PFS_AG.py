@@ -85,7 +85,8 @@ class PFS():
 
     def RADECInRShiftA(self, obj_xdp, obj_ydp, obj_int, obj_flag,
                        catalog_left, catalog_right,
-                       fit_inr: bool, fit_scale: bool, maxresid=0.5):
+                       fit_inr: bool, fit_scale: bool, maxresid=0.5,
+                       obj_camera_id=None, enabled_camera_ids=None):
         """Perform a full astrometric solve: match detected sources to a catalog
         and determine the pointing offsets (RA, Dec, InR, scale).
 
@@ -146,6 +147,17 @@ class PFS():
         maxresid : float, optional
             Hard upper limit on the outlier-rejection threshold [mm].
             Defaults to 0.5 mm.
+        obj_camera_id : np.ndarray, shape (N,), dtype int, optional
+            Camera / CCD index (1-based) for each detected source.  Must be
+            provided when ``enabled_camera_ids`` is not ``None``.  When
+            ``None`` all sources are treated as coming from an enabled camera.
+        enabled_camera_ids : list[int] or None, optional
+            Camera IDs whose detections are allowed to contribute to the
+            least-squares solve (Phases 5–6).  Detections from cameras
+            *not* in this list are still matched and appear in
+            ``match_result``, but they never enter the fit.  When ``None``
+            (the default) all cameras are used, preserving the original
+            behaviour.
 
         Returns
         -------
@@ -334,6 +346,16 @@ class PFS():
         # Build the design matrix (basis) by stacking the x and y Jacobian
         # columns for each enabled degree of freedom.  Only close-matched
         # pairs (close_match_mask) enter the initial solve.
+        #
+        # enabled_mask restricts the fit to detections from the requested
+        # camera IDs.  When enabled_camera_ids is None every detection is
+        # eligible (backward-compatible default).
+        if enabled_camera_ids is not None and obj_camera_id is not None:
+            enabled_mask = np.isin(obj_camera_id, enabled_camera_ids)
+        else:
+            enabled_mask = np.ones(len(obj_xdp), dtype=bool)
+
+        fit_mask = close_match_mask & enabled_mask
         dra  = np.concatenate([match_dxra,match_dyra])
         dde  = np.concatenate([match_dxde,match_dyde])
         dinr = np.concatenate([match_dxinr,match_dyinr])
@@ -352,8 +374,8 @@ class PFS():
         erry = match_obj_ydp - match_cat_ydp
         err  = np.array([np.concatenate([errx,erry])]).transpose()
 
-        newbasis = basis[np.concatenate([close_match_mask,close_match_mask])]
-        newerr   = err[np.concatenate([close_match_mask,close_match_mask])]
+        newbasis = basis[np.concatenate([fit_mask, fit_mask])]
+        newerr   = err[np.concatenate([fit_mask, fit_mask])]
         lstsq_coeffs, residual, rank, sv = np.linalg.lstsq(newbasis, newerr, rcond = None)
 
         match_obj_xy = np.stack([match_obj_xdp,match_obj_ydp]).transpose()
@@ -371,7 +393,7 @@ class PFS():
         for rej_itr in range(5):
             resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
 
-            inlier_flat_mask  = np.where(np.concatenate([resid_r, resid_r], 0) < rejection_threshold)
+            inlier_flat_mask  = np.where(np.concatenate([resid_r < rejection_threshold, resid_r < rejection_threshold], 0) & np.concatenate([enabled_mask, enabled_mask], 0))
             inlier_mask = np.where(np.concatenate([resid_r], 0) < rejection_threshold)
 
             basis2 = basis[inlier_flat_mask]

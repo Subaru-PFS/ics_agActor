@@ -1,6 +1,6 @@
 import logging
 import warnings
-from typing import Any, Tuple
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -70,6 +70,7 @@ def calculate_offsets(
     max_size: float = 1.0e12,
     min_size: float = -1.0e0,
     max_residual: float = 0.5,
+    enabled_camera_ids: Optional[List[int]] = None,
 ) -> Tuple[float, float, float, float, NDArray[np.float64], float, int]:
     """
     Perform field acquisition calculations with the instrument position angle.
@@ -110,6 +111,12 @@ def calculate_offsets(
         Minimum size for source filtering, by default -1.0e0.
     max_residual : float, optional
         Maximum residual for source filtering, by default 0.5
+    enabled_camera_ids : list[int] or None, optional
+        Camera IDs (1-based) whose detections may contribute to the
+        astrometric fit.  Detections from cameras not in this list are
+        still matched and included in the returned match results, but they
+        do not influence the computed offsets.  ``None`` (default) enables
+        all cameras.
 
     Returns
     -------
@@ -166,6 +173,8 @@ def calculate_offsets(
         fit_inr,
         fit_scale,
         max_residual,
+        obj_camera_id=filtered_detected_array[:, 0].astype(int),
+        enabled_camera_ids=enabled_camera_ids,
     )
     valid_resid_idx = match_results[:, 8] == 1.0
     logger.info(f"Matched sources with valid residuals: {len(match_results[valid_resid_idx])}")
