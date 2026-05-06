@@ -511,6 +511,7 @@ class AgThread(threading.Thread):
 
                     dz, dzs = focus(
                         detected_objects=_detected_objects,
+                        enabledCameras=cameras,
                         max_ellipticity=max_ellipticity,
                         max_size=max_size,
                         min_size=min_size,
