@@ -948,7 +948,7 @@ def query_db(
     return result
 
 
-def query_agc_data(agc_exposure_id: int, as_dataframe: bool = True, cameras: list | None = None, **kwargs):
+def query_agc_data(agc_exposure_id: int, as_dataframe: bool = True, **kwargs):
     """Query AGC detected sources for one exposure.
 
     Parameters
@@ -957,20 +957,14 @@ def query_agc_data(agc_exposure_id: int, as_dataframe: bool = True, cameras: lis
         AGC exposure ID to query from ``agc_data``.
     as_dataframe : bool, optional
         If True, return a pandas DataFrame. If False, return a NumPy array.
-    cameras : list | None, optional
-        List of AG camera IDs to include. Camera IDs are **zero-based**
-        (valid values are typically ``[0, 1, 2, 3, 4, 5]``). If None,
-        all zero-based AG cameras are queried.
     **kwargs
         Additional keyword arguments forwarded to ``query_db``.
 
     Returns
     -------
     pd.DataFrame | np.ndarray
-        Rows from ``agc_data`` filtered by exposure ID and camera IDs.
+        Rows from ``agc_data`` for the given exposure ID.
     """
-    cameras = cameras or [0, 1, 2, 3, 4, 5]
-
     sql = """
 SELECT agc_camera_id,
  spot_id,
@@ -986,13 +980,10 @@ SELECT agc_camera_id,
  background,
  COALESCE(flags, CAST(centroid_x_pix >= 511.5 + 24 AS INTEGER)) AS flags
 FROM agc_data
-WHERE 
-    agc_exposure_id = :agc_exposure_id 
-  AND
-    agc_camera_id = ANY(:cameras)
+WHERE agc_exposure_id = :agc_exposure_id
 ORDER BY agc_camera_id, spot_id
 """
-    params = {"agc_exposure_id": agc_exposure_id, "cameras": cameras}
+    params = {"agc_exposure_id": agc_exposure_id}
     return query_db(sql, params, as_dataframe=as_dataframe, **kwargs)
 
 
