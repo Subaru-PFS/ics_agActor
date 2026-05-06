@@ -645,7 +645,6 @@ def tweak_target_position(
 def get_detected_objects(
     frame_id: int,
     filter_flags: int | None = BAD_DETECTION_FLAGS,
-    cameras: list[int] | None = None
 ) -> pd.DataFrame:
     """Get the detected objects from opdb.agc_data.
 
@@ -655,9 +654,6 @@ def get_detected_objects(
             The frame id of the frame.
         filter_flags: SourceDetectionFlag | int
             Flag to filter out detected objects. Defaults to BAD_DETECTION_FLAGS.
-        cameras: list[int] | None
-            One-indexed camera ids to include, e.g. [1, 2, 6]. If None, includes all
-            cameras.
 
     Returns:
     --------
@@ -669,16 +665,8 @@ def get_detected_objects(
     RuntimeError:
         If no detected objects are found.
     """
-    # query_agc_data wants a list of zero-based camera ids. `1` -> `0`
-    if cameras is not None:
-        try:
-            cameras = [int(camera_id) - 1 for camera_id in cameras]
-        except Exception as e:
-            logger.warning(f"Failed to parse cameras list {cameras}: {e} using all cameras")
-            cameras = None
-
-    logger.info(f"Getting detected objects from opdb.agc_data with {cameras=}")
-    detected_objects = query_agc_data(frame_id, cameras=cameras)
+    logger.info(f"Getting detected objects from opdb.agc_data for {frame_id=}")
+    detected_objects = query_agc_data(frame_id)
     logger.debug(f"Detected objects: {len(detected_objects)}")
 
     if filter_flags:

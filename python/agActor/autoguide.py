@@ -37,8 +37,10 @@ def get_exposure_offsets(
     Parameters:
         frame_id (int): Frame ID to use for retrieving detected objects and telescope status.
         guide_catalog (GuideCatalog): Guide objects and field center information.
-        cameras (list[int] or None): Optional list of one-indexed camera ids to use for
-            calculating offsets. If None, all cameras are used.
+        cameras (list[int] or None): Optional list of one-indexed camera ids whose
+            detections are allowed to contribute to the astrometric fit.
+            Detections from all cameras are still fetched; only the fit is
+            restricted.  If None, all cameras contribute to the fit.
         obswl (float): Observation wavelength in microns, used for atmospheric refraction
             calculations, by default 0.62 microns.
         max_ellipticity (float): Maximum ellipticity for source filtering, by default 2.0e0.
@@ -85,7 +87,7 @@ def get_exposure_offsets(
         filter_flags = filter_flags | SourceDetectionFlag.BAD_SHAPE
     else:
         filter_flags = filter_flags & ~SourceDetectionFlag.BAD_SHAPE
-    detected_objects = get_detected_objects(frame_id, filter_flags=filter_flags, cameras=cameras)
+    detected_objects = get_detected_objects(frame_id, filter_flags=filter_flags)
 
     ra = guide_catalog.ra
     dec = guide_catalog.dec
@@ -123,6 +125,7 @@ def get_exposure_offsets(
         max_size=max_size,
         min_size=min_size,
         max_residual=max_residual,
+        enabled_camera_ids=cameras,
     )
 
     guide_offsets.ra = ra

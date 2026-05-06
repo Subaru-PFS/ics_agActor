@@ -93,7 +93,10 @@ def acquire_field(
         The visit ID to retrieve guide stars from the pfs_config_agc table. If not
         provided, use the pfsDesign file with transformations.
     cameras : list[int] or None
-        One-indexed camera ids (1-6). If not provided, all cameras will be used.
+        One-indexed camera ids (1-6) whose detections are allowed to
+        contribute to the astrometric fit.  Detections from all cameras
+        are still fetched; only the fit is restricted.  If not provided,
+        all cameras contribute to the fit.
     obswl : float, optional
         Observation wavelength in nm, defaults to 0.62.
     altazimuth : bool, optional
@@ -155,7 +158,7 @@ def acquire_field(
     else:
         filter_flags = filter_flags & ~SourceDetectionFlag.BAD_SHAPE
 
-    detected_objects = get_detected_objects(frame_id, filter_flags=filter_flags, cameras=cameras)
+    detected_objects = get_detected_objects(frame_id, filter_flags=filter_flags)
     logger.info(f"Detected objects: {len(detected_objects)}")
 
     parse_kwargs(kwargs)
@@ -199,6 +202,7 @@ def acquire_field(
         m2_pos3=m2_pos3,
         obswl=obswl,
         altazimuth=altazimuth,
+        enabled_camera_ids=cameras,
         **_kwargs,
     )
 
@@ -220,6 +224,7 @@ def get_guide_offsets(
     max_size: float = 1.0e12,
     min_size: float = -1.0e0,
     max_residual: float = 0.5,
+    enabled_camera_ids: list[int] | None = None,
     **kwargs: Dict[str, Any],
 ) -> GuideOffsets:
     """Calculate guide offsets for the detected objects using the guide objects from the catalog.
@@ -258,6 +263,10 @@ def get_guide_offsets(
         Minimum size for source filtering, by default -1.0e0.
     max_residual : float, optional
         Maximum residual for source filtering, by default 0.5.
+    enabled_camera_ids : list[int] or None, optional
+        One-indexed camera IDs whose detections are allowed to contribute
+        to the astrometric fit.  Detections from other cameras are still
+        included in the returned match results.  ``None`` uses all cameras.
     **kwargs : dict, optional
         Additional keyword arguments to pass to the field acquisition and focusing calculation.
 
@@ -349,6 +358,7 @@ def get_guide_offsets(
         max_size=max_size,
         min_size=min_size,
         max_residual=max_residual,
+        enabled_camera_ids=enabled_camera_ids,
     )
     ra_offset *= 3600
     dec_offset *= 3600
