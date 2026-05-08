@@ -150,6 +150,24 @@ def calculate_offsets(
     dec_values = good_guide_objects.dec.values
     magnitude_values = good_guide_objects.mag.values
 
+    # Guide stars from disabled cameras are intentionally left in the catalog
+    # passed to makeBasis.  Two properties make them safe to include:
+    #
+    # 1. makeBasis computes each catalog star's predicted focal-plane position
+    #    and Jacobian independently — there is no coupling between stars, so
+    #    adding extra entries cannot distort any other star's basis vector.
+    #
+    # 2. The nearest-neighbour search inside RADECInRShiftA uses a 2 mm match
+    #    threshold.  PFS AG cameras are physically ~200–250 mm apart on the
+    #    focal plane, so a guide star from a disabled camera can never be the
+    #    closest catalog match for a detection from an enabled camera.
+    #
+    # As a result, disabled-camera guide stars never win any match that feeds
+    # an enabled-camera detection into the least-squares solve.  The
+    # enabled_mask in RADECInRShiftA provides a further explicit guard on the
+    # fit itself.  Keeping them in the catalog preserves meaningful predicted
+    # focal-plane positions for disabled-camera detections in the returned
+    # match_result, which is useful for diagnostics and downstream processing.
     basis_vector_0, basis_vector_1 = pfs.makeBasis(
         tel_ra, tel_de, ra_values, dec_values, dt, adc, instrument_rotation, m2pos3, wl
     )
