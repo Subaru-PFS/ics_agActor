@@ -126,7 +126,8 @@ def calculate_offsets(
         - Declination offset
         - Instrument rotation offset
         - Scale offset
-        - Match results array
+        - Match results array (N, 11): columns 0-9 per RADECInRShiftA docs;
+          column 10 (fit_contributor) is 1.0 for detections from enabled cameras
         - Median distance
         - Number of valid sources
     """

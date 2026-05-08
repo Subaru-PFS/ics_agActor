@@ -199,7 +199,7 @@ class PFS():
         scale_offset : float or nan
             Radial scale offset [dimensionless].  ``nan`` when
             ``fit_scale`` is ``False``.
-        match_result : np.ndarray, shape (N, 10)
+        match_result : np.ndarray, shape (N, 11)
             Per-match result matrix with columns:
               0:  obj_x   — detected object x [mm]
               1:  obj_y   — detected object y [mm]
@@ -211,6 +211,8 @@ class PFS():
               7:  resid_y — post-fit residual y [mm]
               8:  is_inlier — 1.0 if the match survived outlier rejection
               9:  cat_index — index of the matched star in the catalog arrays
+              10: fit_contributor — 1.0 if this detection's camera was in
+                  enabled_camera_ids (i.e. contributed to the astrometric fit)
         """
 
         # ── Phase 1: Catalog unpacking ────────────────────────────────────────
@@ -514,7 +516,8 @@ class PFS():
 
         resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
         vcx = np.array([resid_r<=rejection_threshold]).transpose()
-        match_result = np.block([match_obj_xy, match_cat_xy, err_xy, resid_xy, vcx, min_dist_index.reshape(-1,1)])
+        fit_contributor = np.array([enabled_mask], dtype=float).transpose()
+        match_result = np.block([match_obj_xy, match_cat_xy, err_xy, resid_xy, vcx, min_dist_index.reshape(-1,1), fit_contributor])
 
         # ── Phase 7: Unit conversion ──────────────────────────────────────────
         # Multiply the dimensionless least-squares coefficients by the
