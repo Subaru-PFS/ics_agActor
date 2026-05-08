@@ -175,7 +175,7 @@ def calculate_offsets(
         fit_inr,
         fit_scale,
         max_residual,
-        obj_camera_id=filtered_detected_array[:, 0].astype(int),
+        obj_camera_id=filtered_detected_array[:, 0].astype(int) + 1,  # DB is 0-based; RADECInRShiftA expects 1-based
         enabled_camera_ids=enabled_camera_ids,
     )
     valid_resid_idx = match_results[:, 8] == 1.0
