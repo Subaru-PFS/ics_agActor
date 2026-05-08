@@ -246,6 +246,7 @@ class PFS():
         dyra  = (dyra_0  + dyra_1 )/2.0
         dxde  = (dxde_0  + dxde_1 )/2.0
         dyde  = (dyde_0  + dyde_1 )/2.0
+
         # ── Phase 3: Coarse nearest-neighbour match + Cramer's rule ──────────
         # For each detected object find its nearest catalog star, then solve
         # the 2×2 linear system:
@@ -321,10 +322,17 @@ class PFS():
         xdiff_1 = np.transpose([obj_xdp])-(cat_xdp_1+coarse_ra_coeff*dxra+coarse_dec_coeff*dxde)
         ydiff_1 = np.transpose([obj_ydp])-(cat_ydp_1+coarse_ra_coeff*dyra+coarse_dec_coeff*dyde)
 
+        # Re-derive the RIGHT-detector mask from the full obj_flag here.
+        # coarse_right_detector_mask has indices into the coarse (enabled-only)
+        # subarray and must NOT be reused on the full (n_obj) arrays below.
+        right_detector_mask = np.where(
+            (obj_flag.astype(int) & SourceDetectionFlags.RIGHT) == SourceDetectionFlags.RIGHT
+        )
+
         xdiff = np.copy(xdiff_0)
         ydiff = np.copy(ydiff_0)
-        xdiff[coarse_right_detector_mask] = xdiff_1[coarse_right_detector_mask]
-        ydiff[coarse_right_detector_mask] = ydiff_1[coarse_right_detector_mask]
+        xdiff[right_detector_mask] = xdiff_1[right_detector_mask]
+        ydiff[right_detector_mask] = ydiff_1[right_detector_mask]
 
         dist  = np.sqrt(xdiff**2+ydiff**2)
 
