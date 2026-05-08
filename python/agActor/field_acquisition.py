@@ -407,7 +407,7 @@ def get_guide_offsets(
             "resid_y",
             "matched",
             "guide_object_id",
-            "fit_contributor",
+            "camera_enabled",
         ),
     )
     match_results_df.index = detected_objects[valid_detections].index
@@ -452,7 +452,7 @@ def get_guide_offsets(
             "guide_object_y_pix",
             "agc_camera_id",
             "matched",
-            "fit_contributor",
+            "camera_enabled",
         ]
     ]
 

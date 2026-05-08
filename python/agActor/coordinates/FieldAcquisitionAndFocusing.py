@@ -127,7 +127,7 @@ def calculate_offsets(
         - Instrument rotation offset
         - Scale offset
         - Match results array (N, 11): columns 0-9 per RADECInRShiftA docs;
-          column 10 (fit_contributor) is 1.0 for detections from enabled cameras
+          column 10 (camera_enabled) is 1.0 for detections from enabled cameras
         - Median distance
         - Number of valid sources
     """
@@ -180,12 +180,12 @@ def calculate_offsets(
         enabled_camera_ids=enabled_camera_ids,
     )
     valid_resid_idx = match_results[:, 8] == 1.0
-    fit_contributor_mask = match_results[:, 10] == 1.0
-    n_contributor_inliers = int(np.count_nonzero(valid_resid_idx & fit_contributor_mask))
-    n_non_contributor_inliers = int(np.count_nonzero(valid_resid_idx & ~fit_contributor_mask))
+    camera_enabled_mask = match_results[:, 10] == 1.0
+    n_enabled_inliers = int(np.count_nonzero(valid_resid_idx & camera_enabled_mask))
+    n_disabled_inliers = int(np.count_nonzero(valid_resid_idx & ~camera_enabled_mask))
     logger.info(
         f"Matched sources with valid residuals: {len(match_results[valid_resid_idx])} "
-        f"(fit contributors: {n_contributor_inliers}, disabled-camera: {n_non_contributor_inliers})"
+        f"(enabled-camera: {n_enabled_inliers}, disabled-camera: {n_disabled_inliers})"
     )
 
     residual_squares = match_results[:, 6] ** 2 + match_results[:, 7] ** 2

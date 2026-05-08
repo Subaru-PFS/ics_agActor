@@ -211,8 +211,10 @@ class PFS():
               7:  resid_y — post-fit residual y [mm]
               8:  is_inlier — 1.0 if the match survived outlier rejection
               9:  cat_index — index of the matched star in the catalog arrays
-              10: fit_contributor — 1.0 if this detection's camera was in
-                  enabled_camera_ids (i.e. contributed to the astrometric fit)
+              10: camera_enabled — 1.0 if this detection's camera is in
+                  enabled_camera_ids, 0.0 otherwise.  Note: a detection
+                  from an enabled camera may still not enter the fit if it
+                  had no close catalog match (distance > 2 mm).
         """
 
         # ── Phase 1: Catalog unpacking ────────────────────────────────────────
@@ -521,8 +523,8 @@ class PFS():
 
         resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
         vcx = np.array([resid_r<=rejection_threshold]).transpose()
-        fit_contributor = np.array([enabled_mask], dtype=float).transpose()
-        match_result = np.block([match_obj_xy, match_cat_xy, err_xy, resid_xy, vcx, min_dist_index.reshape(-1,1), fit_contributor])
+        camera_enabled = np.array([enabled_mask], dtype=float).transpose()
+        match_result = np.block([match_obj_xy, match_cat_xy, err_xy, resid_xy, vcx, min_dist_index.reshape(-1,1), camera_enabled])
 
         # ── Phase 7: Unit conversion ──────────────────────────────────────────
         # Multiply the dimensionless least-squares coefficients by the
