@@ -489,7 +489,12 @@ class PFS():
             # Keep exact-zero residuals in the inlier set; otherwise a perfect
             # first fit can empty the refit and collapse the solution to zeros.
             inlier_mask = resid_r <= rejection_threshold
-            inlier_flat_mask = np.concatenate([inlier_mask, inlier_mask]) & np.concatenate([enabled_mask, enabled_mask])
+            # Restrict the refit and threshold update to enabled cameras only.
+            # Disabled-camera residuals are predictions only and must not drive
+            # the rejection threshold, or they could tighten it and reject valid
+            # enabled-camera detections that the fit actually depends on.
+            enabled_inlier_mask = inlier_mask & enabled_mask
+            inlier_flat_mask = np.concatenate([enabled_inlier_mask, enabled_inlier_mask])
 
             if not np.any(inlier_flat_mask):
                 logger.warning(
@@ -510,7 +515,7 @@ class PFS():
             resid_xy = (((err-np.dot(basis,lstsq_coeffs))[:,0]).reshape([2,-1])).transpose()
             rejection_threshold_old = rejection_threshold
             resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
-            rejection_threshold = np.min(np.array([np.nanmedian(resid_r[inlier_mask])*3,max_rejection_threshold]))
+            rejection_threshold = np.min(np.array([np.nanmedian(resid_r[enabled_inlier_mask])*3,max_rejection_threshold]))
             if(rejection_threshold == rejection_threshold_old):
                 break
 
