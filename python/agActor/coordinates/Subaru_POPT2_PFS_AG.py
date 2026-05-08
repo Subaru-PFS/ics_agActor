@@ -172,12 +172,14 @@ class PFS():
             ``None`` all sources are treated as coming from an enabled camera.
         enabled_camera_ids : list[int] or None, optional
             Camera IDs whose detections are allowed to contribute to the
-            least-squares solve (Phases 5–6).  Detections from cameras
-            *not* in this list are still matched and appear in
+            coarse and least-squares solves (Phases 3–6).  Detections from
+            cameras *not* in this list are still matched and appear in
             ``match_result``, but they never enter the fit.  When ``None``
             (the default) all cameras are used, preserving the original
-            behaviour.  If the refined fit has no usable rows, the method
-            falls back to the coarse RA/Dec solution and logs a warning.
+            behaviour.  If the enabled set is empty, the coarse solve falls
+            back to all detections and logs a warning.  If the refined fit has
+            no usable rows, the method falls back to the coarse RA/Dec solution
+            and logs a warning.
 
         Returns
         -------
@@ -253,34 +255,66 @@ class PFS():
         # offset in perturbation units.  Note: InR/scale errors are not
         # corrected here — they typically dominate only at fine-guiding level,
         # not at acquisition (see plan note B5).
-        right_detector_mask = np.where((obj_flag.astype(int) & SourceDetectionFlags.RIGHT) == SourceDetectionFlags.RIGHT)
+        if enabled_camera_ids is not None and obj_camera_id is not None:
+            enabled_mask = np.isin(obj_camera_id, enabled_camera_ids)
+        else:
+            enabled_mask = np.ones(len(obj_xdp), dtype=bool)
 
-        n_obj = (obj_xdp.shape)[0]
+        coarse_mask = enabled_mask
+        if enabled_camera_ids is not None and not np.any(coarse_mask):
+            logger.warning(
+                "RADECInRShiftA coarse solve had no enabled detections; falling back to all detections. "
+                "n_obj=%d enabled_camera_ids=%s",
+                len(obj_xdp),
+                enabled_camera_ids,
+            )
+            coarse_mask = np.ones(len(obj_xdp), dtype=bool)
 
-        xdiff_0 = np.transpose([obj_xdp])-cat_xdp_0
-        ydiff_0 = np.transpose([obj_ydp])-cat_ydp_0
-        xdiff_1 = np.transpose([obj_xdp])-cat_xdp_1
-        ydiff_1 = np.transpose([obj_ydp])-cat_ydp_1
+        coarse_obj_xdp = obj_xdp[coarse_mask]
+        coarse_obj_ydp = obj_ydp[coarse_mask]
+        coarse_obj_flag = obj_flag[coarse_mask]
+        coarse_right_detector_mask = np.where(
+            (coarse_obj_flag.astype(int) & SourceDetectionFlags.RIGHT) == SourceDetectionFlags.RIGHT
+        )
+
+        coarse_n_obj = (coarse_obj_xdp.shape)[0]
+
+        xdiff_0 = np.transpose([coarse_obj_xdp]) - cat_xdp_0
+        ydiff_0 = np.transpose([coarse_obj_ydp]) - cat_ydp_0
+        xdiff_1 = np.transpose([coarse_obj_xdp]) - cat_xdp_1
+        ydiff_1 = np.transpose([coarse_obj_ydp]) - cat_ydp_1
 
         xdiff = np.copy(xdiff_0)
         ydiff = np.copy(ydiff_0)
-        xdiff[right_detector_mask]=xdiff_1[right_detector_mask]
-        ydiff[right_detector_mask]=ydiff_1[right_detector_mask]
+        xdiff[coarse_right_detector_mask] = xdiff_1[coarse_right_detector_mask]
+        ydiff[coarse_right_detector_mask] = ydiff_1[coarse_right_detector_mask]
 
-        dist  = np.sqrt(xdiff**2+ydiff**2)
+        dist = np.sqrt(xdiff**2 + ydiff**2)
 
-        min_dist_index   = np.nanargmin(dist, axis=1)
-        min_dist_indices = np.array(range(n_obj), dtype='int'),min_dist_index
+        min_dist_index = np.nanargmin(dist, axis=1)
+        min_dist_indices = np.array(range(coarse_n_obj), dtype="int"), min_dist_index
+        coarse_distances = dist[min_dist_indices]
+        coarse_min, coarse_median, coarse_max = self._distance_summary(coarse_distances)
         # Cramer's-rule solution for the RA/Dec perturbation coefficients.
         # coarse_ra_coeff and coarse_dec_coeff are still in perturbation units
         # (not arcsec).
         coarse_ra_coeff = np.median((xdiff[min_dist_indices]*dyde[min_dist_index]-ydiff[min_dist_indices]*dxde[min_dist_index])/(dxra[min_dist_index]*dyde[min_dist_index]-dyra[min_dist_index]*dxde[min_dist_index]))
         coarse_dec_coeff = np.median((xdiff[min_dist_indices]*dyra[min_dist_index]-ydiff[min_dist_indices]*dxra[min_dist_index])/(dxde[min_dist_index]*dyra[min_dist_index]-dyde[min_dist_index]*dxra[min_dist_index]))
+        logger.info(
+            "RADECInRShiftA coarse stats: n_obj=%d n_enabled=%d coarse_mm[min/med/max]=%.3f/%.3f/%.3f enabled_camera_ids=%s",
+            coarse_n_obj,
+            int(np.count_nonzero(coarse_mask)),
+            coarse_min,
+            coarse_median,
+            coarse_max,
+            enabled_camera_ids,
+        )
 
         # ── Phase 4: Refined nearest-neighbour match ──────────────────────────
         # Apply the coarse RA/Dec offset to shift the catalog positions, then
         # redo the nearest-neighbour search.  Only pairs within 2 mm of each
         # other are accepted for the least-squares solve.
+        n_obj = (obj_xdp.shape)[0]
         xdiff_0 = np.transpose([obj_xdp])-(cat_xdp_0+coarse_ra_coeff*dxra+coarse_dec_coeff*dxde)
         ydiff_0 = np.transpose([obj_ydp])-(cat_ydp_0+coarse_ra_coeff*dyra+coarse_dec_coeff*dyde)
 
@@ -289,8 +323,8 @@ class PFS():
 
         xdiff = np.copy(xdiff_0)
         ydiff = np.copy(ydiff_0)
-        xdiff[right_detector_mask]=xdiff_1[right_detector_mask]
-        ydiff[right_detector_mask]=ydiff_1[right_detector_mask]
+        xdiff[coarse_right_detector_mask] = xdiff_1[coarse_right_detector_mask]
+        ydiff[coarse_right_detector_mask] = ydiff_1[coarse_right_detector_mask]
 
         dist  = np.sqrt(xdiff**2+ydiff**2)
 
@@ -361,15 +395,6 @@ class PFS():
         # Build the design matrix (basis) by stacking the x and y Jacobian
         # columns for each enabled degree of freedom.  Only close-matched
         # pairs (close_match_mask) enter the initial solve.
-        #
-        # enabled_mask restricts the fit to detections from the requested
-        # camera IDs.  When enabled_camera_ids is None every detection is
-        # eligible (backward-compatible default).
-        if enabled_camera_ids is not None and obj_camera_id is not None:
-            enabled_mask = np.isin(obj_camera_id, enabled_camera_ids)
-        else:
-            enabled_mask = np.ones(len(obj_xdp), dtype=bool)
-
         fit_mask = close_match_mask & enabled_mask
         n_enabled = int(np.count_nonzero(enabled_mask))
         n_close = int(np.count_nonzero(close_match_mask))
