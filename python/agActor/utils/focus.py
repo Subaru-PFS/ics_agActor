@@ -59,9 +59,12 @@ def focus(
             # agc_camera_id in the DataFrame is zero-based; enabledCameras is one-based.
             enabled_set = {int(camera_id) - 1 for camera_id in enabledCameras}
             detected_objects = detected_objects[detected_objects["agc_camera_id"].isin(enabled_set)]
-        except Exception as e:
+        except (TypeError, ValueError) as e:
+            # Only catch conversion errors from malformed enabledCameras values.
+            # Other errors (e.g. missing column) should propagate so they are not masked.
             logger.warning(
-                f"Failed to filter detected objects with enabled cameras {enabledCameras}: {e}; using all cameras"
+                f"Failed to filter detected objects with enabled cameras {enabledCameras}: {e}; using all cameras",
+                exc_info=True,
             )
 
     logger.info(f"In focus with {max_ellipticity=}, {max_size=}, {min_size=}")
