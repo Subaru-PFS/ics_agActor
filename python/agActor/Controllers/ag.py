@@ -127,7 +127,7 @@ class ag:
     ):
         mode = ag.Mode.AUTO_DB
 
-        cameras = enabledCameras or [1, 2, 3, 4, 5, 6]
+        cameras = enabledCameras if enabledCameras is not None else [1, 2, 3, 4, 5, 6]
 
         self.logger.info(
             f"start_autoguide: {mode=},{design=},{visit_id=},{exposure_time=},{cadence=},{center=}"
