@@ -15,9 +15,15 @@ d_scl = 1.0e-05
 
 class PFS():
     def _build_coefficients(self, ra_coeff, de_coeff, fit_inr, fit_scale):
-        """Build a least-squares coefficient vector for the active fit terms."""
+        """Build a least-squares coefficient vector for the active fit terms.
+
+        Slots for RA and Dec are set to the supplied coarse estimates.  Any
+        InR and scale slots are filled with NaN so that the caller's unit-
+        conversion step produces NaN for those offsets (matching the
+        convention used when fit_inr / fit_scale are False).
+        """
         coeff_count = 2 + int(fit_inr) + int(fit_scale)
-        coeffs = np.zeros((coeff_count, 1))
+        coeffs = np.full((coeff_count, 1), np.nan)
         coeffs[0, 0] = ra_coeff
         coeffs[1, 0] = de_coeff
         return coeffs
