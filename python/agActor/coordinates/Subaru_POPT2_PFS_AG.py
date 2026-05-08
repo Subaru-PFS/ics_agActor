@@ -1,6 +1,10 @@
+import logging
+
 import numpy as np
 from pfs.utils.coordinates import Subaru_POPT2_PFS as pfs
 from pfs.utils.datamodel.ag import SourceDetectionFlags
+
+logger = logging.getLogger(__name__)
 
 ### perturbation
 d_ra  = 1.0/3600.0
@@ -10,6 +14,21 @@ d_scl = 1.0e-05
 
 
 class PFS():
+    def _build_coefficients(self, ra_coeff, de_coeff, fit_inr, fit_scale):
+        """Build a least-squares coefficient vector for the active fit terms."""
+        coeff_count = 2 + int(fit_inr) + int(fit_scale)
+        coeffs = np.zeros((coeff_count, 1))
+        coeffs[0, 0] = ra_coeff
+        coeffs[1, 0] = de_coeff
+        return coeffs
+
+    def _distance_summary(self, distances):
+        """Return min/median/max for a 1-D array, ignoring non-finite values."""
+        finite = np.asarray(distances)[np.isfinite(distances)]
+        if finite.size == 0:
+            return np.nan, np.nan, np.nan
+        return float(np.min(finite)), float(np.median(finite)), float(np.max(finite))
+
     def sourceFilter(self, agarray, maxellip, maxsize, minsize):
         """Filter detected AG sources by shape quality criteria.
 
@@ -157,7 +176,8 @@ class PFS():
             *not* in this list are still matched and appear in
             ``match_result``, but they never enter the fit.  When ``None``
             (the default) all cameras are used, preserving the original
-            behaviour.
+            behaviour.  If the refined fit has no usable rows, the method
+            falls back to the coarse RA/Dec solution and logs a warning.
 
         Returns
         -------
@@ -224,11 +244,6 @@ class PFS():
         dyra  = (dyra_0  + dyra_1 )/2.0
         dxde  = (dxde_0  + dxde_1 )/2.0
         dyde  = (dyde_0  + dyde_1 )/2.0
-        dxinr = (dxinr_0 + dxinr_1)/2.0
-        dyinr = (dyinr_0 + dyinr_1)/2.0
-        dxscl = (dxscl_0 + dxscl_1)/2.0
-        dyscl = (dyscl_0 + dyscl_1)/2.0
-
         # ── Phase 3: Coarse nearest-neighbour match + Cramer's rule ──────────
         # For each detected object find its nearest catalog star, then solve
         # the 2×2 linear system:
@@ -284,10 +299,10 @@ class PFS():
 
         # Boolean mask: True where the refined match distance is within 2 mm.
         close_match_mask  = dist[min_dist_indices] < 2.0
+        nearest_distances = dist[min_dist_indices]
 
         match_obj_xdp  = obj_xdp
         match_obj_ydp  = obj_ydp
-        match_obj_int  = obj_int
         match_obj_flag = obj_flag
 
         match_cat_xdp_0 = (cat_xdp_0[min_dist_index])
@@ -356,6 +371,23 @@ class PFS():
             enabled_mask = np.ones(len(obj_xdp), dtype=bool)
 
         fit_mask = close_match_mask & enabled_mask
+        n_enabled = int(np.count_nonzero(enabled_mask))
+        n_close = int(np.count_nonzero(close_match_mask))
+        n_fit = int(np.count_nonzero(fit_mask))
+        close_min, close_median, close_max = self._distance_summary(nearest_distances)
+        logger.info(
+            "RADECInRShiftA fit stats: n_obj=%d n_enabled=%d n_close=%d n_fit=%d "
+            "nearest_mm[min/med/max]=%.3f/%.3f/%.3f enabled_camera_ids=%s",
+            n_obj,
+            n_enabled,
+            n_close,
+            n_fit,
+            close_min,
+            close_median,
+            close_max,
+            enabled_camera_ids,
+        )
+
         dra  = np.concatenate([match_dxra,match_dyra])
         dde  = np.concatenate([match_dxde,match_dyde])
         dinr = np.concatenate([match_dxinr,match_dyinr])
@@ -374,9 +406,29 @@ class PFS():
         erry = match_obj_ydp - match_cat_ydp
         err  = np.array([np.concatenate([errx,erry])]).transpose()
 
-        newbasis = basis[np.concatenate([fit_mask, fit_mask])]
-        newerr   = err[np.concatenate([fit_mask, fit_mask])]
-        lstsq_coeffs, residual, rank, sv = np.linalg.lstsq(newbasis, newerr, rcond = None)
+        if n_fit == 0:
+            logger.warning(
+                "RADECInRShiftA refined fit had no usable rows; falling back to the coarse RA/Dec solution. "
+                "n_obj=%d n_enabled=%d n_close=%d nearest_mm[min/med/max]=%.3f/%.3f/%.3f "
+                "coarse_ra_arcsec=%.6f coarse_dec_arcsec=%.6f enabled_camera_ids=%s",
+                n_obj,
+                n_enabled,
+                n_close,
+                close_min,
+                close_median,
+                close_max,
+                coarse_ra_coeff * d_ra * 3600.0,
+                coarse_dec_coeff * d_de * 3600.0,
+                enabled_camera_ids,
+            )
+            lstsq_coeffs = self._build_coefficients(coarse_ra_coeff, coarse_dec_coeff, fit_inr, fit_scale)
+            residual = np.empty((0, 1))
+            rank = 0
+            sv = np.empty(0)
+        else:
+            newbasis = basis[np.concatenate([fit_mask, fit_mask])]
+            newerr   = err[np.concatenate([fit_mask, fit_mask])]
+            lstsq_coeffs, residual, rank, sv = np.linalg.lstsq(newbasis, newerr, rcond = None)
 
         match_obj_xy = np.stack([match_obj_xdp,match_obj_ydp]).transpose()
         match_cat_xy = np.stack([match_cat_xdp,match_cat_ydp]).transpose()
@@ -393,8 +445,23 @@ class PFS():
         for rej_itr in range(5):
             resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
 
-            inlier_flat_mask  = np.where(np.concatenate([resid_r < rejection_threshold, resid_r < rejection_threshold], 0) & np.concatenate([enabled_mask, enabled_mask], 0))
-            inlier_mask = np.where(np.concatenate([resid_r], 0) < rejection_threshold)
+            # Keep exact-zero residuals in the inlier set; otherwise a perfect
+            # first fit can empty the refit and collapse the solution to zeros.
+            inlier_mask = resid_r <= rejection_threshold
+            inlier_flat_mask = np.concatenate([inlier_mask, inlier_mask]) & np.concatenate([enabled_mask, enabled_mask])
+
+            if not np.any(inlier_flat_mask):
+                logger.warning(
+                    "RADECInRShiftA rejection step produced no inliers; retaining the previous solution and stopping. "
+                    "iteration=%d rejection_threshold=%.6f n_obj=%d n_enabled=%d n_close=%d n_fit=%d",
+                    rej_itr,
+                    rejection_threshold,
+                    n_obj,
+                    n_enabled,
+                    n_close,
+                    n_fit,
+                )
+                break
 
             basis2 = basis[inlier_flat_mask]
             err2   = err[inlier_flat_mask]
@@ -407,7 +474,7 @@ class PFS():
                 break
 
         resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
-        vcx = np.array([resid_r<rejection_threshold]).transpose()
+        vcx = np.array([resid_r<=rejection_threshold]).transpose()
         match_result = np.block([match_obj_xy, match_cat_xy, err_xy, resid_xy, vcx, min_dist_index.reshape(-1,1)])
 
         # ── Phase 7: Unit conversion ──────────────────────────────────────────
@@ -551,13 +618,6 @@ class PFS():
         xdp2_1,ydp2_1 = pfs.PFS.fp2pfi(self, xfp2_1,yfp2_1,inr)
         xdp3_1,ydp3_1 = pfs.PFS.fp2pfi(self, xfp0_1,yfp0_1,inr+d_inr)
 
-        dxdpdra = xdp1-xdp0
-        dydpdra = ydp1-ydp0
-        dxdpdde = xdp2-xdp0
-        dydpdde = ydp2-ydp0
-        dxdpdinr= xdp3-xdp0
-        dydpdinr= ydp3-ydp0
-
         dxdpdra_0 = xdp1_0-xdp0_0
         dydpdra_0 = ydp1_0-ydp0_0
         dxdpdde_0 = xdp2_0-xdp0_0
@@ -572,9 +632,6 @@ class PFS():
         dxdpdinr_1= xdp3_1-xdp0_1
         dydpdinr_1= ydp3_1-ydp0_1
 
-        # v_a (averaged over both halves) is retained here for reference but is
-        # not returned; the caller requires the per-half arrays v_0 and v_1.
-        v_a = np.transpose(np.stack([xdp0,ydp0,dxdpdra,dydpdra,dxdpdde,dydpdde,dxdpdinr,dydpdinr]))
         v_0 = np.transpose(np.stack([xdp0_0,ydp0_0,dxdpdra_0,dydpdra_0,dxdpdde_0,dydpdde_0,dxdpdinr_0,dydpdinr_0]))
         v_1 = np.transpose(np.stack([xdp0_1,ydp0_1,dxdpdra_1,dydpdra_1,dxdpdde_1,dydpdde_1,dxdpdinr_1,dydpdinr_1]))
 
