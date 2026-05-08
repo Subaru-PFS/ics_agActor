@@ -180,7 +180,13 @@ def calculate_offsets(
         enabled_camera_ids=enabled_camera_ids,
     )
     valid_resid_idx = match_results[:, 8] == 1.0
-    logger.info(f"Matched sources with valid residuals: {len(match_results[valid_resid_idx])}")
+    fit_contributor_mask = match_results[:, 10] == 1.0
+    n_contributor_inliers = int(np.count_nonzero(valid_resid_idx & fit_contributor_mask))
+    n_non_contributor_inliers = int(np.count_nonzero(valid_resid_idx & ~fit_contributor_mask))
+    logger.info(
+        f"Matched sources with valid residuals: {len(match_results[valid_resid_idx])} "
+        f"(fit contributors: {n_contributor_inliers}, disabled-camera: {n_non_contributor_inliers})"
+    )
 
     residual_squares = match_results[:, 6] ** 2 + match_results[:, 7] ** 2
     residual_squares[valid_resid_idx] = np.nan
