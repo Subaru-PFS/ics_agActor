@@ -75,6 +75,7 @@ def acquire_field(
     design_id: int,
     frame_id: int,
     visit0: int | None = None,
+    cameras: list[int] | None = None,
     obswl: float = 0.62,
     altazimuth: bool = True,
     is_guide: bool = False,
@@ -91,6 +92,11 @@ def acquire_field(
     visit0 : int or None
         The visit ID to retrieve guide stars from the pfs_config_agc table. If not
         provided, use the pfsDesign file with transformations.
+    cameras : list[int] or None
+        One-indexed camera ids (1-6) whose detections are allowed to
+        contribute to the astrometric fit.  Detections from all cameras
+        are still fetched; only the fit is restricted.  If not provided,
+        all cameras contribute to the fit.
     obswl : float, optional
         Observation wavelength in nm, defaults to 0.62.
     altazimuth : bool, optional
@@ -111,6 +117,8 @@ def acquire_field(
             Secondary mirror position in mm
         - sequence_id : int
             Sequence ID for querying telescope status
+        - enabledCameras : list[int]
+            One-indexed enabled camera ids (1-6).
 
     Returns
     -------
@@ -149,6 +157,7 @@ def acquire_field(
         filter_flags = filter_flags | SourceDetectionFlag.BAD_SHAPE
     else:
         filter_flags = filter_flags & ~SourceDetectionFlag.BAD_SHAPE
+
     detected_objects = get_detected_objects(frame_id, filter_flags=filter_flags)
     logger.info(f"Detected objects: {len(detected_objects)}")
 
@@ -178,10 +187,7 @@ def acquire_field(
         inr += kwargs.get("dinr") / 3600
         logger.info(f"inr modified by dinr: {inr=}")
 
-    logger.info(f"Final values for calculating offsets: {ra=},{dec=},{inst_pa=},{inr=}")
-
-
-    logger.info(f"Calling calculate_guide_offsets with {adc=}")
+    logger.info(f"Final values for calculating offsets: {ra=},{dec=},{inst_pa=},{inr=},{adc=}")
 
     _kwargs = filter_kwargs(kwargs)
 
@@ -196,6 +202,7 @@ def acquire_field(
         m2_pos3=m2_pos3,
         obswl=obswl,
         altazimuth=altazimuth,
+        enabled_camera_ids=cameras,
         **_kwargs,
     )
 
@@ -217,6 +224,7 @@ def get_guide_offsets(
     max_size: float = 1.0e12,
     min_size: float = -1.0e0,
     max_residual: float = 0.5,
+    enabled_camera_ids: list[int] | None = None,
     **kwargs: Dict[str, Any],
 ) -> GuideOffsets:
     """Calculate guide offsets for the detected objects using the guide objects from the catalog.
@@ -255,6 +263,10 @@ def get_guide_offsets(
         Minimum size for source filtering, by default -1.0e0.
     max_residual : float, optional
         Maximum residual for source filtering, by default 0.5.
+    enabled_camera_ids : list[int] or None, optional
+        One-indexed camera IDs whose detections are allowed to contribute
+        to the astrometric fit.  Detections from other cameras are still
+        included in the returned match results.  ``None`` uses all cameras.
     **kwargs : dict, optional
         Additional keyword arguments to pass to the field acquisition and focusing calculation.
 
@@ -346,6 +358,7 @@ def get_guide_offsets(
         max_size=max_size,
         min_size=min_size,
         max_residual=max_residual,
+        enabled_camera_ids=enabled_camera_ids,
     )
     ra_offset *= 3600
     dec_offset *= 3600
@@ -394,6 +407,7 @@ def get_guide_offsets(
             "resid_y",
             "matched",
             "guide_object_id",
+            "camera_enabled",
         ),
     )
     match_results_df.index = detected_objects[valid_detections].index
@@ -438,6 +452,7 @@ def get_guide_offsets(
             "guide_object_y_pix",
             "agc_camera_id",
             "matched",
+            "camera_enabled",
         ]
     ]
 

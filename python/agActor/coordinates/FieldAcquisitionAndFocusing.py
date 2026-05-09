@@ -1,6 +1,6 @@
 import logging
 import warnings
-from typing import Any, Tuple
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -70,6 +70,7 @@ def calculate_offsets(
     max_size: float = 1.0e12,
     min_size: float = -1.0e0,
     max_residual: float = 0.5,
+    enabled_camera_ids: Optional[List[int]] = None,
 ) -> Tuple[float, float, float, float, NDArray[np.float64], float, int]:
     """
     Perform field acquisition calculations with the instrument position angle.
@@ -110,6 +111,12 @@ def calculate_offsets(
         Minimum size for source filtering, by default -1.0e0.
     max_residual : float, optional
         Maximum residual for source filtering, by default 0.5
+    enabled_camera_ids : list[int] or None, optional
+        Camera IDs (1-based) whose detections may contribute to the
+        astrometric fit.  Detections from cameras not in this list are
+        still matched and included in the returned match results, but they
+        do not influence the computed offsets.  ``None`` (default) enables
+        all cameras.
 
     Returns
     -------
@@ -119,7 +126,8 @@ def calculate_offsets(
         - Declination offset
         - Instrument rotation offset
         - Scale offset
-        - Match results array
+        - Match results array (N, 11): columns 0-9 per RADECInRShiftA docs;
+          column 10 (camera_enabled) is 1.0 for detections from enabled cameras
         - Median distance
         - Number of valid sources
     """
@@ -142,6 +150,24 @@ def calculate_offsets(
     dec_values = good_guide_objects.dec.values
     magnitude_values = good_guide_objects.mag.values
 
+    # Guide stars from disabled cameras are intentionally left in the catalog
+    # passed to makeBasis.  Two properties make them safe to include:
+    #
+    # 1. makeBasis computes each catalog star's predicted focal-plane position
+    #    and Jacobian independently — there is no coupling between stars, so
+    #    adding extra entries cannot distort any other star's basis vector.
+    #
+    # 2. The nearest-neighbour search inside RADECInRShiftA uses a 2 mm match
+    #    threshold.  PFS AG cameras are physically ~200–250 mm apart on the
+    #    focal plane, so a guide star from a disabled camera can never be the
+    #    closest catalog match for a detection from an enabled camera.
+    #
+    # As a result, disabled-camera guide stars never win any match that feeds
+    # an enabled-camera detection into the least-squares solve.  The
+    # enabled_mask in RADECInRShiftA provides a further explicit guard on the
+    # fit itself.  Keeping them in the catalog preserves meaningful predicted
+    # focal-plane positions for disabled-camera detections in the returned
+    # match_result, which is useful for diagnostics and downstream processing.
     basis_vector_0, basis_vector_1 = pfs.makeBasis(
         tel_ra, tel_de, ra_values, dec_values, dt, adc, instrument_rotation, m2pos3, wl
     )
@@ -156,6 +182,8 @@ def calculate_offsets(
     )
     logger.info(f"Found {len(filtered_detected_array)} detected sources after filtering")
 
+    logger.info(f"Calling RADECInRShiftA with {enabled_camera_ids=}")
+
     ra_offset, de_offset, inr_offset, scale_offset, match_results = pfs.RADECInRShiftA(
         filtered_detected_array[:, 2],
         filtered_detected_array[:, 3],
@@ -166,9 +194,17 @@ def calculate_offsets(
         fit_inr,
         fit_scale,
         max_residual,
+        obj_camera_id=filtered_detected_array[:, 0].astype(int) + 1,  # DB is 0-based; RADECInRShiftA expects 1-based
+        enabled_camera_ids=enabled_camera_ids,
     )
     valid_resid_idx = match_results[:, 8] == 1.0
-    logger.info(f"Matched sources with valid residuals: {len(match_results[valid_resid_idx])}")
+    camera_enabled_mask = match_results[:, 10] == 1.0
+    n_enabled_inliers = int(np.count_nonzero(valid_resid_idx & camera_enabled_mask))
+    n_disabled_inliers = int(np.count_nonzero(valid_resid_idx & ~camera_enabled_mask))
+    logger.info(
+        f"Matched sources with valid residuals: {len(match_results[valid_resid_idx])} "
+        f"(enabled-camera: {n_enabled_inliers}, disabled-camera: {n_disabled_inliers})"
+    )
 
     residual_squares = match_results[:, 6] ** 2 + match_results[:, 7] ** 2
     residual_squares[valid_resid_idx] = np.nan

@@ -15,6 +15,7 @@ def focus(
     *,
     frame_id: int | None = None,
     detected_objects: pd.DataFrame | None = None,
+    enabledCameras: list[int] | None = None,
     max_ellipticity: float = 2.0e0,
     max_size: float = 1.0e12,
     min_size: float = -1.0e0,
@@ -28,6 +29,8 @@ def focus(
         Frame ID to use for retrieving detected objects. Either frame_id or detected_objects must be provided.
     detected_objects : pd.DataFrame | None
         DataFrame of detected objects. Either frame_id or detected_objects must be provided.
+    enabledCameras : list[int] | None
+        One-indexed AG camera IDs to use. If None, all cameras are used.
     max_ellipticity : float
         Maximum ellipticity for source filtering, by default 2.0e0
     max_size : float
@@ -50,6 +53,19 @@ def focus(
     if frame_id is not None and detected_objects is None:
         logger.info(f"In focus, getting detected objects for {frame_id=}")
         detected_objects = query_agc_data(frame_id)
+
+    if enabledCameras is not None:
+        try:
+            # agc_camera_id in the DataFrame is zero-based; enabledCameras is one-based.
+            enabled_set = {int(camera_id) - 1 for camera_id in enabledCameras}
+            detected_objects = detected_objects[detected_objects["agc_camera_id"].isin(enabled_set)]
+        except (TypeError, ValueError) as e:
+            # Only catch conversion errors from malformed enabledCameras values.
+            # Other errors (e.g. missing column) should propagate so they are not masked.
+            logger.warning(
+                f"Failed to filter detected objects with enabled cameras {enabledCameras}: {e}; using all cameras",
+                exc_info=True,
+            )
 
     logger.info(f"In focus with {max_ellipticity=}, {max_size=}, {min_size=}")
 

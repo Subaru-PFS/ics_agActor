@@ -173,6 +173,9 @@ class AgCmd:
         OpDB.set_default_connection(**db_params.get("opdb", {}))
         GaiaDB.set_default_connection(**db_params.get("gaia", {}))
 
+        # Enabled cameras are configured as one-indexed ids, e.g. [1, 2, 3].
+        self.enabledCameras = list(actor.actorConfig.get("enabled", [1, 2, 3, 4, 5, 6]))
+
         self.with_opdb_agc_guide_offset = actor.actorConfig.get(
             "agc_guide_offset", False
         )
@@ -411,6 +414,7 @@ class AgCmd:
                 design_id=design_id,
                 visit0=visit0,
                 frame_id=frame_id,
+                cameras=self.enabledCameras,
                 **kwargs,
             )
 
@@ -461,6 +465,7 @@ class AgCmd:
             self.actor.logger.info("AgCmd.acquire_field: Calling focus")
             dz, dzs = focus(
                 detected_objects=guide_offsets.detected_objects,
+                enabledCameras=self.enabledCameras,
                 max_ellipticity=max_ellipticity,
                 max_size=max_size,
                 min_size=min_size,
@@ -578,6 +583,7 @@ class AgCmd:
             # compute focus offset and tilt
             dz, dzs = focus(
                 frame_id=frame_id,
+                enabledCameras=self.enabledCameras,
                 max_ellipticity=max_ellipticity,
                 max_size=max_size,
                 min_size=min_size,
@@ -644,7 +650,6 @@ class AgCmd:
         if "visit0" in cmd.cmd.keywords:
             visit0 = int(cmd.cmd.keywords["visit0"].values[0])
 
-
         from_sky = None
         if "from_sky" in cmd.cmd.keywords:
             from_sky = bool(cmd.cmd.keywords["from_sky"].values[0])
@@ -709,6 +714,7 @@ class AgCmd:
                 exposure_time=exposure_time,
                 cadence=cadence,
                 center=center,
+                enabledCameras=self.enabledCameras,
                 **kwargs,
             )
         except Exception as e:

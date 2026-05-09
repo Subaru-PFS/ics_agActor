@@ -50,6 +50,7 @@ class ag:
             "exposure_time",
             "cadence",
             "center",
+            "cameras",
             "options",
         )
 
@@ -121,9 +122,12 @@ class ag:
         exposure_time=EXPOSURE_TIME,
         cadence=CADENCE,
         center=None,
+        enabledCameras: list[int] | None = None,
         **kwargs,
     ):
         mode = ag.Mode.AUTO_DB
+
+        cameras = enabledCameras if enabledCameras is not None else [1, 2, 3, 4, 5, 6]
 
         self.logger.info(
             f"start_autoguide: {mode=},{design=},{visit_id=},{exposure_time=},{cadence=},{center=}"
@@ -137,6 +141,7 @@ class ag:
             exposure_time=exposure_time,
             cadence=cadence,
             center=center,
+            cameras=cameras,
             options={},
             **kwargs,
         )
@@ -273,7 +278,7 @@ class AgThread(threading.Thread):
 
             try:
                 start = time.time()
-                mode, design, visit_id, visit0, exposure_time, cadence, center, options = (
+                mode, design, visit_id, visit0, exposure_time, cadence, center, cameras, options = (
                     self._get_params()
                 )
 
@@ -417,6 +422,7 @@ class AgThread(threading.Thread):
                     guide_offsets = autoguide.get_exposure_offsets(
                         frame_id=frame_id,
                         guide_catalog=guide_catalog,
+                        cameras=cameras,
                         max_ellipticity=max_ellipticity,
                         max_size=max_size,
                         min_size=min_size,
@@ -505,6 +511,7 @@ class AgThread(threading.Thread):
 
                     dz, dzs = focus(
                         detected_objects=_detected_objects,
+                        enabledCameras=cameras,
                         max_ellipticity=max_ellipticity,
                         max_size=max_size,
                         min_size=min_size,
@@ -602,7 +609,6 @@ class AgThread(threading.Thread):
             end = time.time()
             elapsed = end - start
             timeout = (max(0, cadence / 1000 - elapsed) if mode & ag.Mode.ON else 0.5)
-            self.logger.debug(f"AgThread.run: Control loop delay {timeout=:.3f} {self.__abort.is_set()=}")
             self.__abort.wait(timeout)
 
         cmd.inform("guideReady=0")

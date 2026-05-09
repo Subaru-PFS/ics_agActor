@@ -9,15 +9,12 @@ import numpy as np
 import pandas as pd
 from astropy import units as u
 from astropy.table import Table
-
 from numpy.typing import NDArray
 from pfs.utils.coordinates import updateTargetPosition
 from pfs.utils.coordinates.CoordTransp import ag_pfimm_to_pixel
-
 from pfs.utils.database.db import DB
-from pfs.utils.database.opdb import OpDB
 from pfs.utils.database.gaia import GaiaDB
-
+from pfs.utils.database.opdb import OpDB
 from pfs.utils.datamodel.ag import AutoGuiderStarMask, SourceDetectionFlag
 
 logger = logging.getLogger(__name__)
@@ -646,7 +643,8 @@ def tweak_target_position(
 
 
 def get_detected_objects(
-    frame_id: int, filter_flags: int | None = BAD_DETECTION_FLAGS
+    frame_id: int,
+    filter_flags: int | None = BAD_DETECTION_FLAGS,
 ) -> pd.DataFrame:
     """Get the detected objects from opdb.agc_data.
 
@@ -667,7 +665,7 @@ def get_detected_objects(
     RuntimeError:
         If no detected objects are found.
     """
-    logger.info("Getting detected objects from opdb.agc_data")
+    logger.info(f"Getting detected objects from opdb.agc_data for {frame_id=}")
     detected_objects = query_agc_data(frame_id)
     logger.debug(f"Detected objects: {len(detected_objects)}")
 
@@ -788,6 +786,26 @@ def write_agc_match(
     """
     db = db or OpDB()
     try:
+        # Log the camera_enabled column that will be written to agc_match once the
+        # schema gains the column.  Until then this is the only record of the value.
+        if "camera_enabled" in identified_objects.columns:
+            enabled = identified_objects["camera_enabled"].astype(bool)
+            logger.info(
+                "write_agc_match: camera_enabled (pending schema change — "
+                "will become agc_match.camera_enabled): "
+                "frame_id=%d n_total=%d n_enabled=%d n_disabled=%d values=%s",
+                frame_id,
+                len(enabled),
+                int(enabled.sum()),
+                int((~enabled).sum()),
+                identified_objects["camera_enabled"].tolist(),
+            )
+        else:
+            logger.warning(
+                "write_agc_match: camera_enabled column missing from identified_objects; "
+                "cannot log pending camera_enabled values"
+            )
+
         rows_to_insert = []
         for idx, match in identified_objects.iterrows():
             detected_idx = int(match.detected_object_id)
@@ -951,6 +969,22 @@ def query_db(
 
 
 def query_agc_data(agc_exposure_id: int, as_dataframe: bool = True, **kwargs):
+    """Query AGC detected sources for one exposure.
+
+    Parameters
+    ----------
+    agc_exposure_id : int
+        AGC exposure ID to query from ``agc_data``.
+    as_dataframe : bool, optional
+        If True, return a pandas DataFrame. If False, return a NumPy array.
+    **kwargs
+        Additional keyword arguments forwarded to ``query_db``.
+
+    Returns
+    -------
+    pd.DataFrame | np.ndarray
+        Rows from ``agc_data`` for the given exposure ID.
+    """
     sql = """
 SELECT agc_camera_id,
  spot_id,
