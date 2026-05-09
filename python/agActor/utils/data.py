@@ -786,6 +786,25 @@ def write_agc_match(
     """
     db = db or OpDB()
     try:
+        # Log the camera_enabled column that will be written to agc_match once the
+        # schema gains the column.  Until then this is the only record of the value.
+        if "camera_enabled" in identified_objects.columns:
+            enabled = identified_objects["camera_enabled"].astype(bool)
+            logger.info(
+                "write_agc_match: camera_enabled (pending schema change — "
+                "will become agc_match.camera_enabled): "
+                "frame_id=%d n_enabled=%d n_disabled=%d values=%s",
+                frame_id,
+                int(enabled.sum()),
+                int((~enabled).sum()),
+                identified_objects["camera_enabled"].tolist(),
+            )
+        else:
+            logger.warning(
+                "write_agc_match: camera_enabled column missing from identified_objects; "
+                "cannot log pending camera_enabled values"
+            )
+
         rows_to_insert = []
         for idx, match in identified_objects.iterrows():
             detected_idx = int(match.detected_object_id)
