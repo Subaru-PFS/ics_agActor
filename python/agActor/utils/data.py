@@ -793,8 +793,9 @@ def write_agc_match(
             logger.info(
                 "write_agc_match: camera_enabled (pending schema change — "
                 "will become agc_match.camera_enabled): "
-                "frame_id=%d n_enabled=%d n_disabled=%d values=%s",
+                "frame_id=%d n_total=%d n_enabled=%d n_disabled=%d values=%s",
                 frame_id,
+                len(enabled),
                 int(enabled.sum()),
                 int((~enabled).sum()),
                 identified_objects["camera_enabled"].tolist(),
