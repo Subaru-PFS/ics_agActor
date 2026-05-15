@@ -36,6 +36,13 @@ dynamic = ["version"]
 "Changelog" = "https://github.com/Subaru-PFS/ics_agActor/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
+dashboard = [
+    "jupyter>=1.0",
+    "matplotlib>=3.7",
+    "panel>=1.4",
+    "paramiko>=3.0",
+    "plotly>=5.0",
+]
 dev = [
     "ipykernel",
     "nbval",
