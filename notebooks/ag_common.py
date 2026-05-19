@@ -124,6 +124,29 @@ class TelAxesRecord:
 
 
 @dataclass
+class TelRotRecord:
+    """Physical instrument rotator angle sampled from Gen2 ``tel_rot`` reply lines.
+
+    These are emitted every Gen2 status cycle (roughly once per second during
+    active observing), giving a high-cadence view of how the rotator tracks the
+    parallactic angle throughout the night.
+
+    Attributes
+    ----------
+    t : datetime
+        Timestamp (UTC) of the log line.
+    pa : float
+        Sky position angle (degrees) reported by Gen2.
+    insrot : float
+        Physical instrument rotator angle (degrees).
+    """
+
+    t: datetime
+    pa: float
+    insrot: float
+
+
+@dataclass
 class TelStateRecord:
     """Per-frame telescope state: rotator angle, ADC angle, M2 position.
 
@@ -204,6 +227,7 @@ _STAR_STATS = re.compile(
 _MATCHED = re.compile(r"Matched sources with valid residuals: (\d+)")
 _CAM_COUNT = re.compile(r"AGC\[(\d)\]: find (\d+) objects")
 _TEL_AXES = re.compile(r"tel_axes=([-\d.]+),([-\d.]+),([-\d.]+),([-\d.]+)")
+_TEL_ROT = re.compile(r"tel_rot=([-\d.]+),([-\d.]+)")
 _TEL_STATE = re.compile(
     r"data\.py:497 taken_at=[\d.]+,inr=([-\d.]+),adc=([-\d.]+),m2_pos3=([-\d.]+)"
 )
@@ -444,6 +468,12 @@ def parse_line(line: str, state: dict) -> list[tuple[str, object]]:
                 )
             ]
 
+    # Instrument rotator (reply lines) — sky PA + physical insrot angle, high-cadence
+    if "tel_rot=" in line and "reply=" in line:
+        m = _TEL_ROT.search(line)
+        if m:
+            return [("tel_rot", TelRotRecord(t=t, pa=float(m.group(1)), insrot=float(m.group(2))))]
+
     # Telescope axes (receiveStatusKeys)
     if "receiveStatusKeys: gen2,tel_axes" in line:
         m = _TEL_AXES_SK.search(line)
@@ -502,6 +532,7 @@ class DataStore:
         self.matched: deque = deque()
         self.camera_counts: deque = deque()
         self.tel_axes: deque = deque()
+        self.tel_rot: deque = deque()
         self.tel_state: deque = deque()
         self.visit_changes: deque = deque()
         self.design_changes: deque = deque()
@@ -509,6 +540,8 @@ class DataStore:
 
     def push(self, rec_type: str, rec) -> None:
         with self._lock:
+            if not hasattr(self, rec_type):
+                setattr(self, rec_type, deque())
             q: deque = getattr(self, rec_type)
             q.append(rec)
             if self._window is not None:
@@ -519,7 +552,7 @@ class DataStore:
     def snapshot(self, name: str) -> list:
         """Return a list copy of a deque (safe without holding the lock)."""
         with self._lock:
-            return list(getattr(self, name))
+            return list(getattr(self, name, deque()))
 
     _ALL_QUEUES = (
         "guide",
@@ -528,6 +561,7 @@ class DataStore:
         "matched",
         "camera_counts",
         "tel_axes",
+        "tel_rot",
         "tel_state",
         "visit_changes",
         "design_changes",
