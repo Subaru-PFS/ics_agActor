@@ -9,7 +9,7 @@ from astropy.coordinates import Angle, Distance, SkyCoord
 from astropy.table import Table
 from astropy.time import Time
 
-from agActor.utils.logging import log_message
+from agActor.utils.logs import log_message
 
 
 class pfsDesign:

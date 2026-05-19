@@ -9,7 +9,7 @@ from astropy.time import Time
 from pfs.utils.coordinates import Subaru_POPT2_PFS, coordinates
 from pfs.utils.location import SUBARU
 
-from agActor.utils.logging import log_message
+from agActor.utils.logs import log_message
 
 _subaru = Subaru_POPT2_PFS.Subaru()
 popt2 = Subaru_POPT2_PFS.POPT2()

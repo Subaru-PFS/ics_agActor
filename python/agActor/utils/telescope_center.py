@@ -1,7 +1,7 @@
 import numpy as np
 
 from agActor.catalog.pfs_design import pfsDesign as pfs_design
-from agActor.utils.logging import log_message
+from agActor.utils.logs import log_message
 
 
 class telCenter:

@@ -30,6 +30,9 @@ dependencies = [
 ]
 dynamic = ["version"]
 
+[project.scripts]
+"query-ag-data" = "agActor.utils.diagnostics:main"
+
 [project.urls]
 "Homepage" = "https://github.com/Subaru-PFS/ics_agActor"
 "Bug Tracker" = "https://github.com/Subaru-PFS/ics_agActor/issues"
