@@ -1,6 +1,7 @@
 import logging
 
 import numpy as np
+from scipy.optimize import linear_sum_assignment
 from pfs.utils.coordinates import Subaru_POPT2_PFS as pfs
 from pfs.utils.datamodel.ag import SourceDetectionFlags
 
@@ -346,11 +347,32 @@ class PFS():
 
         dist  = np.sqrt(xdiff**2+ydiff**2)
 
-        min_dist_index   = np.nanargmin(dist, axis=1)
+        # Enforce one-to-one matching using the Hungarian algorithm (Linear Sum Assignment).
+        # This prevents multiple detections from claiming the same catalog star,
+        # which can skew the fit and cause widespread camera rejection when transients
+        # appear near real stars (many-to-one matching bug).
+        cost = np.copy(dist)
+        # Replace NaN with a very large penalty to ensure they are only matched as a last resort.
+        cost[np.isnan(cost)] = 1000.0
+
+        row_ind, col_ind = linear_sum_assignment(cost)
+
+        # We need a valid catalog index for every detection to avoid indexing errors,
+        # even for unmatched ones. We use nanargmin as a baseline and overwrite
+        # with the optimal one-to-one assignments.
+        min_dist_index = np.nanargmin(dist, axis=1)
+
+        # Boolean mask for detections that received an optimal one-to-one assignment.
+        # Detections not in this mask are "extra" and are rejected from the fit.
+        assignment_mask = np.zeros(n_obj, dtype=bool)
+        assignment_mask[row_ind] = True
+        min_dist_index[row_ind] = col_ind
+
         min_dist_indices = np.array(range(n_obj), dtype='int'),min_dist_index
 
-        # Boolean mask: True where the refined match distance is within 2 mm.
-        close_match_mask  = dist[min_dist_indices] < 2.0
+        # Boolean mask: True where the refined match distance is within 2 mm AND
+        # it was the unique optimal assignment for that catalog star.
+        close_match_mask  = (dist[min_dist_indices] < 2.0) & assignment_mask
         nearest_distances = dist[min_dist_indices]
 
         match_obj_xdp  = obj_xdp
