@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 ## Unreleased
 
 - INSTRM-2881 - Adding filter_bad_shape options to autoguide initialize and autoguide start.
+- fix: enforce one-to-one star matching in `RADECInRShiftA` using the Hungarian algorithm
+  (linear sum assignment) to prevent many-to-one catalog collisions from corrupting the fit.
+- feat: AG explorer dashboard (`notebooks/ag_explorer.ipynb`) — major UX pass:
+  - 50/50 split layout: time-series on left, scatter column on right
+  - Scatter column: dAz vs dEl, dInR vs dScale, dFocus vs per-camera counts, Peak ADU vs PSF size
+  - Click a scatter point to highlight the corresponding frame on the time-series (crimson dashed line)
+  - Guide Offsets panel: ±0.5 arcsec default y-range with ±0.125 / ±0.25 reference lines;
+    "full y-range" checkbox also clamps the dAz vs dEl scatter axes
+  - Az/El ↔ RA/Dec toggle for Guide Offsets
+  - Focus visit lines (green dotted) and science visit lines (blue solid) on all panels
+  - INVALID_OFFSET points shown as `x` markers in time-series and scatter
+  - Unified camera colours across time-series and scatter (AG1–AG6 consistent palette)
+  - Per-camera object counts panel moved above Star Quality panel
+  - Legend repositioned to the left of each time-series subplot
+- refactor: rename `utils/logging.py` → `utils/logs.py`; add `query-ag-data` console script
+  backed by `utils/diagnostics.py`; remove legacy `query_ag_data_cli.py`.
 
 ## [1.1.73] - 2026-01-23
 

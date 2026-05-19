@@ -620,6 +620,8 @@ class StarQualityPanel(Panel):
 
     def setup(self, ax, tax=None):
         (self._size_ln,) = ax.plot([], [], label='PSF size (px)', color='#1f77b4', lw=1.2, marker='.', ms=4)
+        # Median line for PSF size (updated every frame)
+        (self._size_med_ln,) = ax.plot([], [], color='#1f77b4', lw=1.0, ls='--', alpha=0.5, label='median(size)')
         ax.set_ylabel('PSF size (px)', color='#1f77b4')
         ax.tick_params(axis='y', labelcolor='#1f77b4')
         ax.set_title('Star quality / seeing proxy')
@@ -631,15 +633,21 @@ class StarQualityPanel(Panel):
             tax.set_ylabel('peak ADU (log)', color='#ff7f0e')
             tax.tick_params(axis='y', labelcolor='#ff7f0e')
 
-        handles = [self._size_ln] + ([self._peak_ln] if tax else [])
+        handles = [self._size_ln, self._size_med_ln] + ([self._peak_ln] if tax else [])
         ax.legend(handles=handles, loc='upper left', fontsize=8)
 
     def update(self, ax, tax, store):
+        import numpy as np
         ss = store.snapshot('star_stats')
         if ss:
             ts = [r.t for r in ss]
             self._size_ln.set_xdata(ts)
             self._size_ln.set_ydata([r.size for r in ss])
+            # Update median line for size (span current x-range)
+            y = np.nanmedian([r.size for r in ss]) if ss else np.nan
+            if ts:
+                self._size_med_ln.set_xdata([ts[0], ts[-1]])
+                self._size_med_ln.set_ydata([y, y])
             ax.relim()
             ax.autoscale_view(scalex=False)
             if tax:
@@ -660,25 +668,34 @@ class CameraCountsPanel(Panel):
 
     def setup(self, ax, tax=None):
         self._lines = []
+        self._median_lines = []  # per-camera median reference lines
         for i, color in enumerate(self._COLORS):
             (ln,) = ax.plot([], [], label=f'AGC{i + 1}', color=color,
                             lw=1, marker='.', ms=3)
+            # dashed, semi-transparent horizontal median line (updated each frame)
+            (med_ln,) = ax.plot([], [], color=color, lw=0.9, ls='--', alpha=0.4)
             self._lines.append(ln)
+            self._median_lines.append(med_ln)
         ax.set_ylabel('detected sources')
         ax.set_title('Per-camera object counts')
         ax.legend(loc='upper left', fontsize=8, ncol=6)
         _init_date_axis(ax)
 
     def update(self, ax, tax, store):
+        import numpy as np
         recs = store.snapshot('camera_counts')
         if not recs:
             return
         ts = [r.t for r in recs]
-        for i, ln in enumerate(self._lines):
-            vals = [r.counts[i] if r.counts[i] is not None else float('nan')
-                    for r in recs]
+        for i, (ln, med_ln) in enumerate(zip(self._lines, self._median_lines)):
+            vals = [r.counts[i] if r.counts[i] is not None else float('nan') for r in recs]
             ln.set_xdata(ts)
             ln.set_ydata(vals)
+            # Update per-camera median line spanning current time range
+            if ts:
+                med = np.nanmedian(vals) if vals else np.nan
+                med_ln.set_xdata([ts[0], ts[-1]])
+                med_ln.set_ydata([med, med])
         ax.relim()
         ax.autoscale_view(scalex=False)
         self._set_window(ax, recs, store)
