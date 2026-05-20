@@ -208,6 +208,61 @@ class ReconfigureRecord:
     mode: str = "unknown"
 
 
+@dataclass
+class GuideCatalogPerCamRecord:
+    """Per-camera guide star counts, emitted once per call to ``get_guide_objects``.
+
+    Attributes
+    ----------
+    t : datetime
+        Timestamp (UTC) of the log line.
+    n_catalog : tuple[int, ...]
+        Raw guide star count per camera 1–6 (before any filtering).
+    n_filtered : tuple[int, ...]
+        Valid guide star count per camera 1–6 (after ``filter_guide_objects``).
+    visit_id, frame_id : int | None
+        Active PFS visit and AGC frame at emission time.
+    mode : str
+        Guiding mode active when this record was emitted.
+    """
+
+    t: datetime
+    n_catalog: tuple
+    n_filtered: tuple
+    visit_id: int | None = None
+    frame_id: int | None = None
+    mode: str = "unknown"
+
+
+@dataclass
+class PerFrameCountRecord:
+    """Per-camera object count funnel for a single AGC exposure.
+
+    Attributes
+    ----------
+    t : datetime
+        Timestamp (UTC) of the log line.
+    n_detected_filtered : tuple[int, ...]
+        Detected sources per camera after shape/quality filtering.
+    n_matched : tuple[int, ...]
+        Sources per camera that were paired with a catalog entry.
+    n_valid : tuple[int, ...]
+        Inlier-matched sources per camera after outlier rejection.
+    visit_id, frame_id : int | None
+        Active PFS visit and AGC frame at emission time.
+    mode : str
+        Guiding mode active when this record was emitted.
+    """
+
+    t: datetime
+    n_detected_filtered: tuple
+    n_matched: tuple
+    n_valid: tuple
+    visit_id: int | None = None
+    frame_id: int | None = None
+    mode: str = "unknown"
+
+
 # ──────────────────────────────── Log Parsing ─────────────────────────────────
 
 _LOG_TS = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)Z")
@@ -226,6 +281,12 @@ _STAR_STATS = re.compile(
 )
 _MATCHED = re.compile(r"Matched sources with valid residuals: (\d+)")
 _CAM_COUNT = re.compile(r"AGC\[(\d)\]: find (\d+) objects")
+# Per-camera count funnel — new log lines (data.py / FieldAcquisitionAndFocusing.py)
+_CATALOG_PER_CAM = re.compile(r"guide_catalog_per_camera=([\d,]+)")
+_GUIDE_FILT_PER_CAM = re.compile(r"guide_filtered_per_camera=([\d,]+)")
+_DET_FILT_PER_CAM = re.compile(r"detected_filtered_per_camera=([\d,]+)")
+_MATCHED_PER_CAM = re.compile(r"matched_per_camera=([\d,]+)")
+_VALID_PER_CAM = re.compile(r"valid_matched_per_camera=([\d,]+)")
 _TEL_AXES = re.compile(r"tel_axes=([-\d.]+),([-\d.]+),([-\d.]+),([-\d.]+)")
 _TEL_ROT = re.compile(r"tel_rot=([-\d.]+),([-\d.]+)")
 _TEL_STATE = re.compile(
@@ -452,6 +513,56 @@ def parse_line(line: str, state: dict) -> list[tuple[str, object]]:
             return [("camera_counts", rec)]
         return []
 
+    # Per-camera guide catalog counts — guide_catalog_per_camera / guide_filtered_per_camera
+    m = _CATALOG_PER_CAM.search(line)
+    if m:
+        state.setdefault("cam_cat_acc", {})["n_catalog"] = tuple(int(x) for x in m.group(1).split(","))
+        return []
+
+    m = _GUIDE_FILT_PER_CAM.search(line)
+    if m:
+        acc = state.setdefault("cam_cat_acc", {})
+        acc["n_filtered"] = tuple(int(x) for x in m.group(1).split(","))
+        if "n_catalog" in acc:
+            rec = GuideCatalogPerCamRecord(
+                t=t,
+                n_catalog=acc.pop("n_catalog"),
+                n_filtered=acc.pop("n_filtered"),
+                visit_id=visit_id,
+                frame_id=frame_id,
+                mode=mode,
+            )
+            return [("guide_catalog_counts", rec)]
+        return []
+
+    # Per-camera per-frame detection/match funnel
+    m = _DET_FILT_PER_CAM.search(line)
+    if m:
+        state.setdefault("cam_frame_acc", {})["n_det_filt"] = tuple(int(x) for x in m.group(1).split(","))
+        return []
+
+    m = _VALID_PER_CAM.search(line)
+    if m:
+        acc = state.setdefault("cam_frame_acc", {})
+        acc["n_valid"] = tuple(int(x) for x in m.group(1).split(","))
+        if "n_det_filt" in acc and "n_matched" in acc:
+            rec = PerFrameCountRecord(
+                t=t,
+                n_detected_filtered=acc.pop("n_det_filt"),
+                n_matched=acc.pop("n_matched"),
+                n_valid=acc.pop("n_valid"),
+                visit_id=visit_id,
+                frame_id=frame_id,
+                mode=mode,
+            )
+            return [("per_frame_counts", rec)]
+        return []
+
+    m = _MATCHED_PER_CAM.search(line)
+    if m:
+        state.setdefault("cam_frame_acc", {})["n_matched"] = tuple(int(x) for x in m.group(1).split(","))
+        return []
+
     # Telescope axes (reply lines) — Az, El, parallactic rot (group 4/airmass dropped)
     if "tel_axes=" in line and "reply=" in line:
         m = _TEL_AXES.search(line)
@@ -537,6 +648,8 @@ class DataStore:
         self.visit_changes: deque = deque()
         self.design_changes: deque = deque()
         self.reconfigs: deque = deque()
+        self.guide_catalog_counts: deque = deque()
+        self.per_frame_counts: deque = deque()
 
     def push(self, rec_type: str, rec) -> None:
         with self._lock:
@@ -566,6 +679,8 @@ class DataStore:
         "visit_changes",
         "design_changes",
         "reconfigs",
+        "guide_catalog_counts",
+        "per_frame_counts",
     )
 
     def slice(self, t_start=None, t_end=None) -> "DataStore":
