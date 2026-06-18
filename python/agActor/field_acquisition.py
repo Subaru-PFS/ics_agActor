@@ -495,88 +495,48 @@ def get_guide_offsets(
 
 
 def find_representative_spot(
-    detected_objects: np.ndarray,
-    identified_objects: np.ndarray,
+    detected_objects: pd.DataFrame,
+    identified_objects: pd.DataFrame,
     ag_plate_scale: float = (206.265 * 13) / 15000,
 ) -> tuple[float, float, float]:
-    """Find representative flux, peak intensity, and spot size by median of pointing errors.
+    """Return median flux, peak intensity, and spot size across all matched guide stars.
 
     Parameters
     ----------
-    detected_objects : np.ndarray
-        Structured array containing detected star data including:
-        - central_moment_11 : float
-            Cross moment of detected object
-        - central_moment_20 : float
-            Second moment in x direction
-        - central_moment_02 : float
-            Second moment in y direction
-        - peak : float
-            Peak intensity value
-        - moment_00 : float
-            Total flux
-    identified_objects : np.ndarray
-        Structured array containing matched guide and detected object data with:
-        - detected_object_x : float
-            X coordinate of detected object
-        - detected_object_y : float
-            Y coordinate of detected object
-        - guide_object_x : float
-            X coordinate of guide object
-        - guide_object_y : float
-            Y coordinate of guide object
-        - detected_object_id : int
-            Index linking to detected_objects array
+    detected_objects : pd.DataFrame
+        Detected star data filtered by BAD_DETECTION_FLAGS (output of
+        ``get_detected_objects``).
+    identified_objects : pd.DataFrame
+        Matched guide/detected object pairs (output of the astrometric fit).
+        Must contain column ``detected_object_id`` indexing into
+        ``detected_objects``.
     ag_plate_scale : float
-        The plate scale for the AG cameras. `13` is micron per pixel and 15000 mm is
-        the focal length at prime focus.
+        Plate scale in arcsec/pixel. Default is (206.265 * 13 um/px) / 15000 mm.
 
     Returns
     -------
     tuple[float, float, float]
         flux : float
-            Representative flux.
+            Median total flux (image_moment_00_pix) across matched stars.
         peak : float
-            Representative peak intensity in pixels.
+            Median peak intensity across matched stars.
         size : float
-            Representative spot size in pixels, calculated as sqrt(a*b) where
-            a,b are the semi-major and semi-minor axes.
-
-    Notes
-    -----
-    Representative values are taken from the detected object with median pointing error.
-    If no valid objects are found, return (0,0,0).
-
-    Also note that this doesn't appear to be working correctly as we were seeing
-    strange values during observations. This function and its intent should be revisited.
+            Median spot size (arcsec) across matched stars, computed as
+            ``ag_plate_scale * 2 * sqrt(a * b)`` where a, b are semi-axes.
     """
-    size = 0  # pix
-    peak = 0  # pix
-    flux = 0  # pix
-    # squares of pointing errors in detector plane coordinates
-    esq = (
-        identified_objects["detected_object_x_mm"]
-        - identified_objects["guide_object_x_mm"]
-    ) ** 2 + (
-        identified_objects["detected_object_y_mm"]
-        - identified_objects["guide_object_y_mm"]
-    ) ** 2
-    n = len(esq) - np.isnan(esq).sum()
-    if n > 0:
-        # index of "median" of identified objects
-        i = np.argpartition(esq, n // 2)[n // 2]
+    matched_idx = identified_objects["detected_object_id"].values
+    if len(matched_idx) == 0:
+        return 0.0, 0.0, 0.0
 
-        # index of "median" of detected objects
-        k = identified_objects["detected_object_id"][i]
+    matched = detected_objects.iloc[matched_idx]
+    fluxes = matched["image_moment_00_pix"].to_numpy(dtype=float)
+    peaks = matched["peak_intensity"].to_numpy(dtype=float)
 
-        a, b = semi_axes(
-            detected_objects["central_image_moment_11_pix"][k],
-            detected_objects["central_image_moment_20_pix"][k],
-            detected_objects["central_image_moment_02_pix"][k],
-        )
+    semi_major, semi_minor = semi_axes(
+        matched["central_image_moment_11_pix"].to_numpy(dtype=float),
+        matched["central_image_moment_20_pix"].to_numpy(dtype=float),
+        matched["central_image_moment_02_pix"].to_numpy(dtype=float),
+    )
+    sizes = ag_plate_scale * 2.0 * np.sqrt(np.maximum(semi_major * semi_minor, 0.0))
 
-        size = ag_plate_scale * 2 * (a * b) ** 0.5
-        peak = detected_objects["peak_intensity"][k]
-        flux = detected_objects["image_moment_00_pix"][k]
-
-    return flux, peak, size
+    return float(np.nanmedian(fluxes)), float(np.nanmedian(peaks)), float(np.nanmedian(sizes))
