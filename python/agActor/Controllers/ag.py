@@ -306,9 +306,15 @@ class AgThread(threading.Thread):
                         self.logger.info(
                             f"Loading guide objects from database for {design_id=} {visit0=}"
                         )
-                        guide_catalog = get_guide_objects(
-                            design_id=design_id, visit0=visit0, is_guide=True
-                        )
+                        try:
+                            guide_catalog = get_guide_objects(
+                                design_id=design_id, visit0=visit0, is_guide=True
+                            )
+                        except RuntimeError as e:
+                            self.logger.warning(
+                                f"AgThread.run: Failed to load guide objects from database: {e}"
+                            )
+                            guide_catalog = None
 
                     # Do the actual AG exposure.
                     exposure_delay = options.get("exposure_delay", ag.EXPOSURE_DELAY)
@@ -419,6 +425,14 @@ class AgThread(threading.Thread):
                     self.logger.info(
                         f"AgThread.run: autoguide.autoguide for {frame_id=}"
                     )
+
+                    if guide_catalog is None:
+                        self.logger.warning(
+                            f"AgThread.run: No guide catalog available for {design_id=} {visit0=}, "
+                            f"skipping autoguide for this exposure"
+                        )
+                        continue
+
                     guide_offsets = autoguide.get_exposure_offsets(
                         frame_id=frame_id,
                         guide_catalog=guide_catalog,
