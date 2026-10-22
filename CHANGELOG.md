@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## [1.1.79] - 2026-10-22
+
 - INSTRM-3058 - `identified_objects.npy` (the ag `data` keyword, exported to FITS by vgwActor) now carries `match_flags` (the `SourceMatchingFlags` bitmask) in place of `matched`. The table keeps its 12 columns; `match_flags == 1` selects the rows `matched == 1` did.
 
 ## [1.1.78] - 2026-10-22
