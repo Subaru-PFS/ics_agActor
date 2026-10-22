@@ -412,6 +412,10 @@ def get_guide_offsets(
         ),
     )
     match_results_df["match_flags"] = match_results_df["match_flags"].astype(int)
+    # `matched` is the one definition of a good match: GOOD_MATCH alone. Column 8 of the
+    # match results (an inlier of the fit) also counts a duplicate claim on a star that a
+    # nearer detection already matched; those are UNUSED_MULTI_MATCH, not matched.
+    match_results_df["matched"] = (match_results_df["match_flags"] == SourceMatchingFlags.GOOD_MATCH).astype(int)
     match_results_df.index = detected_objects[valid_detections].index
     match_results_df.index.name = "detected_object_id"
     match_results_df.reset_index(inplace=True)
