@@ -6,7 +6,7 @@ from typing import Any, Dict, Sequence, Tuple
 import numpy as np
 import pandas as pd
 from pfs.utils.coordinates import coordinates
-from pfs.utils.datamodel.ag import SourceDetectionFlag
+from pfs.utils.datamodel.ag import SourceDetectionFlag, SourceMatchingFlags
 
 from agActor.coordinates.FieldAcquisitionAndFocusing import calculate_offsets
 from agActor.utils import to_altaz
@@ -383,17 +383,9 @@ def get_guide_offsets(
     guide_objects["x_dp"] = guide_x_dp
     guide_objects["y_dp"] = guide_y_dp
 
-    # 0 obj_x          1
-    # 1 obj_y          2
-    # 2 catalog_x      3
-    # 3 catalog_y      4
-    # 4 err_x
-    # 5 err_y
-    # 6 resid_x
-    # 7 resid_y
-    # 8 valid_resid    5
-    # 9 min_dist_index 0
-
+    # Columns of match_results, see RADECInRShiftA: 0-1 detected x, y; 2-3 catalog x, y;
+    # 4-5 err; 6-7 post-fit residual; 8 inlier of the fit; 9 catalog index;
+    # 10 camera_enabled; 11 match_flags.
     match_results_df = pd.DataFrame(
         match_results,
         columns=(
@@ -405,11 +397,17 @@ def get_guide_offsets(
             "err_y",
             "resid_x",
             "resid_y",
-            "matched",
+            "inlier",
             "guide_object_id",
             "camera_enabled",
+            "match_flags",
         ),
     )
+    match_results_df["match_flags"] = match_results_df["match_flags"].astype(int)
+    # `matched` is the one definition of a good match: GOOD_MATCH alone. `inlier` (a
+    # residual within the rejection threshold) also counts a duplicate claim on a star
+    # that a nearer detection already matched; those are UNUSED_MULTI_MATCH, not matched.
+    match_results_df["matched"] = (match_results_df["match_flags"] == SourceMatchingFlags.GOOD_MATCH).astype(int)
     match_results_df.index = detected_objects[valid_detections].index
     match_results_df.index.name = "detected_object_id"
     match_results_df.reset_index(inplace=True)
@@ -453,11 +451,17 @@ def get_guide_offsets(
             "agc_camera_id",
             "matched",
             "camera_enabled",
+            "match_flags",
         ]
     ]
 
+    flag_counts = " ".join(
+        f"{SourceMatchingFlags(int(flag))}={count}"
+        for flag, count in identified_objects["match_flags"].value_counts().sort_index().items()
+    )
     logger.info(
-        f"Identified objects: {len(identified_objects)} Number valid: {len(identified_objects.query('matched == 1'))}"
+        f"Identified objects: {len(identified_objects)} Number valid: {len(identified_objects.query('matched == 1'))} "
+        f"match_flags: {flag_counts}"
     )
     if len(identified_objects) == 0:
         logger.warning(f"No detected objects detected, offsets will be zero.")

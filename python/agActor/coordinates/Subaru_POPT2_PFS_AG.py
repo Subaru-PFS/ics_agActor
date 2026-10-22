@@ -4,6 +4,8 @@ import numpy as np
 from pfs.utils.coordinates import Subaru_POPT2_PFS as pfs
 from pfs.utils.datamodel.ag import SourceDetectionFlags
 
+from agActor.utils.matching import match_flags
+
 logger = logging.getLogger(__name__)
 
 ### perturbation
@@ -199,7 +201,7 @@ class PFS():
         scale_offset : float or nan
             Radial scale offset [dimensionless].  ``nan`` when
             ``fit_scale`` is ``False``.
-        match_result : np.ndarray, shape (N, 11)
+        match_result : np.ndarray, shape (N, 12)
             Per-match result matrix with columns:
               0:  obj_x   — detected object x [mm]
               1:  obj_y   — detected object y [mm]
@@ -215,6 +217,9 @@ class PFS():
                   enabled_camera_ids, 0.0 otherwise.  Note: a detection
                   from an enabled camera may still not enter the fit if it
                   had no close catalog match (distance > 2 mm).
+              11: match_flags — SourceMatchingFlags for the detection (see
+                  ``agActor.utils.matching.match_flags``): why it is, or is
+                  not, a good match.
         """
 
         # ── Phase 1: Catalog unpacking ────────────────────────────────────────
@@ -522,9 +527,11 @@ class PFS():
                 break
 
         resid_r = np.sqrt(np.sum(resid_xy**2,axis=1))
-        vcx = np.array([resid_r<=rejection_threshold]).transpose()
+        inlier_mask = resid_r <= rejection_threshold
+        vcx = np.array([inlier_mask]).transpose()
         camera_enabled = np.array([enabled_mask], dtype=float).transpose()
-        match_result = np.block([match_obj_xy, match_cat_xy, err_xy, resid_xy, vcx, min_dist_index.reshape(-1,1), camera_enabled])
+        flags = match_flags(close_match_mask, inlier_mask, nearest_distances, min_dist_index)
+        match_result = np.block([match_obj_xy, match_cat_xy, err_xy, resid_xy, vcx, min_dist_index.reshape(-1,1), camera_enabled, flags.reshape(-1, 1).astype(float)])
 
         # ── Phase 7: Unit conversion ──────────────────────────────────────────
         # Multiply the dimensionless least-squares coefficients by the

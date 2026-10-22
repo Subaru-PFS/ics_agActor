@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## [1.1.78] - 2026-10-22
+
+- INSTRM-3038 - Write `SourceMatchingFlags` to `agc_match.flags`: `GOOD_MATCH` (still 1) for a match within tolerance that survived rejection, otherwise `NO_MATCH`, `BAD_RESIDUAL` and/or `UNUSED_MULTI_MATCH` instead of 0. `identified_objects.matched` is now `GOOD_MATCH` alone, so a duplicate claim on a star no longer counts as matched (nor enters the representative-spot pool).
 - INSTRM-2881 - Adding filter_bad_shape options to autoguide initialize and autoguide start.
 
 ## [1.1.73] - 2026-01-23

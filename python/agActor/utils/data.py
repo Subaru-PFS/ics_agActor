@@ -158,7 +158,9 @@ class GuideOffsets:
         daz: Azimuth offset in arcseconds
         guide_objects: Guide objects used for calculations
         detected_objects: Detected objects from the frame
-        identified_objects: Matched guide and detected objects
+        identified_objects: One row per filtered detection and its nearest guide object,
+            with `match_flags` (`SourceMatchingFlags`, written to `agc_match.flags`) and
+            `matched` (1 for `GOOD_MATCH` alone); built by `field_acquisition.get_guide_offsets`
         dx: X offset in arcseconds
         dy: Y offset in arcseconds
         size: Representative spot size
@@ -277,7 +279,9 @@ class GuideOffsets:
         )
         save_files["detected_objects"] = detected_npy
 
-        # Identified objects.
+        # Identified objects. The column set is an interface: vgwActor loads this file
+        # (ag 'data' keyword) and writes it to FITS with a fixed list of 12 units, so
+        # match_flags is not saved here; see INSTRM-3038.
         ident_npy = np.array(
             [
                 (
@@ -773,10 +777,12 @@ def write_agc_match(
     frame_id (int): The exposure ID for the AGC frame.
     guide_objects (pd.DataFrame): Dictionary or structured array containing guide star data.
     detected_objects (pd.DataFrame): Dictionary or structured array containing detected object data.
-    identified_objects (pd.DataFrame): An iterable of tuples, where each tuple contains
-                                   indices and coordinate data for a matched object.
-                                   Expected format: (detected_idx, guide_idx,
-                                   center_x, center_y, nominal_x, nominal_y, ...)
+    identified_objects (pd.DataFrame): One row per filtered detection, as built by
+                                   `agActor.field_acquisition.get_guide_offsets`: the
+                                   detected and guide object indices and positions, plus
+                                   `match_flags`, the `SourceMatchingFlags` value written
+                                   to `agc_match.flags` (`GOOD_MATCH` for a match within
+                                   tolerance, otherwise why not).
     db (DB | None): The database to use. Defaults to None, which uses `pfs.utils.database.opdb.OpDB`.
 
     Returns:
@@ -828,7 +834,7 @@ def write_agc_match(
                 "agc_nominal_y_mm": float(nominal_y_mm),
                 "agc_center_x_mm": float(center_x_mm),
                 "agc_center_y_mm": float(center_y_mm),
-                "flags": int(match["matched"]),
+                "flags": int(match["match_flags"]),
             }
             rows_to_insert.append(row)
 
