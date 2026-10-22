@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- INSTRM-3038 - Write `SourceMatchingFlags` to `agc_match.flags`: `GOOD_MATCH` (still 1) for the matches that drove the fit, otherwise `NO_MATCH`, `BAD_RESIDUAL` and/or `UNUSED_MULTI_MATCH` instead of 0.
 - INSTRM-2881 - Adding filter_bad_shape options to autoguide initialize and autoguide start.
 
 ## [1.1.73] - 2026-01-23

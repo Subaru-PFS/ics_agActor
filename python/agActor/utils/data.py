@@ -293,6 +293,7 @@ class GuideOffsets:
                     row.guide_object_y_pix,
                     row.agc_camera_id,
                     row.matched,
+                    row.match_flags,
                 )
                 for row in self.identified_objects.itertuples(index=False)
             ],
@@ -309,6 +310,7 @@ class GuideOffsets:
                 ("guide_object_y_pix", np.float32),
                 ("camera_id", np.int16),
                 ("matched", np.uint8),
+                ("match_flags", np.uint8),
             ],
         )
         save_files["identified_objects"] = ident_npy
@@ -773,10 +775,12 @@ def write_agc_match(
     frame_id (int): The exposure ID for the AGC frame.
     guide_objects (pd.DataFrame): Dictionary or structured array containing guide star data.
     detected_objects (pd.DataFrame): Dictionary or structured array containing detected object data.
-    identified_objects (pd.DataFrame): An iterable of tuples, where each tuple contains
-                                   indices and coordinate data for a matched object.
-                                   Expected format: (detected_idx, guide_idx,
-                                   center_x, center_y, nominal_x, nominal_y, ...)
+    identified_objects (pd.DataFrame): One row per filtered detection, as built by
+                                   `agActor.field_acquisition.calculate_acquisition_offsets`:
+                                   the detected and guide object indices and positions,
+                                   plus `match_flags`, the `SourceMatchingFlags` value
+                                   written to `agc_match.flags` (`GOOD_MATCH` for the
+                                   matches that drove the fit, otherwise why not).
     db (DB | None): The database to use. Defaults to None, which uses `pfs.utils.database.opdb.OpDB`.
 
     Returns:
@@ -828,7 +832,7 @@ def write_agc_match(
                 "agc_nominal_y_mm": float(nominal_y_mm),
                 "agc_center_x_mm": float(center_x_mm),
                 "agc_center_y_mm": float(center_y_mm),
-                "flags": int(match["matched"]),
+                "flags": int(match["match_flags"]),
             }
             rows_to_insert.append(row)
 

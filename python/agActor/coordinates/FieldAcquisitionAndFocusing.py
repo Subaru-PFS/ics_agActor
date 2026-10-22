@@ -126,8 +126,9 @@ def calculate_offsets(
         - Declination offset
         - Instrument rotation offset
         - Scale offset
-        - Match results array (N, 11): columns 0-9 per RADECInRShiftA docs;
-          column 10 (camera_enabled) is 1.0 for detections from enabled cameras
+        - Match results array (N, 12): columns 0-9 per RADECInRShiftA docs;
+          column 10 (camera_enabled) is 1.0 for detections from enabled cameras;
+          column 11 (match_flags) is the detection's SourceMatchingFlags
         - Median distance
         - Number of valid sources
     """
