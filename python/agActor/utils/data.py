@@ -158,7 +158,9 @@ class GuideOffsets:
         daz: Azimuth offset in arcseconds
         guide_objects: Guide objects used for calculations
         detected_objects: Detected objects from the frame
-        identified_objects: Matched guide and detected objects
+        identified_objects: One row per filtered detection and its nearest guide object,
+            with `match_flags` (`SourceMatchingFlags`, written to `agc_match.flags`) and
+            `matched` (1 for `GOOD_MATCH` alone); built by `field_acquisition.get_guide_offsets`
         dx: X offset in arcseconds
         dy: Y offset in arcseconds
         size: Representative spot size
@@ -776,11 +778,11 @@ def write_agc_match(
     guide_objects (pd.DataFrame): Dictionary or structured array containing guide star data.
     detected_objects (pd.DataFrame): Dictionary or structured array containing detected object data.
     identified_objects (pd.DataFrame): One row per filtered detection, as built by
-                                   `agActor.field_acquisition.calculate_acquisition_offsets`:
-                                   the detected and guide object indices and positions,
-                                   plus `match_flags`, the `SourceMatchingFlags` value
-                                   written to `agc_match.flags` (`GOOD_MATCH` for the
-                                   matches that drove the fit, otherwise why not).
+                                   `agActor.field_acquisition.get_guide_offsets`: the
+                                   detected and guide object indices and positions, plus
+                                   `match_flags`, the `SourceMatchingFlags` value written
+                                   to `agc_match.flags` (`GOOD_MATCH` for a match within
+                                   tolerance, otherwise why not).
     db (DB | None): The database to use. Defaults to None, which uses `pfs.utils.database.opdb.OpDB`.
 
     Returns:

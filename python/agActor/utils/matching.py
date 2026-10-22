@@ -37,8 +37,15 @@ def match_flags(
         ``NO_MATCH`` when not close. Otherwise ``BAD_RESIDUAL`` when not an
         inlier, ``UNUSED_MULTI_MATCH`` when another close detection is nearer
         to the same catalog star (both bits when both apply), and
-        ``GOOD_MATCH`` when neither applies. ``GOOD_MATCH`` is 1, so readers
-        that keep ``flags == 1`` keep exactly the matches that drove the fit.
+        ``GOOD_MATCH`` when neither applies: matched within tolerance, the
+        sole claimant of its star, residual within the threshold.
+        ``GOOD_MATCH`` is 1, the value readers already keep.
+
+        The flag says how well a detection matches its star, not whether it
+        entered the fit: a detection from a disabled camera can be
+        ``GOOD_MATCH`` without ever entering it (``camera_enabled``, column
+        10 of the match result, says which; INSTRM-3057 records it in opdb),
+        and a duplicate flagged ``UNUSED_MULTI_MATCH`` may have entered it.
     """
     close = np.asarray(close, dtype=bool)
     inlier = np.asarray(inlier, dtype=bool)
