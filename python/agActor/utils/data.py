@@ -277,7 +277,9 @@ class GuideOffsets:
         )
         save_files["detected_objects"] = detected_npy
 
-        # Identified objects.
+        # Identified objects. The column set is an interface: vgwActor loads this file
+        # (ag 'data' keyword) and writes it to FITS with a fixed list of 12 units, so
+        # match_flags is not saved here; see INSTRM-3038.
         ident_npy = np.array(
             [
                 (
@@ -293,7 +295,6 @@ class GuideOffsets:
                     row.guide_object_y_pix,
                     row.agc_camera_id,
                     row.matched,
-                    row.match_flags,
                 )
                 for row in self.identified_objects.itertuples(index=False)
             ],
@@ -310,7 +311,6 @@ class GuideOffsets:
                 ("guide_object_y_pix", np.float32),
                 ("camera_id", np.int16),
                 ("matched", np.uint8),
-                ("match_flags", np.uint8),
             ],
         )
         save_files["identified_objects"] = ident_npy
