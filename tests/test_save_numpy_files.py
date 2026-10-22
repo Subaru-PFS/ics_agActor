@@ -28,6 +28,39 @@ IDENT_COLUMNS = (
 
 @pytest.fixture
 def offsets():
+    # One real row each for the guide and detected tables, so their packers run too.
+    guide = pd.DataFrame(
+        {
+            "source_id": [1001],
+            "ra": [150.0],
+            "dec": [2.0],
+            "mag": [12.5],
+            "agc_camera_id": [0],
+            "x": [100.0],
+            "y": [200.0],
+            "x_dp": [100.5],
+            "y_dp": [200.5],
+            "flags": [0],
+            "filtered_by": [0],
+        }
+    )
+    detected = pd.DataFrame(
+        {
+            "agc_camera_id": [0],
+            "spot_id": [0],
+            "image_moment_00_pix": [500.0],
+            "centroid_x_pix": [100.2],
+            "centroid_y_pix": [200.3],
+            "central_image_moment_11_pix": [0.1],
+            "central_image_moment_20_pix": [1.5],
+            "central_image_moment_02_pix": [1.4],
+            "peak_pixel_x_pix": [100],
+            "peak_pixel_y_pix": [200],
+            "peak_intensity": [3000],
+            "background": [50.0],
+            "flags": [0],
+        }
+    )
     flags = [int(F.GOOD_MATCH), int(F.UNUSED_MULTI_MATCH), int(F.BAD_RESIDUAL | F.UNUSED_MULTI_MATCH)]
     identified = pd.DataFrame(
         {
@@ -57,8 +90,8 @@ def offsets():
         scale_offset=0.0,
         dalt=None,
         daz=None,
-        guide_objects=pd.DataFrame(),
-        detected_objects=pd.DataFrame(),
+        guide_objects=guide,
+        detected_objects=detected,
         identified_objects=identified,
         dx=0.0,
         dy=0.0,
@@ -70,8 +103,11 @@ def offsets():
 
 def test_identified_objects_saves_match_flags_in_place_of_matched(offsets, tmp_path):
     files = offsets.save_numpy_files(base_dir=str(tmp_path))
-    (ident_file,) = [f for f in files if f.endswith("identified_objects.npy")]
-    ident = np.load(ident_file)
+    by_name = {f.rsplit("/", 1)[-1]: np.load(f) for f in files}
+    assert sorted(by_name) == ["detected_objects.npy", "guide_objects.npy", "identified_objects.npy"]
+    assert by_name["guide_objects.npy"]["source_id"].tolist() == [1001]
+    assert by_name["detected_objects.npy"]["peak"].tolist() == [3000]
+    ident = by_name["identified_objects.npy"]
 
     # Still 12 columns: vgwActor writes the FITS extension with a fixed list of 12 units.
     assert ident.dtype.names == IDENT_COLUMNS
