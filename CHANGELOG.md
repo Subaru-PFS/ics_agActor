@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- INSTRM-3058 - `identified_objects.npy` (the ag `data` keyword, exported to FITS by vgwActor) now carries `match_flags` (the `SourceMatchingFlags` bitmask) in place of `matched`. The table keeps its 12 columns; `match_flags == 1` selects the rows `matched == 1` did.
+
 ## [1.1.78] - 2026-10-22
 
 - INSTRM-3038 - Write `SourceMatchingFlags` to `agc_match.flags`: `GOOD_MATCH` (still 1) for a match within tolerance that survived rejection, otherwise `NO_MATCH`, `BAD_RESIDUAL` and/or `UNUSED_MULTI_MATCH` instead of 0. `identified_objects.matched` is now `GOOD_MATCH` alone, so a duplicate claim on a star no longer counts as matched (nor enters the representative-spot pool).
