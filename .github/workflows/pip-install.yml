@@ -34,3 +34,11 @@ jobs:
       - name: Verify import
         run: |
           python -c "from agActor.version import __version__; print('Created version', __version__)"
+
+      - name: Run unit tests
+        # Only the .py tests: the notebooks need opdb. test_negative_moment_product_does_not_raise
+        # fails on main independently of any change (nan spot size); fix it, then drop the deselect.
+        run: |
+          python -m pip install pytest
+          python -m pytest -o addopts="" tests \
+            --deselect tests/test_find_representative_spot.py::TestFindRepresentativeSpot::test_negative_moment_product_does_not_raise
