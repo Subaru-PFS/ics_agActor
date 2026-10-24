@@ -784,7 +784,10 @@ def write_agc_match(
                                    detected and guide object indices and positions, plus
                                    `match_flags`, the `SourceMatchingFlags` value written
                                    to `agc_match.flags` (`GOOD_MATCH` for a match within
-                                   tolerance, otherwise why not).
+                                   tolerance, otherwise why not), and `camera_enabled`,
+                                   written to `agc_match.camera_enabled` (False for a
+                                   detection from a disabled camera, which is matched
+                                   but doesn't drive the fit).
     db (DB | None): The database to use. Defaults to None, which uses `pfs.utils.database.opdb.OpDB`.
 
     Returns:
@@ -794,26 +797,6 @@ def write_agc_match(
     """
     db = db or OpDB()
     try:
-        # Log the camera_enabled column that will be written to agc_match once the
-        # schema gains the column.  Until then this is the only record of the value.
-        if "camera_enabled" in identified_objects.columns:
-            enabled = identified_objects["camera_enabled"].astype(bool)
-            logger.info(
-                "write_agc_match: camera_enabled (pending schema change — "
-                "will become agc_match.camera_enabled): "
-                "frame_id=%d n_total=%d n_enabled=%d n_disabled=%d values=%s",
-                frame_id,
-                len(enabled),
-                int(enabled.sum()),
-                int((~enabled).sum()),
-                identified_objects["camera_enabled"].tolist(),
-            )
-        else:
-            logger.warning(
-                "write_agc_match: camera_enabled column missing from identified_objects; "
-                "cannot log pending camera_enabled values"
-            )
-
         rows_to_insert = []
         for idx, match in identified_objects.iterrows():
             detected_idx = int(match.detected_object_id)
@@ -837,6 +820,7 @@ def write_agc_match(
                 "agc_center_x_mm": float(center_x_mm),
                 "agc_center_y_mm": float(center_y_mm),
                 "flags": int(match["match_flags"]),
+                "camera_enabled": bool(match["camera_enabled"]),
             }
             rows_to_insert.append(row)
 
