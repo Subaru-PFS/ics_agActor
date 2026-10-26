@@ -1,4 +1,5 @@
-"""write_agc_match writes SourceMatchingFlags to agc_match.flags (INSTRM-3038)."""
+"""write_agc_match writes SourceMatchingFlags to agc_match.flags (INSTRM-3038) and
+camera_enabled to agc_match.camera_enabled (INSTRM-3057)."""
 
 import pandas as pd
 import pytest
@@ -59,6 +60,24 @@ def test_flags_column_carries_match_flags(frame):
     # bad rows and could not have said why either is bad.
     assert df["flags"].tolist() != identified["matched"].tolist()
     assert (df["flags"] != 0).all()
+
+
+def test_camera_enabled_column(frame):
+    detected, guide, identified = frame
+    # Camera 3 (the last two detections) is disabled.
+    identified = identified.assign(camera_enabled=[1.0, 1.0, 0.0, 0.0])
+    db = _CapturingDB()
+    write_agc_match(
+        design_id=1, frame_id=1, guide_objects=guide, detected_objects=detected,
+        identified_objects=identified, db=db,
+    )
+    (_, df), = db.inserted
+    assert df["camera_enabled"].tolist() == [True, True, False, False]
+    assert df["camera_enabled"].dtype == bool
+    # Negative control: the disabled camera's rows are still written, not dropped, and
+    # aren't marked enabled.
+    assert len(df) == 4
+    assert df.loc[df.agc_camera_id == 3, "camera_enabled"].tolist() != [True, True]
 
 
 def test_no_rows_writes_nothing(frame):
