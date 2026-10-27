@@ -461,9 +461,9 @@ class AgThread(threading.Thread):
                         f"AgThread.run: Sending mlp1 command {dx=},{dy=},{size=},{peak=},{flux=}"
                     )
 
-                    offset_in_range = (
-                        abs(dra) < max_correction and abs(ddec) < max_correction
-                    )
+                    # dra is a coordinate offset; the limit applies on the sky (INSTRM-2931).
+                    dra_sky = dra * np.cos(np.deg2rad(dec))
+                    offset_in_range = autoguide.offset_in_range(dra, ddec, dec, max_correction)
 
                     if offset_in_range:
                         offset_flags = GuideOffsetFlag.OK
@@ -490,14 +490,14 @@ class AgThread(threading.Thread):
                         )
                     else:
                         cmd.inform(
-                            f'text="Calculated offset not in allowed range, skipping: {dra=} {ddec=} {max_correction=}"'
+                            f'text="Calculated offset not in allowed range, skipping: {dra=} {dra_sky=} {ddec=} {max_correction=}"'
                         )
                         sendAlert(
                             actor=self.actor,
                             alert_id="AG.OFFSET_OUT_OF_RANGE",
                             alert_name="Autoguide Offset Out of Range",
                             alert_description="The calculated autoguide offset is out of the allowed range, no corrections have been sent to the telescope.",
-                            alert_detail=f"Calculated offsets: {frame_id=} {visit_id=} {dra=}, {ddec=}, {max_correction=}",
+                            alert_detail=f"Calculated offsets: {frame_id=} {visit_id=} {dra=} ({dra_sky=} on the sky), {ddec=}, {max_correction=}",
                             alert_severity="warning",
                             logger=self.actor.logger,
                         )

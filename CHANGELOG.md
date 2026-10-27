@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- INSTRM-2931 - `max_correction` is compared with the offset on the sky (`dRA cos(Dec)`, `dDec`), not with the raw RA coordinate offset: at Dec 66 the 10 arcsec limit was 4 arcsec on the sky. The INVALID_OFFSET message and alert now also give the on-sky RA offset.
+
 ## [1.1.80] - 2026-10-26
 
 - INSTRM-3057 - Write `camera_enabled` to the new `agc_match.camera_enabled` column (False for a match from a disabled camera) instead of only logging it. Needs spt_operational_database migration `f3a8d61c2b57`.

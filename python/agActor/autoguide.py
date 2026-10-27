@@ -1,5 +1,6 @@
 import logging
 
+import numpy as np
 from pfs.utils.datamodel.ag import SourceDetectionFlag
 
 from agActor import field_acquisition
@@ -12,6 +13,27 @@ from agActor.utils.data import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def offset_in_range(dra: float, ddec: float, dec: float, max_correction: float) -> bool:
+    """Is a measured guide offset small enough to send to the telescope?
+
+    ``dra`` is a coordinate offset (arcsec of right ascension, as ``GuideOffsets.ra_offset``,
+    ``guideErrors.dRA`` and ``agc_guide_offset.guide_delta_ra`` all are), so it is compared
+    on the sky, as ``dra cos(dec)``, and ``max_correction`` means the same distance at every
+    declination (INSTRM-2931: compared raw, a 10 arcsec limit was 4 arcsec on the sky at Dec 66).
+
+    Parameters
+    ----------
+    dra, ddec : `float`
+        The measured offsets, arcsec; ``dra`` in RA coordinate.
+    dec : `float`
+        Declination of the field, degrees.
+    max_correction : `float`
+        The largest offset, on the sky, that will be sent, arcsec.
+    """
+    dra_sky = dra * np.cos(np.deg2rad(dec))
+    return bool(abs(dra_sky) < max_correction and abs(ddec) < max_correction)
 
 
 def get_exposure_offsets(
