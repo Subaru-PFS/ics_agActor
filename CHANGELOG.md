@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- INSTRM-2586 - `BAD_DETECTION_FLAGS` loses `FLAT_TOP`: the flag is retired (ics_agccActor no longer sets it, and pfs_utils drops it from `SourceDetectionFlags.BAD_DETECTION` while keeping the bit so old `agc_data` rows decode). No change to guiding: every spot it marked was either `SATURATED` or unmatched.
 - INSTRM-2931 - `max_correction` is compared with the offset on the sky (`dRA cos(Dec)`, `dDec`), not with the raw RA coordinate offset: at Dec 66 the 10 arcsec limit was 4 arcsec on the sky. The INVALID_OFFSET message and alert now also give the on-sky RA offset.
 
 ## [1.1.80] - 2026-10-26
