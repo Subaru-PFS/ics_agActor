@@ -17,6 +17,20 @@ from agActor.utils.actorCalls import send_guide_offsets
 from agActor.utils.telescope_center import telCenter as tel_center
 
 
+def ignore_filter_bad_shape(cmd):
+    """Warn about and drop the deprecated ``filter_bad_shape`` keyword (INSTRM-2841).
+
+    BAD_SHAPE spots are always excluded from acquisition and guiding now. The
+    keyword is still accepted only because the Gen2 AG scripts and iic send it;
+    remove it once INSTRM-3067 has taken it out of both.
+    """
+    if "filter_bad_shape" in cmd.cmd.keywords:
+        cmd.warn(
+            'text="filter_bad_shape is deprecated and ignored: '
+            'BAD_SHAPE spots are always excluded (INSTRM-2841)"'
+        )
+
+
 class AgCmd:
     def __init__(self, actor):
         self.actor = actor
@@ -43,7 +57,8 @@ class AgCmd:
                 "[<min_size>] "
                 "[<max_residual>] "
                 "[<exposure_delay>] "
-                "[<tec_off>]",
+                "[<tec_off>] "
+                "[<filter_bad_shape>]",
                 self.acquire_field,
             ),
             (
@@ -78,7 +93,8 @@ class AgCmd:
                 "[<max_residual>] "
                 "[<max_correction>] "
                 "[<exposure_delay>] "
-                "[<tec_off>]",
+                "[<tec_off>] "
+                "[<filter_bad_shape>]",
                 self.start_autoguide,
             ),
             (
@@ -101,7 +117,8 @@ class AgCmd:
                 "[<max_residual>] "
                 "[<max_correction>] "
                 "[<exposure_delay>] "
-                "[<tec_off>]",
+                "[<tec_off>] "
+                "[<filter_bad_shape>]",
                 self.initialize_autoguide,
             ),
             ("autoguide", "@restart", self.restart_autoguide),
@@ -121,7 +138,8 @@ class AgCmd:
                 "[<max_residual>] "
                 "[<max_correction>] "
                 "[<exposure_delay>] "
-                "[<tec_off>]",
+                "[<tec_off>] "
+                "[<filter_bad_shape>]",
                 self.reconfigure_autoguide,
             ),
             (
@@ -160,6 +178,7 @@ class AgCmd:
             keys.Key("max_correction", types.Float(), help=""),
             keys.Key("exposure_delay", types.Int(), help=""),
             keys.Key("tec_off", types.Bool("no", "yes"), help=""),
+            keys.Key("filter_bad_shape", types.Bool("no", "yes"), help="deprecated, ignored (INSTRM-2841)"),
         )
 
         # Set up the database connections.
@@ -297,6 +316,7 @@ class AgCmd:
         if "tec_off" in cmd.cmd.keywords:
             tec_off = bool(cmd.cmd.keywords["tec_off"].values[0])
 
+        ignore_filter_bad_shape(cmd)
         self.actor.logger.info(f"AgCmd.acquire_field: kwargs={kwargs}")
 
         try:
@@ -692,6 +712,7 @@ class AgCmd:
             max_correction = float(cmd.cmd.keywords["max_correction"].values[0])
             kwargs["max_correction"] = max_correction
 
+        ignore_filter_bad_shape(cmd)
         try:
             self.actor.logger.info(f"AgCmd.start_autoguide: kwargs={kwargs}")
             controller.start_autoguide(
@@ -783,6 +804,7 @@ class AgCmd:
             max_correction = float(cmd.cmd.keywords["max_correction"].values[0])
             kwargs["max_correction"] = max_correction
 
+        ignore_filter_bad_shape(cmd)
         try:
             self.actor.logger.info(f"AgCmd.initialize_autoguide: kwargs={kwargs}")
             controller.initialize_autoguide(
@@ -877,6 +899,7 @@ class AgCmd:
             max_correction = float(cmd.cmd.keywords["max_correction"].values[0])
             kwargs["max_correction"] = max_correction
 
+        ignore_filter_bad_shape(cmd)
         try:
             controller.reconfigure_autoguide(cmd=cmd, **kwargs)
         except Exception as e:
