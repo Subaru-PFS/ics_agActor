@@ -462,7 +462,7 @@ class AgThread(threading.Thread):
                     )
 
                     # dra is a coordinate offset; the limit applies on the sky (INSTRM-2931).
-                    dra_sky = dra * np.cos(np.deg2rad(dec))
+                    dra_sky = autoguide.sky_ra_offset(dra, dec)
                     offset_in_range = autoguide.offset_in_range(dra, ddec, dec, max_correction)
 
                     if offset_in_range:

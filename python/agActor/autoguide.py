@@ -15,6 +15,11 @@ from agActor.utils.data import (
 logger = logging.getLogger(__name__)
 
 
+def sky_ra_offset(dra: float, dec: float) -> float:
+    """The RA offset on the sky, ``dra cos(dec)``, for a coordinate offset ``dra`` (arcsec) at ``dec`` (deg)."""
+    return float(dra * np.cos(np.deg2rad(dec)))
+
+
 def offset_in_range(dra: float, ddec: float, dec: float, max_correction: float) -> bool:
     """Is a measured guide offset small enough to send to the telescope?
 
@@ -32,8 +37,7 @@ def offset_in_range(dra: float, ddec: float, dec: float, max_correction: float) 
     max_correction : `float`
         The largest offset, on the sky, that will be sent, arcsec.
     """
-    dra_sky = dra * np.cos(np.deg2rad(dec))
-    return bool(abs(dra_sky) < max_correction and abs(ddec) < max_correction)
+    return bool(abs(sky_ra_offset(dra, dec)) < max_correction and abs(ddec) < max_correction)
 
 
 def get_exposure_offsets(

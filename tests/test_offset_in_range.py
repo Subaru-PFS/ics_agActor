@@ -2,18 +2,18 @@
 
 import numpy as np
 import pytest
-from agActor.autoguide import offset_in_range
+from agActor.autoguide import offset_in_range, sky_ra_offset
 
-DEC = 66.0  # the field of 2026-05-19; cos = 0.407
-COS = np.cos(np.deg2rad(DEC))
+DEC = 66.0  # cos = 0.407
 
 
 def test_ra_limit_is_on_the_sky():
     # 13.6 arcsec of RA coordinate at Dec 66 is 5.5 arcsec on the sky: within a 10 arcsec limit.
     assert offset_in_range(13.6, 0.1, DEC, 10.0)
-    # Negative control: compared raw, the same offset is rejected.
-    assert not (abs(13.6) < 10.0 and abs(0.1) < 10.0)
-    # And 30 arcsec of RA coordinate (12 on the sky) is rejected either way.
+    # Negative control: the same numbers at the equator, where coordinate and sky agree, are rejected,
+    # so the declination is what makes the difference.
+    assert not offset_in_range(13.6, 0.1, 0.0, 10.0)
+    # And 30 arcsec of RA coordinate (12 on the sky) is rejected at Dec 66 too.
     assert not offset_in_range(30.0, 0.1, DEC, 10.0)
 
 
@@ -27,10 +27,23 @@ def test_limit_is_the_same_sky_distance_at_every_declination(dec):
     cos = np.cos(np.deg2rad(dec))
     assert offset_in_range(9.9 / cos, 0.0, dec, 10.0)
     assert not offset_in_range(10.1 / cos, 0.0, dec, 10.0)
-    # Negative control: the raw comparison accepts that offset only at the equator.
-    assert (abs(9.9 / cos) < 10.0) == (dec == 0.0)
+    # Negative control: the offset accepted at this declination is rejected at the equator unless
+    # the two coincide there.
+    assert offset_in_range(9.9 / cos, 0.0, 0.0, 10.0) == (dec == 0.0)
+
+
+def test_sky_ra_offset_matches_the_decision():
+    assert sky_ra_offset(13.6, DEC) == pytest.approx(13.6 * np.cos(np.deg2rad(DEC)))
+    assert sky_ra_offset(-5.0, 0.0) == pytest.approx(-5.0)
+    assert sky_ra_offset(10.0 / np.cos(np.deg2rad(DEC)), DEC) == pytest.approx(10.0)
 
 
 def test_sign_does_not_matter():
     assert offset_in_range(-13.6, -0.1, DEC, 10.0)
     assert not offset_in_range(-30.0, 0.0, DEC, 10.0)
+
+
+def test_nan_is_rejected():
+    # As before the change: abs(nan) < limit is False.
+    assert not offset_in_range(np.nan, 0.0, DEC, 10.0)
+    assert not offset_in_range(0.0, np.nan, DEC, 10.0)
