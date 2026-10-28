@@ -11,6 +11,79 @@ from agActor.utils.math import semi_axes
 logger = logging.getLogger(__name__)
 
 
+def focus_objects(detected_objects: pd.DataFrame, enabledCameras: list[int] | None = None) -> pd.DataFrame:
+    """The detections the focus calculation uses: those from enabled cameras with no flag but RIGHT.
+
+    Parameters
+    ----------
+    detected_objects : pd.DataFrame
+        Detected objects, with zero-based ``agc_camera_id`` and ``flags``.
+    enabledCameras : list[int] | None
+        One-indexed AG camera IDs to use. If None, all cameras are used.
+    """
+    if enabledCameras is not None:
+        try:
+            # agc_camera_id in the DataFrame is zero-based; enabledCameras is one-based.
+            enabled_set = {int(camera_id) - 1 for camera_id in enabledCameras}
+            detected_objects = detected_objects[detected_objects["agc_camera_id"].isin(enabled_set)]
+        except (TypeError, ValueError) as e:
+            # Only catch conversion errors from malformed enabledCameras values.
+            # Other errors (e.g. missing column) should propagate so they are not masked.
+            logger.warning(
+                f"Failed to filter detected objects with enabled cameras {enabledCameras}: {e}; using all cameras",
+                exc_info=True,
+            )
+
+    return detected_objects.query(f"flags <= {SourceDetectionFlag.RIGHT.value}")
+
+
+def explain_missing_focus(
+    detected_objects: pd.DataFrame, dzs, enabledCameras: list[int] | None = None
+) -> str:
+    """Say why each enabled camera has no focus value.
+
+    A camera's focus comes from the difference between the stars on its two halves (the glass
+    was removed from the RIGHT half), so it needs at least one star on each.
+
+    Parameters
+    ----------
+    detected_objects : pd.DataFrame
+        The detected objects passed to `focus`.
+    dzs : array-like
+        The per-camera focus errors `focus` returned, AG1 to AG6.
+    enabledCameras : list[int] | None
+        One-indexed AG camera IDs used. If None, all cameras are used.
+
+    Returns
+    -------
+    str
+        e.g. ``"AG2: 0 stars on the right half (4 on the left); AG5: no stars"``, or ``""``
+        when every enabled camera has a focus value.
+    """
+    objects = focus_objects(detected_objects, enabledCameras)
+    right = (objects["flags"].astype(int) & int(SourceDetectionFlag.RIGHT)) != 0
+    try:
+        cameras = range(1, 7) if enabledCameras is None else sorted(int(c) for c in enabledCameras)
+    except (TypeError, ValueError):
+        cameras = range(1, 7)  # as focus_objects falls back to all cameras
+    reasons = []
+    for camera_id in cameras:
+        if np.isfinite(dzs[camera_id - 1]):
+            continue
+        on_camera = objects["agc_camera_id"] == camera_id - 1
+        n_right = int((on_camera & right).sum())
+        n_left = int((on_camera & ~right).sum())
+        if n_left == 0 and n_right == 0:
+            reasons.append(f"AG{camera_id}: no stars")
+        elif n_right == 0:
+            reasons.append(f"AG{camera_id}: 0 stars on the right half ({n_left} on the left)")
+        elif n_left == 0:
+            reasons.append(f"AG{camera_id}: 0 stars on the left half ({n_right} on the right)")
+        else:
+            reasons.append(f"AG{camera_id}: no focus from {n_left} left and {n_right} right stars")
+    return "; ".join(reasons)
+
+
 def focus(
     *,
     frame_id: int | None = None,
@@ -54,19 +127,6 @@ def focus(
         logger.info(f"In focus, getting detected objects for {frame_id=}")
         detected_objects = query_agc_data(frame_id)
 
-    if enabledCameras is not None:
-        try:
-            # agc_camera_id in the DataFrame is zero-based; enabledCameras is one-based.
-            enabled_set = {int(camera_id) - 1 for camera_id in enabledCameras}
-            detected_objects = detected_objects[detected_objects["agc_camera_id"].isin(enabled_set)]
-        except (TypeError, ValueError) as e:
-            # Only catch conversion errors from malformed enabledCameras values.
-            # Other errors (e.g. missing column) should propagate so they are not masked.
-            logger.warning(
-                f"Failed to filter detected objects with enabled cameras {enabledCameras}: {e}; using all cameras",
-                exc_info=True,
-            )
-
     logger.info(f"In focus with {max_ellipticity=}, {max_size=}, {min_size=}")
 
     _detected_objects = np.array(
@@ -84,7 +144,7 @@ def focus(
                 ),  # semi-major and semi-minor axes
                 row["flags"],  # flags
             )
-            for idx, row in detected_objects.query(f'flags <= {SourceDetectionFlag.RIGHT.value}').iterrows()
+            for idx, row in focus_objects(detected_objects, enabledCameras).iterrows()
         ]
     )
 
@@ -107,4 +167,7 @@ def focus(
         dzs = np.full(6, np.nan)
 
     logger.info(f"Focus values: {dz=} {dzs=}")
+    missing = explain_missing_focus(detected_objects, dzs, enabledCameras)
+    if missing:
+        logger.warning(f"No focus value from some cameras: {missing}")
     return dz, dzs

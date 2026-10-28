@@ -364,10 +364,14 @@ class GuideOffsetFlag(IntFlag):
     Attributes:
         OK: Guide offset is OK.
         INVALID_OFFSET: Guide offset is invalid and was not used.
+        TOO_FEW_STARS: Fewer guide stars matched than the fit needs; always set
+            together with INVALID_OFFSET, so ``mask & INVALID_OFFSET`` still
+            selects every offset that was not sent.
     """
 
     OK = 0x0000
     INVALID_OFFSET = 0x0001
+    TOO_FEW_STARS = 0x0002
 
 
 def get_telescope_status(*, frame_id, **kwargs):
