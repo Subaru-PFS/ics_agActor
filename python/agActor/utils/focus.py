@@ -60,12 +60,18 @@ def explain_missing_focus(
         e.g. ``"AG2: 0 stars on the right half (4 on the left); AG5: no stars"``, or ``""``
         when every enabled camera has a focus value.
     """
-    objects = focus_objects(detected_objects, enabledCameras)
+    return _explain_missing_focus(focus_objects(detected_objects, enabledCameras), dzs, enabledCameras)
+
+
+def _explain_missing_focus(objects: pd.DataFrame, dzs, enabledCameras: list[int] | None) -> str:
+    """`explain_missing_focus` for detections already selected by `focus_objects`."""
     right = (objects["flags"].astype(int) & int(SourceDetectionFlag.RIGHT)) != 0
     try:
-        cameras = range(1, 7) if enabledCameras is None else sorted(int(c) for c in enabledCameras)
+        cameras = range(1, 7) if enabledCameras is None else sorted({int(c) for c in enabledCameras})
     except (TypeError, ValueError):
         cameras = range(1, 7)  # as focus_objects falls back to all cameras
+    # dzs holds AG1-AG6 only; an id outside that has no detections and no value to explain.
+    cameras = [camera_id for camera_id in cameras if 1 <= camera_id <= len(dzs)]
     reasons = []
     for camera_id in cameras:
         if np.isfinite(dzs[camera_id - 1]):
@@ -128,6 +134,7 @@ def focus(
         detected_objects = query_agc_data(frame_id)
 
     logger.info(f"In focus with {max_ellipticity=}, {max_size=}, {min_size=}")
+    objects = focus_objects(detected_objects, enabledCameras)
 
     _detected_objects = np.array(
         [
@@ -144,7 +151,7 @@ def focus(
                 ),  # semi-major and semi-minor axes
                 row["flags"],  # flags
             )
-            for idx, row in focus_objects(detected_objects, enabledCameras).iterrows()
+            for idx, row in objects.iterrows()
         ]
     )
 
@@ -167,7 +174,8 @@ def focus(
         dzs = np.full(6, np.nan)
 
     logger.info(f"Focus values: {dz=} {dzs=}")
-    missing = explain_missing_focus(detected_objects, dzs, enabledCameras)
+    missing = _explain_missing_focus(objects, dzs, enabledCameras)
     if missing:
-        logger.warning(f"No focus value from some cameras: {missing}")
+        # INFO, not WARNING: in the guide loop focus sees matched stars only, so a missing half is common.
+        logger.info(f"No focus value from some cameras: {missing}")
     return dz, dzs

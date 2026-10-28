@@ -1,7 +1,10 @@
 """Focus explains which cameras gave no value and why (INSTRM-2800)."""
 
+import logging
+
 import numpy as np
 import pandas as pd
+import pytest
 from pfs.utils.datamodel.ag import SourceDetectionFlags
 
 from agActor.utils.focus import explain_missing_focus, focus
@@ -28,7 +31,8 @@ def spots(rows):
 
 
 def test_single_star_gives_nan_and_a_reason():
-    # The ticket's case: one usable star (on AG1's left half) used to raise an IndexError.
+    # The ticket's case, one usable star (on AG1's left half): INSTRM-2840 made it NaN instead of an
+    # IndexError; what is new is the reason.
     detected = spots([(0, 0)])
     dz, dzs = focus(detected_objects=detected, enabledCameras=[1, 2, 3, 4, 5, 6])
     assert np.isnan(dz)
@@ -66,3 +70,21 @@ def test_nothing_to_explain_when_every_camera_has_a_value():
     _, dzs = focus(detected_objects=detected)
     assert np.isfinite(dzs).all()
     assert explain_missing_focus(detected, dzs) == ""
+
+
+@pytest.mark.parametrize("enabled", [[1, 7], [0, 1], [1, 1]])
+def test_camera_ids_outside_1_to_6_are_ignored(enabled):
+    # AG1 has a star on each half; AG6 has stars on its left half only.
+    detected = spots([(0, 0), (0, RIGHT), (5, 0)])
+    _, dzs = focus(detected_objects=detected, enabledCameras=enabled)
+    assert np.isfinite(dzs[0])
+    # Negative control: an id of 0 must not be read as dzs[-1], AG6, which has stars but no value.
+    assert explain_missing_focus(detected, dzs, enabled) == ""
+    assert explain_missing_focus(detected, dzs, [1, 6]) == "AG6: 0 stars on the right half (1 on the left)"
+
+
+def test_malformed_cameras_warn_once(caplog):
+    detected = spots([(0, 0), (0, RIGHT)])
+    with caplog.at_level(logging.WARNING, logger="agActor.utils.focus"):
+        focus(detected_objects=detected, enabledCameras=["AG1"])
+    assert sum("Failed to filter" in r.getMessage() for r in caplog.records) == 1

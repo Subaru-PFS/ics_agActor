@@ -490,8 +490,8 @@ class AgCmd:
                 daz = np.nan
 
             cmd.inform(
-                "guideErrors={},{},{},{},{},{},{},{},{}".format(
-                    frame_id, dra, ddec, dinr, daz, dalt, dz, dscale, guide_status
+                autoguide.guide_errors_keyword(
+                    frame_id, dra, ddec, dinr, daz, dalt, dz, dscale, guide_status, offset_flags
                 )
             )
             cmd.inform("focusErrors={},{},{},{},{},{},{}".format(frame_id, *dzs))
