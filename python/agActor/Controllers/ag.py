@@ -37,6 +37,7 @@ class ag:
     MIN_SIZE = -1.0e0  # pix
     MAX_RESIDUAL = 0.2  # mm
     MAX_CORRECTION = 10  # arcsec
+    MIN_MATCHED_STARS = 3  # good matches from enabled cameras needed to use an offset
     EXPOSURE_DELAY = 100  # ms
     TEC_OFF = False
     FILTER_BAD_SHAPE = True # By default we don't want to filter bad shape objects.
@@ -64,6 +65,7 @@ class ag:
             "min_size",
             "max_residual",
             "max_correction",
+            "min_matched_stars",
             "exposure_delay",
             "tec_off",
             "filter_bad_shape",
@@ -405,6 +407,7 @@ class AgThread(threading.Thread):
                         kwargs["offset"] = offset
 
                     max_correction = options.get("max_correction", ag.MAX_CORRECTION)
+                    min_matched_stars = options.get("min_matched_stars", ag.MIN_MATCHED_STARS)
                     max_ellipticity = options.get("max_ellipticity", ag.MAX_ELLIPTICITY)
                     max_size = options.get("max_size", ag.MAX_SIZE)
                     min_size = options.get("min_size", ag.MIN_SIZE)
@@ -464,13 +467,10 @@ class AgThread(threading.Thread):
                     # dra is a coordinate offset; the limit applies on the sky (INSTRM-2931).
                     dra_sky = autoguide.sky_ra_offset(dra, dec)
                     offset_in_range = autoguide.offset_in_range(dra, ddec, dec, max_correction)
-
-                    if offset_in_range:
-                        offset_flags = GuideOffsetFlag.OK
-                        guide_status = "OK"
-                    else:
-                        offset_flags = GuideOffsetFlag.INVALID_OFFSET
-                        guide_status = f"INVALID_OFFSET"
+                    n_fit_stars = autoguide.count_fit_stars(guide_offsets.identified_objects)
+                    offset_flags, guide_status = autoguide.classify_offset(
+                        n_fit_stars, min_matched_stars, offset_in_range
+                    )
 
                     if offset_flags == GuideOffsetFlag.OK:
                         # send corrections to mlp1 and gen2 (or iic).
@@ -486,6 +486,22 @@ class AgThread(threading.Thread):
                             peak=peak,
                             flux=flux,
                             dry_run=dry_run,
+                            logger=self.actor.logger,
+                        )
+                    elif offset_flags & GuideOffsetFlag.TOO_FEW_STARS:
+                        message = autoguide.too_few_stars_message(
+                            guide_offsets, n_fit_stars, min_matched_stars
+                        )
+                        cmd.inform(f'text="{message}, skipping: {frame_id=} {dra=} {ddec=}"')
+                        sendAlert(
+                            actor=self.actor,
+                            alert_id="AG.TOO_FEW_STARS",
+                            alert_name="Autoguide Too Few Stars",
+                            alert_description=(
+                                "Too few guide stars matched, no corrections have been sent to the telescope."
+                            ),
+                            alert_detail=f"{message}: {frame_id=} {visit_id=} {dra=} {ddec=}",
+                            alert_severity="warning",
                             logger=self.actor.logger,
                         )
                     else:
@@ -523,16 +539,8 @@ class AgThread(threading.Thread):
                     if daz is None:
                         daz = np.nan
                     cmd.inform(
-                        "guideErrors={},{},{},{},{},{},{},{},{}".format(
-                            frame_id,
-                            dra,
-                            ddec,
-                            dinr,
-                            daz,
-                            dalt,
-                            dz,
-                            dscale,
-                            guide_status,
+                        autoguide.guide_errors_keyword(
+                            frame_id, dra, ddec, dinr, daz, dalt, dz, dscale, guide_status, offset_flags
                         )
                     )
                     cmd.inform(

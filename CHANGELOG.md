@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- INSTRM-2800 - A guide offset is used only when at least `min_matched_stars` (default 3) good matches from enabled cameras made it. With fewer, the guide loop sends nothing, reports `guideErrors` status `TOO_FEW_STARS`, raises the warning alert `AG.TOO_FEW_STARS` and writes `agc_guide_offset.mask = INVALID_OFFSET | TOO_FEW_STARS` (3); `acquire_field` records the offset the same way and fails, saying how many stars matched, were detected and were in the catalog. Either way `guideErrors` then carries NaN for dRA, dDec, dInR, dAz, dAlt and dScale (dZ kept), since Gen2 copies it into `PFS.AG.ERR` without the status and `SETUPFIELD.sk` applies it after acquisition; out-of-range offsets keep their values. New `min_matched_stars` option on `acquire_field` and `autoguide start/initialize/reconfigure`. A frame with no real match still gave an offset, from detections paired with the wrong guide stars, and offsets from 0-2 stars were sent in Runs 29 and 30. Focus now says which cameras gave no value and why (a camera needs a star on each half); `ag focus` fails with that instead of `dz=nan`.
 - INSTRM-2931 - `max_correction` is compared with the offset on the sky (`dRA cos(Dec)`, `dDec`), not with the raw RA coordinate offset: at Dec 66 the 10 arcsec limit was 4 arcsec on the sky. The INVALID_OFFSET message and alert now also give the on-sky RA offset.
 
 ## [1.1.80] - 2026-10-26

@@ -8,12 +8,13 @@ from pfs.utils.coordinates import Subaru_POPT2_PFS
 from pfs.utils.database.opdb import OpDB
 from pfs.utils.database.gaia import GaiaDB
 
-from agActor import field_acquisition
+from agActor import autoguide, field_acquisition
 from agActor.Controllers.ag import ag
 from agActor.catalog import pfs_design
 from agActor.utils import actorCalls, data as data_utils
-from agActor.utils.focus import focus
+from agActor.utils.focus import explain_missing_focus, focus
 from agActor.utils.actorCalls import send_guide_offsets
+from agActor.utils.data import GuideOffsetFlag
 from agActor.utils.telescope_center import telCenter as tel_center
 
 
@@ -42,6 +43,7 @@ class AgCmd:
                 "[<max_size>] "
                 "[<min_size>] "
                 "[<max_residual>] "
+                "[<min_matched_stars>] "
                 "[<exposure_delay>] "
                 "[<tec_off>] "
                 "[<filter_bad_shape>]",
@@ -78,6 +80,7 @@ class AgCmd:
                 "[<min_size>] "
                 "[<max_residual>] "
                 "[<max_correction>] "
+                "[<min_matched_stars>] "
                 "[<exposure_delay>] "
                 "[<tec_off>] "
                 "[<filter_bad_shape>]",
@@ -102,6 +105,7 @@ class AgCmd:
                 "[<min_size>] "
                 "[<max_residual>] "
                 "[<max_correction>] "
+                "[<min_matched_stars>] "
                 "[<exposure_delay>] "
                 "[<tec_off>] "
                 "[<filter_bad_shape>]",
@@ -123,6 +127,7 @@ class AgCmd:
                 "[<min_size>] "
                 "[<max_residual>] "
                 "[<max_correction>] "
+                "[<min_matched_stars>] "
                 "[<exposure_delay>] "
                 "[<tec_off>] "
                 "[<filter_bad_shape>]",
@@ -162,6 +167,7 @@ class AgCmd:
             keys.Key("min_size", types.Float(), help=""),
             keys.Key("max_residual", types.Float(), help=""),
             keys.Key("max_correction", types.Float(), help=""),
+            keys.Key("min_matched_stars", types.Int(), help="Good matches needed to use an offset"),
             keys.Key("exposure_delay", types.Int(), help=""),
             keys.Key("tec_off", types.Bool("no", "yes"), help=""),
             keys.Key("filter_bad_shape", types.Bool("no", "yes"), help=""),
@@ -294,6 +300,9 @@ class AgCmd:
         if "max_residual" in cmd.cmd.keywords:
             max_residual = float(cmd.cmd.keywords["max_residual"].values[0])
             kwargs["max_residual"] = max_residual
+        min_matched_stars = ag.MIN_MATCHED_STARS
+        if "min_matched_stars" in cmd.cmd.keywords:
+            min_matched_stars = int(cmd.cmd.keywords["min_matched_stars"].values[0])
 
         exposure_delay = ag.EXPOSURE_DELAY
         if "exposure_delay" in cmd.cmd.keywords:
@@ -439,7 +448,11 @@ class AgCmd:
             )
             cmd.inform("detectionState=0")
 
-            if guide:
+            # Too few matches: the offset is not sent, but it is recorded (flagged) and the command fails.
+            n_fit_stars = autoguide.count_fit_stars(guide_offsets.identified_objects)
+            offset_flags, guide_status = autoguide.classify_offset(n_fit_stars, min_matched_stars)
+
+            if guide and offset_flags == GuideOffsetFlag.OK:
                 dx, dy, size, peak, flux = (
                     guide_offsets.dx,
                     guide_offsets.dy,
@@ -471,15 +484,14 @@ class AgCmd:
                 min_size=min_size,
             )
             # send corrections to gen2 (or iic)
-            guide_status = "OK"
             if dalt is None:
                 dalt = np.nan
             if daz is None:
                 daz = np.nan
 
             cmd.inform(
-                "guideErrors={},{},{},{},{},{},{},{},{}".format(
-                    frame_id, dra, ddec, dinr, daz, dalt, dz, dscale, guide_status
+                autoguide.guide_errors_keyword(
+                    frame_id, dra, ddec, dinr, daz, dalt, dz, dscale, guide_status, offset_flags
                 )
             )
             cmd.inform("focusErrors={},{},{},{},{},{},{}".format(frame_id, *dzs))
@@ -499,6 +511,7 @@ class AgCmd:
                     delta_el=dalt,
                     delta_z=dz,
                     delta_zs=dzs,
+                    offset_flags=offset_flags,
                 )
             if self.with_opdb_agc_match:
                 data_utils.write_agc_match(
@@ -514,6 +527,10 @@ class AgCmd:
                     detected_objects=guide_offsets.detected_objects,
                     identified_objects=guide_offsets.identified_objects,
                 )
+            if offset_flags & GuideOffsetFlag.TOO_FEW_STARS:
+                message = autoguide.too_few_stars_message(guide_offsets, n_fit_stars, min_matched_stars)
+                cmd.fail(f'text="AgCmd.acquire_field: {message}"')
+                return
         except Exception as e:
             self.actor.logger.exception("AgCmd.acquire_field:")
             cmd.fail(f'text="AgCmd.acquire_field: {e}"')
@@ -581,15 +598,17 @@ class AgCmd:
             self.actor.logger.info(f"AgCmd.focus: taken_at={taken_at}")
 
             # compute focus offset and tilt
+            detected_objects = data_utils.query_agc_data(frame_id)
             dz, dzs = focus(
-                frame_id=frame_id,
+                detected_objects=detected_objects,
                 enabledCameras=self.enabledCameras,
                 max_ellipticity=max_ellipticity,
                 max_size=max_size,
                 min_size=min_size,
             )
             if np.isnan(dz):
-                cmd.fail(f'text="AgCmd.focus: dz={dz}"')
+                reason = explain_missing_focus(detected_objects, dzs, self.enabledCameras) or "no usable stars"
+                cmd.fail(f'text="AgCmd.focus: no focus value for {frame_id=}: {reason}"')
                 return
             cmd.inform(f'text="dz={dz}"')
             # send corrections to gen2 (or iic)
@@ -700,6 +719,8 @@ class AgCmd:
         if "max_correction" in cmd.cmd.keywords:
             max_correction = float(cmd.cmd.keywords["max_correction"].values[0])
             kwargs["max_correction"] = max_correction
+        if "min_matched_stars" in cmd.cmd.keywords:
+            kwargs["min_matched_stars"] = int(cmd.cmd.keywords["min_matched_stars"].values[0])
         if "filter_bad_shape" in cmd.cmd.keywords:
             kwargs["filter_bad_shape"] = bool(cmd.cmd.keywords["filter_bad_shape"].values[0])
 
@@ -793,6 +814,8 @@ class AgCmd:
         if "max_correction" in cmd.cmd.keywords:
             max_correction = float(cmd.cmd.keywords["max_correction"].values[0])
             kwargs["max_correction"] = max_correction
+        if "min_matched_stars" in cmd.cmd.keywords:
+            kwargs["min_matched_stars"] = int(cmd.cmd.keywords["min_matched_stars"].values[0])
         if "filter_bad_shape" in cmd.cmd.keywords:
             kwargs["filter_bad_shape"] = bool(cmd.cmd.keywords["filter_bad_shape"].values[0])
 
@@ -889,6 +912,8 @@ class AgCmd:
         if "max_correction" in cmd.cmd.keywords:
             max_correction = float(cmd.cmd.keywords["max_correction"].values[0])
             kwargs["max_correction"] = max_correction
+        if "min_matched_stars" in cmd.cmd.keywords:
+            kwargs["min_matched_stars"] = int(cmd.cmd.keywords["min_matched_stars"].values[0])
 
         if "filter_bad_shape" in cmd.cmd.keywords:
             kwargs["filter_bad_shape"] = bool(cmd.cmd.keywords['filter_bad_shape'].values[0])

@@ -1,12 +1,14 @@
 import logging
 
 import numpy as np
+import pandas as pd
 from pfs.utils.datamodel.ag import SourceDetectionFlag
 
 from agActor import field_acquisition
 from agActor.utils.data import (
     BAD_DETECTION_FLAGS,
     GuideCatalog,
+    GuideOffsetFlag,
     GuideOffsets,
     get_detected_objects,
     get_telescope_status,
@@ -38,6 +40,63 @@ def offset_in_range(dra: float, ddec: float, dec: float, max_correction: float) 
         The largest offset, on the sky, that will be sent, arcsec.
     """
     return bool(abs(sky_ra_offset(dra, dec)) < max_correction and abs(ddec) < max_correction)
+
+
+def count_fit_stars(identified_objects: pd.DataFrame) -> int:
+    """The number of guide stars an offset rests on: good matches (``matched == 1``) from enabled cameras.
+
+    The fit has four unknowns (RA, Dec, InR, scale) and each star gives two equations, so two stars
+    fit exactly with no check on the result. With no real match at all the fit still returns an offset,
+    from detections paired with the wrong guide stars (INSTRM-2800), so the count, not the offset, says
+    whether the offset can be used.
+    """
+    good = identified_objects["matched"] == 1
+    if "camera_enabled" in identified_objects:
+        good &= identified_objects["camera_enabled"] == 1
+    return int(good.sum())
+
+
+def classify_offset(
+    n_fit_stars: int, min_matched_stars: int, in_range: bool = True
+) -> tuple[GuideOffsetFlag, str]:
+    """The ``agc_guide_offset.mask`` flags and ``guideErrors`` status for an offset; only ``OK`` is sent.
+
+    Too few stars wins over out of range: an offset from too few stars means nothing, whatever its size.
+    """
+    if n_fit_stars < min_matched_stars:
+        return GuideOffsetFlag.INVALID_OFFSET | GuideOffsetFlag.TOO_FEW_STARS, "TOO_FEW_STARS"
+    if not in_range:
+        return GuideOffsetFlag.INVALID_OFFSET, "INVALID_OFFSET"
+    return GuideOffsetFlag.OK, "OK"
+
+
+def guide_errors_keyword(
+    frame_id, dra, ddec, dinr, daz, dalt, dz, dscale, guide_status: str, offset_flags: GuideOffsetFlag
+) -> str:
+    """The ``guideErrors`` keyword for a frame, as `cmd.inform` takes it.
+
+    Gen2 copies these values into ``PFS.AG.ERR`` without reading the status, and ``SETUPFIELD.sk``
+    applies them to the telescope after acquisition. So an offset from too few stars is published as
+    NaN (dRA, dDec, dInR, dAz, dAlt, dScale); its real values go to ``agc_guide_offset``. dZ comes from
+    focus, not the fit, and is kept. Other offsets keep their values: a large acquisition offset is
+    applied on purpose, and the guide loop sends only ``OK`` offsets itself.
+    """
+    if offset_flags & GuideOffsetFlag.TOO_FEW_STARS:
+        dra = ddec = dinr = daz = dalt = dscale = np.nan
+    return "guideErrors={},{},{},{},{},{},{},{},{}".format(
+        frame_id, dra, ddec, dinr, daz, dalt, dz, dscale, guide_status
+    )
+
+
+def too_few_stars_message(guide_offsets: GuideOffsets, n_fit_stars: int, min_matched_stars: int) -> str:
+    """Explain an offset that was not used because too few guide stars matched."""
+    guide_objects = guide_offsets.guide_objects
+    if "filtered_by" in guide_objects:
+        guide_objects = guide_objects[guide_objects["filtered_by"] == 0]
+    return (
+        f"Too few guide stars matched to use the offset: {n_fit_stars} matched (need {min_matched_stars}), "
+        f"{len(guide_offsets.detected_objects)} spots detected, {len(guide_objects)} guide stars"
+    )
 
 
 def get_exposure_offsets(
