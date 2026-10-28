@@ -65,7 +65,7 @@ def test_out_of_range_with_enough_stars():
 
 
 def test_too_few_stars_keeps_the_invalid_bit():
-    # drp_qa's run report counts `mask & 1` as rejected; a TOO_FEW_STARS offset must be counted too.
+    # drp_qa's run report counts `mask & INVALID_OFFSET` as rejected; TOO_FEW_STARS must be counted too.
     flags, _ = classify_offset(0, 3)
     assert int(flags) == 3
     assert int(flags) & int(GuideOffsetFlag.INVALID_OFFSET)
