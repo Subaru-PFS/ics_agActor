@@ -2,7 +2,6 @@ import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from enum import IntFlag
 from typing import ClassVar, Optional
 
 import numpy as np
@@ -15,7 +14,7 @@ from pfs.utils.coordinates.CoordTransp import ag_pfimm_to_pixel
 from pfs.utils.database.db import DB
 from pfs.utils.database.gaia import GaiaDB
 from pfs.utils.database.opdb import OpDB
-from pfs.utils.datamodel.ag import AutoGuiderStarMask, SourceDetectionFlag
+from pfs.utils.datamodel.ag import AutoGuiderStarMask, GuideOffsetFlag, SourceDetectionFlag
 
 logger = logging.getLogger(__name__)
 
@@ -357,17 +356,6 @@ class GuideOffsets:
             f"Counts: guide={n_guide}, detected={n_detected}, matched={n_matched}",
         ]
         return " | ".join(parts)
-
-
-class GuideOffsetFlag(IntFlag):
-    """Flags for the guide offsets.
-    Attributes:
-        OK: Guide offset is OK.
-        INVALID_OFFSET: Guide offset is invalid and was not used.
-    """
-
-    OK = 0x0000
-    INVALID_OFFSET = 0x0001
 
 
 def get_telescope_status(*, frame_id, **kwargs):
