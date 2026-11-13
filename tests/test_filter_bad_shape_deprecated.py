@@ -1,4 +1,4 @@
-"""``filter_bad_shape`` is accepted but ignored with a warning (INSTRM-2841)."""
+"""``filter_bad_shape`` is accepted but ignored with a warning."""
 
 from unittest.mock import MagicMock
 
