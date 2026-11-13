@@ -1,11 +1,9 @@
 import logging
 
 import numpy as np
-from pfs.utils.datamodel.ag import SourceDetectionFlag
 
 from agActor import field_acquisition
 from agActor.utils.data import (
-    BAD_DETECTION_FLAGS,
     GuideCatalog,
     GuideOffsets,
     get_detected_objects,
@@ -107,13 +105,7 @@ def get_exposure_offsets(
 
     # Get the detected_objects, which will raise an exception if no valid spots are detected.
 
-    filter_flags = BAD_DETECTION_FLAGS
-    filter_bad_shape = kwargs.get("filter_bad_shape", True)
-    if filter_bad_shape:
-        filter_flags = filter_flags | SourceDetectionFlag.BAD_SHAPE
-    else:
-        filter_flags = filter_flags & ~SourceDetectionFlag.BAD_SHAPE
-    detected_objects = get_detected_objects(frame_id, filter_flags=filter_flags)
+    detected_objects = get_detected_objects(frame_id)
 
     ra = guide_catalog.ra
     dec = guide_catalog.dec
