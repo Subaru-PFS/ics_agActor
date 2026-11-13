@@ -1,4 +1,4 @@
-"""Focus uses the detections matched to guide stars (INSTRM-3098)."""
+"""Focus uses the detections matched to guide stars."""
 
 import pandas as pd
 

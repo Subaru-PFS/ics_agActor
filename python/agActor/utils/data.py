@@ -195,7 +195,7 @@ class GuideOffsets:
 
         The focus estimate uses these, not every unflagged detection: faint spots
         that match nothing have noisy second moments, and in a sparse field one of
-        them can set a detector half's median (INSTRM-3098).
+        them can set a detector half's median.
         """
         matched = self.identified_objects.query("matched == 1").detected_object_id.values
         return self.detected_objects.loc[matched]
