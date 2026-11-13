@@ -502,10 +502,8 @@ class AgThread(threading.Thread):
                         f"AgThread.run: focus.focus for frame_id={frame_id}"
                     )
 
-                    _detected_objects = guide_offsets.detected_objects.loc[guide_offsets.identified_objects.query('matched == 1').detected_object_id.values]
-
                     dz, dzs = focus(
-                        detected_objects=_detected_objects,
+                        detected_objects=guide_offsets.matched_detected_objects,
                         enabledCameras=cameras,
                         max_ellipticity=max_ellipticity,
                         max_size=max_size,

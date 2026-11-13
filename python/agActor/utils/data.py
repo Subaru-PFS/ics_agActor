@@ -189,6 +189,17 @@ class GuideOffsets:
     visit_id: int | None = None
     frame_id: int | None = None
 
+    @property
+    def matched_detected_objects(self) -> pd.DataFrame:
+        """The rows of ``detected_objects`` matched to a guide star (``matched == 1``).
+
+        The focus estimate uses these, not every unflagged detection: faint spots
+        that match nothing have noisy second moments, and in a sparse field one of
+        them can set a detector half's median.
+        """
+        matched = self.identified_objects.query("matched == 1").detected_object_id.values
+        return self.detected_objects.loc[matched]
+
     def save_numpy_files(self, base_dir: str = "/dev/shm") -> list:
         """Save guide, detected, and identified objects to numpy files.
 
