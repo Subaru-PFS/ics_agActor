@@ -1,4 +1,4 @@
-"""``filter_bad_shape`` is accepted but ignored with a warning."""
+"""``filter_bad_shape`` is accepted but ignored: ``yes`` gets an inform, ``no`` a warning."""
 
 import inspect
 import logging
@@ -9,8 +9,13 @@ from agActor.Commands import AgCmd as agCmdModule
 from agActor.Commands.AgCmd import ignore_filter_bad_shape
 from opscore.protocols import keys, validation
 
-# The forms the senders use: iic forwards the value bare, the Gen2 scripts quote it.
-SENT_FORMS = ("filter_bad_shape=yes", "filter_bad_shape=no", 'filter_bad_shape="yes"', 'filter_bad_shape="no"')
+# The forms the senders use, bare and quoted, with whether BAD_SHAPE filtering is asked for.
+SENT_FORMS = {
+    "filter_bad_shape=yes": True,
+    "filter_bad_shape=no": False,
+    'filter_bad_shape="yes"': True,
+    'filter_bad_shape="no"': False,
+}
 AUTOGUIDE = {
     "start": "start_autoguide",
     "initialize": "initialize_autoguide",
@@ -20,24 +25,35 @@ AUTOGUIDE = {
 
 def _cmd(**keywords):
     cmd = MagicMock()
-    cmd.cmd.keywords = keywords
+    cmd.cmd.keywords = {name: MagicMock(values=[value]) for name, value in keywords.items()}
     return cmd
 
 
-def test_keyword_warns_and_is_ignored():
-    for value in ("yes", "no"):
-        cmd = _cmd(filter_bad_shape=value)
-        ignore_filter_bad_shape(cmd)
-        cmd.warn.assert_called_once()
-        assert "deprecated" in cmd.warn.call_args.args[0]
-        cmd.fail.assert_not_called()
+def _mentions(mock_reply):
+    """The calls to a reply method (``cmd.warn``, ``cmd.inform``) that are about the keyword."""
+    return [call.args[0] for call in mock_reply.call_args_list if "filter_bad_shape" in call.args[0]]
 
 
-def test_no_keyword_no_warning():
+def test_yes_informs_and_no_warns():
+    cmd = _cmd(filter_bad_shape=True)
+    ignore_filter_bad_shape(cmd)
+    assert len(_mentions(cmd.inform)) == 1 and "deprecated" in _mentions(cmd.inform)[0]
+    # Negative control: asking for what the actor now always does is not worth a warning.
+    cmd.warn.assert_not_called()
+
+    cmd = _cmd(filter_bad_shape=False)
+    ignore_filter_bad_shape(cmd)
+    assert len(_mentions(cmd.warn)) == 1 and "ignored" in _mentions(cmd.warn)[0]
+    cmd.inform.assert_not_called()
+    cmd.fail.assert_not_called()
+
+
+def test_no_keyword_no_reply():
     # Negative control: a command without the keyword is left alone.
     cmd = _cmd(exposure_time=2)
     ignore_filter_bad_shape(cmd)
     cmd.warn.assert_not_called()
+    cmd.inform.assert_not_called()
 
 
 @pytest.fixture(scope="module")
@@ -83,7 +99,10 @@ def test_autoguide_accepts_and_drops_the_keyword(ag_commands, sub, form):
     for func in funcs:
         func(cmd)
 
-    cmd.warn.assert_called_once()
+    # yes is what the actor does anyway: an inform. no cannot be honoured: a warning.
+    wants_filter = SENT_FORMS[form]
+    assert len(_mentions(cmd.inform)) == (1 if wants_filter else 0)
+    assert len(_mentions(cmd.warn)) == (0 if wants_filter else 1)
     cmd.fail.assert_not_called()
     cmd.finish.assert_called_once()
     call = getattr(controller, AUTOGUIDE[sub]).call_args

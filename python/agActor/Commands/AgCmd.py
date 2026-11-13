@@ -18,15 +18,24 @@ from agActor.utils.telescope_center import telCenter as tel_center
 
 
 def ignore_filter_bad_shape(cmd):
-    """Warn about and drop the deprecated ``filter_bad_shape`` keyword.
+    """Drop the deprecated ``filter_bad_shape`` keyword, telling the sender.
 
-    BAD_SHAPE spots are always excluded from acquisition and guiding now. The
-    keyword is still accepted only because the Gen2 AG scripts and iic send it;
-    remove it once both have stopped sending it.
+    BAD_SHAPE spots are always excluded from acquisition and guiding now. That
+    is what ``filter_bad_shape=yes`` asks for, so it only gets an inform;
+    ``filter_bad_shape=no`` asks for something that no longer exists and gets a
+    warning. The keyword is still accepted only because the Gen2 AG scripts and
+    iic send it; remove it once both have stopped sending it.
     """
-    if "filter_bad_shape" in cmd.cmd.keywords:
+    if "filter_bad_shape" not in cmd.cmd.keywords:
+        return
+    if bool(cmd.cmd.keywords["filter_bad_shape"].values[0]):
+        cmd.inform(
+            'text="filter_bad_shape is deprecated and has no effect: '
+            'BAD_SHAPE spots are always excluded (INSTRM-2841)"'
+        )
+    else:
         cmd.warn(
-            'text="filter_bad_shape is deprecated and ignored: '
+            'text="filter_bad_shape=no is ignored: '
             'BAD_SHAPE spots are always excluded (INSTRM-2841)"'
         )
 
