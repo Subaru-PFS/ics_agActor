@@ -484,7 +484,7 @@ class AgCmd:
             # always compute focus offset and tilt
             self.actor.logger.info("AgCmd.acquire_field: Calling focus")
             dz, dzs = focus(
-                detected_objects=guide_offsets.detected_objects,
+                detected_objects=guide_offsets.matched_detected_objects,
                 enabledCameras=self.enabledCameras,
                 max_ellipticity=max_ellipticity,
                 max_size=max_size,
