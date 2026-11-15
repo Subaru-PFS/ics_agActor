@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## [1.1.81] - 2026-11-15
+
 - INSTRM-3098 - `acquire_field` estimates focus from the detections matched to guide stars, as the autoguide loop already did, instead of every unflagged detection. With FLAT_TOP retired (INSTRM-2586), faint unmatched spots would otherwise reach the estimate; in the sparse Run 30 visits 148258–148259 they moved a camera's focus by 100–290 µm. A camera without matched spots on both halves of its detector now reports NaN in `focusErrors`, and `guideErrors` carries a NaN focus when no camera has them, as in the autoguide loop; before, unmatched spots could still give a number. The same NaNs are written to `agc_guide_offset` (`guide_delta_z`, `guide_delta_z1`–`guide_delta_z6`), which already holds NaN wherever a camera had no estimate. `ag focus` (no catalog) is unchanged.
 
 - INSTRM-2841 - The `filter_bad_shape` option of `acquire_field` and `autoguide start|initialize|reconfigure` no longer does anything (`ag.FILTER_BAD_SHAPE` and the option plumbing are gone): guiding was the same with the filter on or off, so `BAD_SHAPE` spots are now always excluded from acquisition and guiding (`BAD_SHAPE` joins `BAD_DETECTION_FLAGS`). The flag itself is still set by agcc and used by focus and drp_qa. The keyword is still accepted because the Gen2 AG scripts and iic send it: `filter_bad_shape=yes` gets an inform (it asks for what now always happens) and `filter_bad_shape=no` a warning. It goes once INSTRM-3067 removes it there.
