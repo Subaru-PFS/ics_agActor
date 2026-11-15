@@ -651,7 +651,8 @@ def tweak_target_position(
     # Updating ra/dec/position for guideStars objects.
     radec = np.vstack([guide_objects.ra, guide_objects.dec])
     pm = np.vstack([guide_objects.pm_ra, guide_objects.pm_dec])
-    par = guide_objects.parallax.values
+    # A copy: pfs_utils clamps small parallaxes in place, and pandas 3 hands out read-only arrays.
+    par = guide_objects.parallax.to_numpy(copy=True)
 
     guide_ra_now, guide_dec_now, guide_x_now, guide_y_now = (
         updateTargetPosition.update_target_position(
