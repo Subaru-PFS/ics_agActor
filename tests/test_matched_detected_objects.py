@@ -73,8 +73,11 @@ def _sparse_field(match_flags: list[int]) -> GuideOffsets:
     return _guide_offsets(identified, detected)
 
 
-def _acquire_field(guide_offsets: GuideOffsets) -> tuple[list[float], float]:
-    """Run the acquire_field handler on ``guide_offsets``: the six focusErrors and the guideErrors focus."""
+def _acquire_field(guide_offsets: GuideOffsets, calls: list | None = None) -> tuple[list[float], float]:
+    """Run the acquire_field handler on ``guide_offsets``: the six focusErrors and the guideErrors focus.
+
+    ``calls``, if given, collects the keyword arguments of each field_acquisition.acquire_field call.
+    """
     actor = MagicMock()
     actor.actorConfig = {"tel_status": "agc_exposure"}
     actor.logger = logging.getLogger("test_ag")
@@ -92,12 +95,14 @@ def _acquire_field(guide_offsets: GuideOffsets) -> tuple[list[float], float]:
     cmd.cmd.keywords = {}
 
     with (
-        patch.object(agCmdModule.field_acquisition, "acquire_field", return_value=guide_offsets),
+        patch.object(agCmdModule.field_acquisition, "acquire_field", return_value=guide_offsets) as acquire,
         patch.object(agCmdModule.time, "sleep"),
         patch.object(agCmdModule, "send_guide_offsets"),
         patch.object(GuideOffsets, "save_numpy_files", return_value=["a", "b", "c"]),
     ):
         cmd_set.acquire_field(cmd)
+    if calls is not None:
+        calls.extend(call.kwargs for call in acquire.call_args_list)
 
     cmd.fail.assert_not_called()
     cmd.finish.assert_called_once()
@@ -143,3 +148,30 @@ def test_acquire_field_focus_is_nan_without_matches_on_both_halves(match_flags):
     _, all_dzs = focus(detected_objects=guide_offsets.detected_objects)
     assert np.isfinite(all_dzs[0])
     assert focus_errors[0] != 0.0
+
+
+def test_acquire_field_focus_uses_the_second_match():
+    # The acquisition match has one spot, on the left half; the match against the autoguide
+    # loop's catalog also has the two spots on the glass-free half.
+    guide_offsets = _sparse_field([G, N, N, N, N])
+    guide_offsets.focus_detected_object_ids = np.array([0, 3, 4])
+    _, expected_dzs = focus(detected_objects=guide_offsets.detected_objects.loc[[0, 3, 4]])
+
+    focus_errors, guide_focus = _acquire_field(guide_offsets)
+
+    assert np.isfinite(expected_dzs[0])
+    assert focus_errors[0] == pytest.approx(expected_dzs[0])
+    assert guide_focus == pytest.approx(expected_dzs[0])
+    # Negative control: the acquisition match alone gives this camera no estimate.
+    _, matched_dzs = focus(detected_objects=guide_offsets.matched_detected_objects)
+    assert np.isnan(matched_dzs[0])
+
+
+def test_acquire_field_asks_for_the_loop_residual_limit_for_focus():
+    calls = []
+    _acquire_field(_sparse_field([G, N, N, G, G]), calls)
+
+    (kwargs,) = calls
+    assert kwargs["focus_max_residual"] == agCmdModule.ag.MAX_RESIDUAL
+    # Negative control: the limit of the match the offsets come from is left to its default.
+    assert "max_residual" not in kwargs

@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## [1.1.82] - 2026-11-15
+
+- INSTRM-3111 - `acquire_field` estimates focus from the detections the autoguide loop would match: its guide stars (galaxies removed, nothing else) and its residual limit (`ag.MAX_RESIDUAL`, 0.2 mm), so acquisition and guiding estimate focus from the same spots. Its offsets, `agc_match` rows and saved files still come from the stricter acquisition catalog and its own limit (0.5 mm unless `max_residual` is given); it matches a second time for focus only (`GuideOffsets.focus_detected_objects`), about 35 ms per call. Replaying the ten Run 30 engineering visits, the acquisition focus then equals the loop's on every camera of all 290 exposures; against 1.1.81 a camera's value changes by up to 5 µm in the dense visits and by a median of 4 µm (up to 117 µm) in the sparse visits 148258–148259. Also, guide stars now load on pandas 3 as well as pandas 2: `tweak_target_position` gives pfs_utils a copy of the parallax column, which pfs_utils clamps in place.
+
 ## [1.1.81] - 2026-11-15
 
 - INSTRM-3098 - `acquire_field` estimates focus from the detections matched to guide stars, as the autoguide loop already did, instead of every unflagged detection. With FLAT_TOP retired (INSTRM-2586), faint unmatched spots would otherwise reach the estimate; in the sparse Run 30 visits 148258–148259 they moved a camera's focus by 100–290 µm. A camera without matched spots on both halves of its detector now reports NaN in `focusErrors`, and `guideErrors` carries a NaN focus when no camera has them, as in the autoguide loop; before, unmatched spots could still give a number. The same NaNs are written to `agc_guide_offset` (`guide_delta_z`, `guide_delta_z1`–`guide_delta_z6`), which already holds NaN wherever a camera had no estimate. `ag focus` (no catalog) is unchanged.
