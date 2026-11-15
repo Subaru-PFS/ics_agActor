@@ -79,6 +79,7 @@ def acquire_field(
     obswl: float = 0.62,
     altazimuth: bool = True,
     is_guide: bool = False,
+    focus_max_residual: float | None = None,
     **kwargs: Any,
 ) -> GuideOffsets:
     """Perform the necessary steps for field acquisition, including which guide stars are used.
@@ -104,6 +105,10 @@ def acquire_field(
     is_guide : bool, optional
         If we should filter the guide objects for acquisition, defaults to False.
         Should almost always be False for this function but provided here as a convenience.
+    focus_max_residual : float or None, optional
+        The residual limit (mm) of the match that chooses the detections for the focus
+        estimate; pass the autoguide loop's. If not provided, that match uses the same
+        limit as the offsets (``max_residual``).
     **kwargs : dict
         Additional keyword arguments that may include:
 
@@ -146,10 +151,11 @@ def acquire_field(
     -----
     If kwargs is missing any values, they will be provided by a lookup in the `get_telescope_status` function.
 
-    The offsets and ``identified_objects`` come from the guide objects selected by ``is_guide``.
-    When that is the acquisition catalog and it differs from the one the autoguide loop uses,
-    the detections are matched once more against the loop's catalog, only to choose the
-    detections for the focus estimate (``GuideOffsets.focus_detected_objects``).
+    The offsets and ``identified_objects`` come from the guide objects selected by ``is_guide``
+    and the ``max_residual`` limit. When the autoguide loop would match differently (its catalog
+    keeps more stars, or ``focus_max_residual`` is another limit), the detections are matched
+    once more the loop's way, only to choose the detections for the focus estimate
+    (``GuideOffsets.focus_detected_objects``).
     """
     logger.info(
         f"Calling acquire_field with {frame_id=}, {obswl=}, {altazimuth=} {kwargs=}"
@@ -204,11 +210,19 @@ def acquire_field(
         **_kwargs,
     )
 
-    # The offsets above come from the acquisition catalog. Focus uses the detections matched
-    # to the catalog the autoguide loop uses, so match once more when the two catalogs differ.
+    # The offsets above come from the acquisition catalog. Focus uses the detections the
+    # autoguide loop would match, with its catalog and its residual limit, so match once more
+    # when either differs from the match above.
     loop_guide_objects = filter_guide_objects(guide_objects, is_guide=True)
-    if not (loop_guide_objects["filtered_by"] == guide_objects["filtered_by"]).all():
-        logger.info("Matching against the autoguide loop's guide objects for the focus estimate")
+    loop_kwargs = dict(_kwargs)
+    if focus_max_residual is not None:
+        loop_kwargs["max_residual"] = focus_max_residual
+    same_stars = ((loop_guide_objects["filtered_by"] == 0) == (guide_objects["filtered_by"] == 0)).all()
+    if not (same_stars and loop_kwargs == _kwargs):
+        logger.info(
+            "Second match, the autoguide loop's way, for the focus estimate only: "
+            "the offsets logged until 'Second match done' are not used"
+        )
         loop_offsets = get_guide_offsets(
             loop_guide_objects,
             detected_objects,
@@ -221,9 +235,11 @@ def acquire_field(
             obswl=obswl,
             altazimuth=False,
             enabled_camera_ids=cameras,
-            **_kwargs,
+            **loop_kwargs,
         )
-        guide_offsets.focus_detected_object_ids = loop_offsets.matched_detected_objects.index.to_numpy()
+        focus_ids = loop_offsets.matched_detected_objects.index.to_numpy()
+        guide_offsets.focus_detected_object_ids = focus_ids
+        logger.info(f"Second match done: {len(focus_ids)} detections for the focus estimate")
 
     return guide_offsets
 

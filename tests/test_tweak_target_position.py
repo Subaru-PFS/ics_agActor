@@ -1,9 +1,11 @@
 """tweak_target_position runs on pandas 2 and pandas 3 and leaves the catalog's parallax alone."""
 
 from datetime import UTC, datetime
+from urllib.error import URLError
 
 import numpy as np
 import pandas as pd
+import pytest
 from agActor.utils.data import tweak_target_position
 
 
@@ -18,7 +20,10 @@ def test_tweak_target_position_does_not_write_into_the_catalog():
             "agc_camera_id": [0, 3],
         }
     )
-    tweaked = tweak_target_position(guide_objects, 150.0, 2.0, 0.0, datetime(2026, 8, 31, 12, tzinfo=UTC))
+    try:
+        tweaked = tweak_target_position(guide_objects, 150.0, 2.0, 0.0, datetime(2026, 8, 31, 12, tzinfo=UTC))
+    except URLError:
+        pytest.skip("astropy has no cached observatory list and cannot download one")
 
     assert np.isfinite(tweaked[["ra", "dec", "x", "y"]].to_numpy()).all()
     # pfs_utils clamps the parallax array it is given in place. Handed the frame's own array, that

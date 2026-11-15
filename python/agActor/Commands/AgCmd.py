@@ -435,6 +435,7 @@ class AgCmd:
                 visit0=visit0,
                 frame_id=frame_id,
                 cameras=self.enabledCameras,
+                focus_max_residual=ag.MAX_RESIDUAL,
                 **kwargs,
             )
 

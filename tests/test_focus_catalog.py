@@ -61,14 +61,15 @@ def _catalog(star_flags: list[int], is_guide: bool) -> GuideCatalog:
     )  # fmt: skip
 
 
-def _run_acquire_field(monkeypatch, star_flags: list[int], **kwargs) -> tuple[GuideOffsets, list[int]]:
+def _run_acquire_field(monkeypatch, star_flags: list[int], **kwargs) -> tuple[GuideOffsets, list[dict]]:
     """Run acquire_field with a matcher that matches detection ``i`` to star ``i`` when the
-    catalog it is given keeps that star. Returns the offsets and the catalog size of each match."""
-    catalog_sizes = []
+    catalog it is given keeps that star. Returns the offsets and, for each match the matcher
+    was asked for, the options it was given plus ``n_stars``, the size of its catalog."""
+    matches = []
 
-    def fake_calculate_offsets(*, guide_objects, detected_array, **_):
+    def fake_calculate_offsets(*, guide_objects, detected_array, **options):
         kept = guide_objects.query("filtered_by == 0")
-        catalog_sizes.append(len(kept))
+        matches.append({"n_stars": len(kept), **options})
         n = len(detected_array)
         result = np.zeros((n, 12))
         result[:, 10] = 1
@@ -86,16 +87,16 @@ def _run_acquire_field(monkeypatch, star_flags: list[int], **kwargs) -> tuple[Gu
     )
     monkeypatch.setattr(field_acquisition, "calculate_offsets", fake_calculate_offsets)
     offsets = field_acquisition.acquire_field(design_id=1, frame_id=1, altazimuth=False, **kwargs)
-    return offsets, catalog_sizes
+    return offsets, matches
 
 
 def test_focus_uses_stars_the_loop_keeps_and_acquisition_does_not(monkeypatch):
     # Star 1 has no parallax flag: the acquisition filter drops it, the loop keeps it. Star 2 is a galaxy.
     star_flags = [CLEAN, CLEAN & ~S.PARA, CLEAN | S.GALAXY, CLEAN]
-    offsets, catalog_sizes = _run_acquire_field(monkeypatch, star_flags)
+    offsets, matches = _run_acquire_field(monkeypatch, star_flags)
 
     # The offsets and the match that is written out still come from the acquisition catalog ...
-    assert catalog_sizes == [2, 3]
+    assert [m["n_stars"] for m in matches] == [2, 3]
     assert offsets.identified_objects["matched"].tolist() == [1, 0, 0, 1]
     assert list(offsets.matched_detected_objects.index) == [0, 3]
     assert (offsets.guide_objects["filtered_by"] != 0).tolist() == [False, True, True, False]
@@ -111,15 +112,43 @@ def test_focus_uses_stars_the_loop_keeps_and_acquisition_does_not(monkeypatch):
     ("star_flags", "kwargs"),
     [
         ([CLEAN, CLEAN | S.GALAXY, CLEAN], {}),  # both filters drop the galaxy and nothing else
+        ([CLEAN, (CLEAN & ~S.PARA) | S.GALAXY, CLEAN], {}),  # dropped by both, for different reasons
         ([CLEAN, CLEAN & ~S.PARA, CLEAN], {"is_guide": True}),  # the caller asked for the loop's catalog
     ],
 )
 def test_one_match_when_the_catalogs_agree(monkeypatch, star_flags, kwargs):
-    offsets, catalog_sizes = _run_acquire_field(monkeypatch, star_flags, **kwargs)
+    offsets, matches = _run_acquire_field(monkeypatch, star_flags, **kwargs)
 
-    assert len(catalog_sizes) == 1
+    assert len(matches) == 1
     assert offsets.focus_detected_object_ids is None
     assert offsets.focus_detected_objects.equals(offsets.matched_detected_objects)
+
+
+def test_second_match_gets_the_loop_residual_limit_and_the_same_options(monkeypatch):
+    star_flags = [CLEAN, CLEAN & ~S.PARA, CLEAN]
+    _, matches = _run_acquire_field(
+        monkeypatch, star_flags, cameras=[1, 3], max_ellipticity=1.5, max_residual=0.4, focus_max_residual=0.2
+    )
+
+    first, second = matches
+    assert (first["max_residual"], second["max_residual"]) == (0.4, 0.2)
+    for name in ("enabled_camera_ids", "max_ellipticity", "tel_ra", "tel_de", "dt", "adc", "instpa", "m2pos3", "wl"):
+        assert first[name] == second[name], name
+    assert first["enabled_camera_ids"] == [1, 3] and first["max_ellipticity"] == 1.5
+    # Negative control: the limit for focus does not leak into the match the offsets come from.
+    assert first["max_residual"] != second["max_residual"]
+
+
+def test_second_match_when_only_the_residual_limit_differs(monkeypatch):
+    # Every star passes both filters, so the catalogs agree; the loop's limit still differs.
+    offsets, matches = _run_acquire_field(monkeypatch, [CLEAN, CLEAN], focus_max_residual=0.2)
+
+    assert [m["n_stars"] for m in matches] == [2, 2]
+    assert (matches[0]["max_residual"], matches[1]["max_residual"]) == (0.5, 0.2)
+    assert offsets.focus_detected_object_ids is not None
+    # Negative control: the same field without a limit for focus is matched once.
+    _, matches = _run_acquire_field(monkeypatch, [CLEAN, CLEAN])
+    assert len(matches) == 1
 
 
 def test_focus_detected_objects_selects_by_label():
