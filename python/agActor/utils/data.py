@@ -24,7 +24,6 @@ BAD_DETECTION_FLAGS = (
     SourceDetectionFlag.SATURATED
     | SourceDetectionFlag.EDGE
     | SourceDetectionFlag.BAD_ELLIP
-    | SourceDetectionFlag.FLAT_TOP
 )
 
 
