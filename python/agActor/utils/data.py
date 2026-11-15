@@ -166,6 +166,8 @@ class GuideOffsets:
         size: Representative spot size
         peak: Representative peak intensity
         flux: Representative flux
+        focus_detected_object_ids: Labels of the `detected_objects` rows the focus estimate
+            uses, when they are not `matched_detected_objects` (see `focus_detected_objects`)
     """
 
     ra: float
@@ -188,6 +190,7 @@ class GuideOffsets:
     design_id: int | None = None
     visit_id: int | None = None
     frame_id: int | None = None
+    focus_detected_object_ids: NDArray | None = None
 
     @property
     def matched_detected_objects(self) -> pd.DataFrame:
@@ -199,6 +202,21 @@ class GuideOffsets:
         """
         matched = self.identified_objects.query("matched == 1").detected_object_id.values
         return self.detected_objects.loc[matched]
+
+    @property
+    def focus_detected_objects(self) -> pd.DataFrame:
+        """The rows of ``detected_objects`` the focus estimate uses.
+
+        These are the detections matched to a guide star of the catalog the autoguide
+        loop uses (galaxies removed, nothing else). The loop matches against that
+        catalog, so there they are ``matched_detected_objects``. ``acquire_field``
+        computes its offsets from a stricter catalog and matches a second time for
+        focus (``focus_detected_object_ids``), so that acquisition and guiding
+        estimate focus from the same stars.
+        """
+        if self.focus_detected_object_ids is None:
+            return self.matched_detected_objects
+        return self.detected_objects.loc[self.focus_detected_object_ids]
 
     def save_numpy_files(self, base_dir: str = "/dev/shm") -> list:
         """Save guide, detected, and identified objects to numpy files.

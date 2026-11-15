@@ -503,7 +503,7 @@ class AgThread(threading.Thread):
                     )
 
                     dz, dzs = focus(
-                        detected_objects=guide_offsets.matched_detected_objects,
+                        detected_objects=guide_offsets.focus_detected_objects,
                         enabledCameras=cameras,
                         max_ellipticity=max_ellipticity,
                         max_size=max_size,

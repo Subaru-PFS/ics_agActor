@@ -10,7 +10,7 @@ from pfs.utils.datamodel.ag import SourceMatchingFlags
 
 from agActor.coordinates.FieldAcquisitionAndFocusing import calculate_offsets
 from agActor.utils import to_altaz
-from agActor.utils.data import GuideOffsets, get_detected_objects, get_guide_objects
+from agActor.utils.data import GuideOffsets, filter_guide_objects, get_detected_objects, get_guide_objects
 from agActor.utils.math import semi_axes
 
 logger = logging.getLogger(__name__)
@@ -145,6 +145,11 @@ def acquire_field(
     Notes
     -----
     If kwargs is missing any values, they will be provided by a lookup in the `get_telescope_status` function.
+
+    The offsets and ``identified_objects`` come from the guide objects selected by ``is_guide``.
+    When that is the acquisition catalog and it differs from the one the autoguide loop uses,
+    the detections are matched once more against the loop's catalog, only to choose the
+    detections for the focus estimate (``GuideOffsets.focus_detected_objects``).
     """
     logger.info(
         f"Calling acquire_field with {frame_id=}, {obswl=}, {altazimuth=} {kwargs=}"
@@ -198,6 +203,27 @@ def acquire_field(
         enabled_camera_ids=cameras,
         **_kwargs,
     )
+
+    # The offsets above come from the acquisition catalog. Focus uses the detections matched
+    # to the catalog the autoguide loop uses, so match once more when the two catalogs differ.
+    loop_guide_objects = filter_guide_objects(guide_objects, is_guide=True)
+    if not (loop_guide_objects["filtered_by"] == guide_objects["filtered_by"]).all():
+        logger.info("Matching against the autoguide loop's guide objects for the focus estimate")
+        loop_offsets = get_guide_offsets(
+            loop_guide_objects,
+            detected_objects,
+            ra,
+            dec,
+            taken_at,
+            adc,
+            inst_pa,
+            m2_pos3=m2_pos3,
+            obswl=obswl,
+            altazimuth=False,
+            enabled_camera_ids=cameras,
+            **_kwargs,
+        )
+        guide_offsets.focus_detected_object_ids = loop_offsets.matched_detected_objects.index.to_numpy()
 
     return guide_offsets
 

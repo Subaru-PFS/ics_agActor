@@ -143,3 +143,20 @@ def test_acquire_field_focus_is_nan_without_matches_on_both_halves(match_flags):
     _, all_dzs = focus(detected_objects=guide_offsets.detected_objects)
     assert np.isfinite(all_dzs[0])
     assert focus_errors[0] != 0.0
+
+
+def test_acquire_field_focus_uses_the_second_match():
+    # The acquisition match has one spot, on the left half; the match against the autoguide
+    # loop's catalog also has the two spots on the glass-free half.
+    guide_offsets = _sparse_field([G, N, N, N, N])
+    guide_offsets.focus_detected_object_ids = np.array([0, 3, 4])
+    _, expected_dzs = focus(detected_objects=guide_offsets.detected_objects.loc[[0, 3, 4]])
+
+    focus_errors, guide_focus = _acquire_field(guide_offsets)
+
+    assert np.isfinite(expected_dzs[0])
+    assert focus_errors[0] == pytest.approx(expected_dzs[0])
+    assert guide_focus == pytest.approx(expected_dzs[0])
+    # Negative control: the acquisition match alone gives this camera no estimate.
+    _, matched_dzs = focus(detected_objects=guide_offsets.matched_detected_objects)
+    assert np.isnan(matched_dzs[0])
