@@ -539,7 +539,7 @@ class AgThread(threading.Thread):
                     cmd.inform(
                         "focusErrors={},{},{},{},{},{},{}".format(frame_id, *dzs)
                     )
-                    cmd.inform(guide_offsets.guide_stats_keyword(frame_id))
+                    self.logger.info(guide_offsets.describe_image_size(frame_id))
 
                     if self.with_opdb_agc_guide_offset:
                         self.logger.info(

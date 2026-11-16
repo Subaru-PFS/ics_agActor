@@ -194,18 +194,14 @@ class GuideOffsets:
     focus_detected_object_ids: NDArray | None = None
     image_size: AgImageSize | None = None
 
-    def guide_stats_keyword(self, frame_id: int) -> str:
-        """Return the ``guideStats`` keyword for this frame.
-
-        The fields are the exposure, the median FWHM (arcsec) of the spots behind `size` on
-        both detector halves, on the left halves and on the right halves, the number of spots
-        on each, and the transparency, which is not measured yet and is sent as NaN.
-        """
+    def describe_image_size(self, frame_id: int) -> str:
+        """Return a log line with the median FWHM of the frame's spots, pooled and per detector half."""
         size = self.image_size
         if size is None:
-            size = AgImageSize(fwhm=np.nan, fwhmLeft=np.nan, fwhmRight=np.nan, nLeft=0, nRight=0)
-        return "guideStats={},{:.3f},{:.3f},{:.3f},{},{},{}".format(
-            frame_id, size.fwhm, size.fwhmLeft, size.fwhmRight, size.nLeft, size.nRight, np.nan
+            return f"Image size: frame_id={frame_id} not measured"
+        return (
+            f"Image size: frame_id={frame_id} fwhm={size.fwhm:.3f} arcsec "
+            f"left={size.fwhmLeft:.3f} (n={size.nLeft}) right={size.fwhmRight:.3f} (n={size.nRight})"
         )
 
     @property

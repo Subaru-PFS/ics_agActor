@@ -517,7 +517,7 @@ class AgCmd:
                 )
             )
             cmd.inform("focusErrors={},{},{},{},{},{},{}".format(frame_id, *dzs))
-            cmd.inform(guide_offsets.guide_stats_keyword(frame_id))
+            self.actor.logger.info(guide_offsets.describe_image_size(frame_id))
             # store results in opdb
             if self.with_opdb_agc_guide_offset:
                 data_utils.write_agc_guide_offset(

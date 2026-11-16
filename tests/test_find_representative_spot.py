@@ -253,12 +253,12 @@ def test_get_guide_offsets_takes_the_representative_spot_from_matched_detections
     all_flux, all_peak, all_size = find_representative_spot(detected, offsets.identified_objects)
     assert all_peak == pytest.approx(9000.0) and all_flux == pytest.approx(9.0e5)
     assert offsets.size < all_size
-    # The keyword describes the same spots: the two matched ones, on the left half.
+    # The logged image size describes the same spots: the two matched ones, on the left half.
     assert offsets.image_size.fwhm == pytest.approx(offsets.size)
     assert (offsets.image_size.nLeft, offsets.image_size.nRight) == (2, 0)
-    fields = offsets.guide_stats_keyword(1234).removeprefix("guideStats=").split(",")
-    assert fields[0] == "1234" and float(fields[1]) == pytest.approx(offsets.size, abs=1e-3)
-    assert fields[3] == "nan" and fields[4:6] == ["2", "0"] and fields[6] == "nan"
+    line = offsets.describe_image_size(1234)
+    assert f"frame_id=1234 fwhm={offsets.size:.3f} arcsec" in line
+    assert "(n=2) right=nan (n=0)" in line
 
 
 def test_get_guide_offsets_spot_without_any_match_uses_every_detection(monkeypatch):
