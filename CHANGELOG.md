@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## [1.1.85] - 2026-11-16
+
 - INSTRM-2889 - **Breaking:** the design, exposure time and visit keywords of `acquire_field`, `focus` and `autoguide start|initialize|reconfigure` are now spelled as iic spells its own: `designId`, `exptime` (still milliseconds; agcc's `exptime` is seconds) and `visit`. `design_id`, `exposure_time` and `visit_id` are no longer accepted: a command that uses one is rejected. Every other keyword is unchanged. **Deploy together with** the ics_iicActor change of the same ticket, which sends the new names, and the `exposure_time` to `exptime` edit in the Gen2 scripts that command ag directly (`AGRECONF2.sk`, `AGRECONF.sk`, `PFS_AGFOCUS.sk`). From 2026-09-01 to 2026-11-16 the actor received these keywords only from iic and from the Gen2 reconfigure script.
 
 ## [1.1.84] - 2026-11-16
