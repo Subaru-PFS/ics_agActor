@@ -40,7 +40,6 @@ class ag:
     MIN_MATCHED_STARS = 3  # good matches from enabled cameras needed to use an offset
     EXPOSURE_DELAY = 100  # ms
     TEC_OFF = False
-    FILTER_BAD_SHAPE = True # By default we don't want to filter bad shape objects.
 
     class Params:
         __slots__ = (
@@ -68,7 +67,6 @@ class ag:
             "min_matched_stars",
             "exposure_delay",
             "tec_off",
-            "filter_bad_shape",
         )
 
         def __init__(self, **kwargs):
@@ -212,7 +210,7 @@ class AgThread(threading.Thread):
         self.with_agcc_timestamp = actor.actorConfig.get("agcc_timestamp", False)
         tel_status = [
             x.strip()
-            for x in actor.actorConfig.get("tel_status", ("agc_exposure",)).split(",")
+            for x in actor.actorConfig.get("tel_status", "agc_exposure").split(",")
         ]
         self.with_gen2_status = "gen2" in tel_status
         self.with_mlp1_status = "mlp1" in tel_status
@@ -413,9 +411,6 @@ class AgThread(threading.Thread):
                     min_size = options.get("min_size", ag.MIN_SIZE)
                     max_residual = options.get("max_residual", ag.MAX_RESIDUAL)
 
-                    if "filter_bad_shape" in options:
-                        kwargs["filter_bad_shape"] = options.get("filter_bad_shape")
-
                     # Compute guide errors for exposure.
                     cmd.inform("detectionState=1")
                     frame_id = self.actor.agcc.frameId
@@ -523,10 +518,8 @@ class AgThread(threading.Thread):
                         f"AgThread.run: focus.focus for frame_id={frame_id}"
                     )
 
-                    _detected_objects = guide_offsets.detected_objects.loc[guide_offsets.identified_objects.query('matched == 1').detected_object_id.values]
-
                     dz, dzs = focus(
-                        detected_objects=_detected_objects,
+                        detected_objects=guide_offsets.focus_detected_objects,
                         enabledCameras=cameras,
                         max_ellipticity=max_ellipticity,
                         max_size=max_size,

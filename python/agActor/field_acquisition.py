@@ -6,11 +6,11 @@ from typing import Any, Dict, Sequence, Tuple
 import numpy as np
 import pandas as pd
 from pfs.utils.coordinates import coordinates
-from pfs.utils.datamodel.ag import SourceDetectionFlag, SourceMatchingFlags
+from pfs.utils.datamodel.ag import SourceMatchingFlags
 
 from agActor.coordinates.FieldAcquisitionAndFocusing import calculate_offsets
 from agActor.utils import to_altaz
-from agActor.utils.data import BAD_DETECTION_FLAGS, GuideOffsets, get_detected_objects, get_guide_objects
+from agActor.utils.data import GuideOffsets, filter_guide_objects, get_detected_objects, get_guide_objects
 from agActor.utils.math import semi_axes
 
 logger = logging.getLogger(__name__)
@@ -79,6 +79,7 @@ def acquire_field(
     obswl: float = 0.62,
     altazimuth: bool = True,
     is_guide: bool = False,
+    focus_max_residual: float | None = None,
     **kwargs: Any,
 ) -> GuideOffsets:
     """Perform the necessary steps for field acquisition, including which guide stars are used.
@@ -104,6 +105,10 @@ def acquire_field(
     is_guide : bool, optional
         If we should filter the guide objects for acquisition, defaults to False.
         Should almost always be False for this function but provided here as a convenience.
+    focus_max_residual : float or None, optional
+        The residual limit (mm) of the match that chooses the detections for the focus
+        estimate; pass the autoguide loop's. If not provided, that match uses the same
+        limit as the offsets (``max_residual``).
     **kwargs : dict
         Additional keyword arguments that may include:
 
@@ -145,20 +150,19 @@ def acquire_field(
     Notes
     -----
     If kwargs is missing any values, they will be provided by a lookup in the `get_telescope_status` function.
+
+    The offsets and ``identified_objects`` come from the guide objects selected by ``is_guide``
+    and the ``max_residual`` limit. When the autoguide loop would match differently (its catalog
+    keeps more stars, or ``focus_max_residual`` is another limit), the detections are matched
+    once more the loop's way, only to choose the detections for the focus estimate
+    (``GuideOffsets.focus_detected_objects``).
     """
     logger.info(
         f"Calling acquire_field with {frame_id=}, {obswl=}, {altazimuth=} {kwargs=}"
     )
 
     # Get the detected_objects, which will raise an exception if no valid spots are detected.
-    filter_flags = BAD_DETECTION_FLAGS
-    filter_bad_shape = kwargs.get("filter_bad_shape", True)
-    if filter_bad_shape:
-        filter_flags = filter_flags | SourceDetectionFlag.BAD_SHAPE
-    else:
-        filter_flags = filter_flags & ~SourceDetectionFlag.BAD_SHAPE
-
-    detected_objects = get_detected_objects(frame_id, filter_flags=filter_flags)
+    detected_objects = get_detected_objects(frame_id)
     logger.info(f"Detected objects: {len(detected_objects)}")
 
     parse_kwargs(kwargs)
@@ -205,6 +209,37 @@ def acquire_field(
         enabled_camera_ids=cameras,
         **_kwargs,
     )
+
+    # The offsets above come from the acquisition catalog. Focus uses the detections the
+    # autoguide loop would match, with its catalog and its residual limit, so match once more
+    # when either differs from the match above.
+    loop_guide_objects = filter_guide_objects(guide_objects, is_guide=True)
+    loop_kwargs = dict(_kwargs)
+    if focus_max_residual is not None:
+        loop_kwargs["max_residual"] = focus_max_residual
+    same_stars = ((loop_guide_objects["filtered_by"] == 0) == (guide_objects["filtered_by"] == 0)).all()
+    if not (same_stars and loop_kwargs == _kwargs):
+        logger.info(
+            "Second match, the autoguide loop's way, for the focus estimate only: "
+            "the offsets logged until 'Second match done' are not used"
+        )
+        loop_offsets = get_guide_offsets(
+            loop_guide_objects,
+            detected_objects,
+            ra,
+            dec,
+            taken_at,
+            adc,
+            inst_pa,
+            m2_pos3=m2_pos3,
+            obswl=obswl,
+            altazimuth=False,
+            enabled_camera_ids=cameras,
+            **loop_kwargs,
+        )
+        focus_ids = loop_offsets.matched_detected_objects.index.to_numpy()
+        guide_offsets.focus_detected_object_ids = focus_ids
+        logger.info(f"Second match done: {len(focus_ids)} detections for the focus estimate")
 
     return guide_offsets
 
@@ -474,7 +509,12 @@ def get_guide_offsets(
     dy = dec_offset  # arcsec (HSC definition)
     logger.info(f"Converting offsets to pixels: {dx=},{dy=}")
 
-    flux, peak, size = find_representative_spot(detected_objects, identified_objects)
+    # The spot sent to mlp1 describes the matched stars. A frame with no good match keeps
+    # describing every filtered detection, as it always has, rather than sending zeros.
+    matched_objects = identified_objects.query("matched == 1")
+    flux, peak, size = find_representative_spot(
+        detected_objects, matched_objects if len(matched_objects) else identified_objects
+    )
     logger.info(f"Calculated star stats: {flux=},{peak=},{size=}")
 
     return GuideOffsets(
@@ -511,9 +551,9 @@ def find_representative_spot(
         Detected star data filtered by BAD_DETECTION_FLAGS (output of
         ``get_detected_objects``).
     identified_objects : pd.DataFrame
-        Matched guide/detected object pairs (output of the astrometric fit).
-        Must contain column ``detected_object_id`` indexing into
-        ``detected_objects``.
+        The rows of the astrometric fit's output to use: pass the detections matched
+        to a guide star (``matched == 1``). Must contain column ``detected_object_id``,
+        the labels of those rows in ``detected_objects``.
     ag_plate_scale : float
         Plate scale in arcsec/pixel. Default is (206.265 * 13 um/px) / 15000 mm.
 
@@ -526,21 +566,26 @@ def find_representative_spot(
             Median peak intensity across matched stars.
         size : float
             Median spot size (arcsec) across matched stars, computed as
-            ``ag_plate_scale * 2 * sqrt(a * b)`` where a, b are semi-axes.
+            ``ag_plate_scale * 2 * sqrt(a * b)`` where a, b are semi-axes. Spots whose
+            moments give no real semi-minor axis are left out; 0.0 if none is left.
     """
     matched_idx = identified_objects["detected_object_id"].values
     if len(matched_idx) == 0:
         return 0.0, 0.0, 0.0
 
-    matched = detected_objects.iloc[matched_idx]
+    matched = detected_objects.loc[matched_idx]
     fluxes = matched["image_moment_00_pix"].to_numpy(dtype=float)
     peaks = matched["peak_intensity"].to_numpy(dtype=float)
 
-    semi_major, semi_minor = semi_axes(
-        matched["central_image_moment_11_pix"].to_numpy(dtype=float),
-        matched["central_image_moment_20_pix"].to_numpy(dtype=float),
-        matched["central_image_moment_02_pix"].to_numpy(dtype=float),
-    )
-    sizes = ag_plate_scale * 2.0 * np.sqrt(np.maximum(semi_major * semi_minor, 0.0))
+    # Noisy moments with m11^2 > m20 * m02 have no real semi-minor axis: such a spot gets a
+    # NaN size and is left out of the median.
+    with np.errstate(invalid="ignore"):
+        semi_major, semi_minor = semi_axes(
+            matched["central_image_moment_11_pix"].to_numpy(dtype=float),
+            matched["central_image_moment_20_pix"].to_numpy(dtype=float),
+            matched["central_image_moment_02_pix"].to_numpy(dtype=float),
+        )
+        sizes = ag_plate_scale * 2.0 * np.sqrt(semi_major * semi_minor)
+    size = float(np.nanmedian(sizes)) if np.isfinite(sizes).any() else 0.0
 
-    return float(np.nanmedian(fluxes)), float(np.nanmedian(peaks)), float(np.nanmedian(sizes))
+    return float(np.nanmedian(fluxes)), float(np.nanmedian(peaks)), size

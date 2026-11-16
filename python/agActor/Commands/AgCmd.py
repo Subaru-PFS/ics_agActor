@@ -18,6 +18,29 @@ from agActor.utils.data import GuideOffsetFlag
 from agActor.utils.telescope_center import telCenter as tel_center
 
 
+def ignore_filter_bad_shape(cmd):
+    """Drop the deprecated ``filter_bad_shape`` keyword, telling the sender.
+
+    BAD_SHAPE spots are always excluded from acquisition and guiding now. That
+    is what ``filter_bad_shape=yes`` asks for, so it only gets an inform;
+    ``filter_bad_shape=no`` asks for something that no longer exists and gets a
+    warning. The keyword is still accepted only because the Gen2 AG scripts and
+    iic send it; remove it once both have stopped sending it.
+    """
+    if "filter_bad_shape" not in cmd.cmd.keywords:
+        return
+    if bool(cmd.cmd.keywords["filter_bad_shape"].values[0]):
+        cmd.inform(
+            'text="filter_bad_shape is deprecated and has no effect: '
+            'BAD_SHAPE spots are always excluded (INSTRM-2841)"'
+        )
+    else:
+        cmd.warn(
+            'text="filter_bad_shape=no is ignored: '
+            'BAD_SHAPE spots are always excluded (INSTRM-2841)"'
+        )
+
+
 class AgCmd:
     def __init__(self, actor):
         self.actor = actor
@@ -170,7 +193,7 @@ class AgCmd:
             keys.Key("min_matched_stars", types.Int(), help="Good matches needed to use an offset"),
             keys.Key("exposure_delay", types.Int(), help=""),
             keys.Key("tec_off", types.Bool("no", "yes"), help=""),
-            keys.Key("filter_bad_shape", types.Bool("no", "yes"), help=""),
+            keys.Key("filter_bad_shape", types.Bool("no", "yes"), help="deprecated, ignored"),
         )
 
         # Set up the database connections.
@@ -190,7 +213,7 @@ class AgCmd:
 
         tel_status = [
             x.strip()
-            for x in actor.actorConfig.get("tel_status", ("agc_exposure",)).split(",")
+            for x in actor.actorConfig.get("tel_status", "agc_exposure").split(",")
         ]
         self.with_gen2_status = "gen2" in tel_status
         self.with_mlp1_status = "mlp1" in tel_status
@@ -311,10 +334,7 @@ class AgCmd:
         if "tec_off" in cmd.cmd.keywords:
             tec_off = bool(cmd.cmd.keywords["tec_off"].values[0])
 
-        kwargs["filter_bad_shape"] = ag.FILTER_BAD_SHAPE
-        if "filter_bad_shape" in cmd.cmd.keywords:
-            kwargs["filter_bad_shape"] = bool(cmd.cmd.keywords["filter_bad_shape"].values[0])
-
+        ignore_filter_bad_shape(cmd)
         self.actor.logger.info(f"AgCmd.acquire_field: kwargs={kwargs}")
 
         try:
@@ -424,6 +444,7 @@ class AgCmd:
                 visit0=visit0,
                 frame_id=frame_id,
                 cameras=self.enabledCameras,
+                focus_max_residual=ag.MAX_RESIDUAL,
                 **kwargs,
             )
 
@@ -477,7 +498,7 @@ class AgCmd:
             # always compute focus offset and tilt
             self.actor.logger.info("AgCmd.acquire_field: Calling focus")
             dz, dzs = focus(
-                detected_objects=guide_offsets.detected_objects,
+                detected_objects=guide_offsets.focus_detected_objects,
                 enabledCameras=self.enabledCameras,
                 max_ellipticity=max_ellipticity,
                 max_size=max_size,
@@ -721,9 +742,8 @@ class AgCmd:
             kwargs["max_correction"] = max_correction
         if "min_matched_stars" in cmd.cmd.keywords:
             kwargs["min_matched_stars"] = int(cmd.cmd.keywords["min_matched_stars"].values[0])
-        if "filter_bad_shape" in cmd.cmd.keywords:
-            kwargs["filter_bad_shape"] = bool(cmd.cmd.keywords["filter_bad_shape"].values[0])
 
+        ignore_filter_bad_shape(cmd)
         try:
             self.actor.logger.info(f"AgCmd.start_autoguide: kwargs={kwargs}")
             controller.start_autoguide(
@@ -816,9 +836,8 @@ class AgCmd:
             kwargs["max_correction"] = max_correction
         if "min_matched_stars" in cmd.cmd.keywords:
             kwargs["min_matched_stars"] = int(cmd.cmd.keywords["min_matched_stars"].values[0])
-        if "filter_bad_shape" in cmd.cmd.keywords:
-            kwargs["filter_bad_shape"] = bool(cmd.cmd.keywords["filter_bad_shape"].values[0])
 
+        ignore_filter_bad_shape(cmd)
         try:
             self.actor.logger.info(f"AgCmd.initialize_autoguide: kwargs={kwargs}")
             controller.initialize_autoguide(
@@ -915,9 +934,7 @@ class AgCmd:
         if "min_matched_stars" in cmd.cmd.keywords:
             kwargs["min_matched_stars"] = int(cmd.cmd.keywords["min_matched_stars"].values[0])
 
-        if "filter_bad_shape" in cmd.cmd.keywords:
-            kwargs["filter_bad_shape"] = bool(cmd.cmd.keywords['filter_bad_shape'].values[0])
-
+        ignore_filter_bad_shape(cmd)
         try:
             controller.reconfigure_autoguide(cmd=cmd, **kwargs)
         except Exception as e:
