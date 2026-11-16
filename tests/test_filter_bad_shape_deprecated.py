@@ -50,7 +50,7 @@ def test_yes_informs_and_no_warns():
 
 def test_no_keyword_no_reply():
     # Negative control: a command without the keyword is left alone.
-    cmd = _cmd(exposure_time=2)
+    cmd = _cmd(exptime=2)
     ignore_filter_bad_shape(cmd)
     cmd.warn.assert_not_called()
     cmd.inform.assert_not_called()
@@ -91,7 +91,7 @@ def test_autoguide_accepts_and_drops_the_keyword(ag_commands, sub, form):
     controller = MagicMock()
     actor.controllers = {"ag": controller}
 
-    matched = _match(handler, f"autoguide {sub} exposure_time=3000 cadence=5000 {form}")
+    matched = _match(handler, f"autoguide {sub} exptime=3000 cadence=5000 {form}")
     assert matched is not None, "the validator rejected a command the senders use"
     validated, funcs = matched
     cmd = MagicMock()
@@ -113,7 +113,7 @@ def test_autoguide_accepts_and_drops_the_keyword(ag_commands, sub, form):
 @pytest.mark.parametrize("form", SENT_FORMS)
 def test_acquire_field_accepts_the_keyword(ag_commands, form):
     _, handler = ag_commands
-    matched = _match(handler, f"acquire_field design_id=0x1 exposure_time=2000 {form}")
+    matched = _match(handler, f"acquire_field designId=0x1 exptime=2000 {form}")
     assert matched is not None
     assert [func.__name__ for func in matched[1]] == ["acquire_field"]
 
@@ -122,6 +122,6 @@ def test_validator_rejects_unknown_keywords(ag_commands):
     # Negative control: the validator refuses a keyword that is not in the vocabulary, so the
     # tests above fail if filter_bad_shape is ever dropped from it while the senders still use it.
     _, handler = ag_commands
-    assert _match(handler, "autoguide start exposure_time=3000") is not None
-    assert _match(handler, "autoguide start exposure_time=3000 filter_bad_shapes=yes") is None
-    assert _match(handler, "acquire_field design_id=0x1 filter_bad_shapes=yes") is None
+    assert _match(handler, "autoguide start exptime=3000") is not None
+    assert _match(handler, "autoguide start exptime=3000 filter_bad_shapes=yes") is None
+    assert _match(handler, "acquire_field designId=0x1 filter_bad_shapes=yes") is None

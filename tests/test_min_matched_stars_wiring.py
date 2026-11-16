@@ -288,7 +288,7 @@ def _controller_kwargs(ag_commands, cmd_str: str, method: str) -> dict:
     ],
 )
 def test_autoguide_commands_pass_the_minimum_on(ag_commands, sub, method):
-    command = f"autoguide {sub} exposure_time=3000"
+    command = f"autoguide {sub} exptime=3000"
     kwargs = _controller_kwargs(ag_commands, f"{command} min_matched_stars=4", method)
     assert kwargs["min_matched_stars"] == 4
     assert isinstance(kwargs["min_matched_stars"], int)
@@ -298,12 +298,12 @@ def test_autoguide_commands_pass_the_minimum_on(ag_commands, sub, method):
 
 def test_acquire_field_accepts_the_minimum(ag_commands):
     _, handler = ag_commands
-    validated, funcs = handler.match("acquire_field design_id=0x1 min_matched_stars=4")
+    validated, funcs = handler.match("acquire_field designId=0x1 min_matched_stars=4")
     assert [func.__name__ for func in funcs] == ["acquire_field"]
     assert int(validated.keywords["min_matched_stars"].values[0]) == 4
     # Negative control: the validator refuses a keyword that is not in the vocabulary.
     with pytest.raises(validation.ValidationError):
-        handler.match("acquire_field design_id=0x1 min_matched_star=4")
+        handler.match("acquire_field designId=0x1 min_matched_star=4")
 
 
 def _run_focus(detected: pd.DataFrame) -> MagicMock:
