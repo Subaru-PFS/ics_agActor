@@ -119,7 +119,7 @@ class TestFindRepresentativeSpot:
         assert size >= 0.0
 
     def test_spot_without_a_real_semi_minor_axis_is_left_out(self):
-        """One spot with m11^2 > m20 * m02 among normal ones does not change the size."""
+        """Spots with m11^2 > m20 * m02 among normal ones do not change the size."""
         detected = _make_detected(5)
         identified = _make_identified(list(range(5)))
         _, _, clean_size = find_representative_spot(detected, identified)
@@ -181,8 +181,8 @@ class TestFindRepresentativeSpot:
         assert ratio < 1.1
 
 
-def test_get_guide_offsets_takes_the_representative_spot_from_matched_detections(monkeypatch):
-    """Unmatched detections pass the source filter too; they must not set the spot values."""
+def _offsets_for(monkeypatch, match_flags):
+    """get_guide_offsets on five detections: two star-like, three large and bright."""
     n = 5
     detected = pd.DataFrame(
         {
@@ -202,16 +202,23 @@ def test_get_guide_offsets_takes_the_representative_spot_from_matched_detections
     match_results = np.zeros((n, 12))
     match_results[:, 9] = [0, 1, 0, 0, 0]
     match_results[:, 10] = 1
-    match_results[:, 11] = [M.GOOD_MATCH, M.GOOD_MATCH, M.NO_MATCH, M.NO_MATCH, M.BAD_RESIDUAL]
+    match_results[:, 11] = match_flags
 
     def fake_calculate_offsets(*, guide_objects, detected_array, **_):
         return 0.0, 0.0, np.nan, np.nan, match_results, 0.0, np.ones(n, dtype=bool), guide_objects
 
     monkeypatch.setattr(field_acquisition, "calculate_offsets", fake_calculate_offsets)
-    offsets = field_acquisition.get_guide_offsets(
+    return detected, field_acquisition.get_guide_offsets(
         guide_objects=guide, detected_objects=detected, ra=0.0, dec=0.0,
         taken_at=datetime(2026, 11, 15, tzinfo=UTC), adc=0.0,
     )  # fmt: skip
+
+
+def test_get_guide_offsets_takes_the_representative_spot_from_matched_detections(monkeypatch):
+    """Unmatched detections pass the source filter too; they must not set the spot values."""
+    detected, offsets = _offsets_for(
+        monkeypatch, [M.GOOD_MATCH, M.GOOD_MATCH, M.NO_MATCH, M.NO_MATCH, M.BAD_RESIDUAL]
+    )
 
     assert offsets.peak == pytest.approx(290.0)
     assert offsets.flux == pytest.approx(13500.0)
@@ -219,3 +226,14 @@ def test_get_guide_offsets_takes_the_representative_spot_from_matched_detections
     all_flux, all_peak, all_size = find_representative_spot(detected, offsets.identified_objects)
     assert all_peak == pytest.approx(9000.0) and all_flux == pytest.approx(9.0e5)
     assert offsets.size < all_size
+
+
+def test_get_guide_offsets_spot_without_any_match_uses_every_detection(monkeypatch):
+    """A frame with no good match keeps describing its detections, as it did before."""
+    detected, offsets = _offsets_for(monkeypatch, [M.NO_MATCH] * 4 + [M.BAD_RESIDUAL])
+
+    assert offsets.identified_objects["matched"].sum() == 0
+    assert offsets.peak == pytest.approx(9000.0) and offsets.flux == pytest.approx(9.0e5)
+    # Negative control: the spot of an empty selection is all zeros, which is not what is sent.
+    assert find_representative_spot(detected, offsets.identified_objects.query("matched == 1")) == (0.0, 0.0, 0.0)
+    assert offsets.size > 0.0

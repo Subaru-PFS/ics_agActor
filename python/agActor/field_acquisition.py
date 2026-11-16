@@ -509,7 +509,12 @@ def get_guide_offsets(
     dy = dec_offset  # arcsec (HSC definition)
     logger.info(f"Converting offsets to pixels: {dx=},{dy=}")
 
-    flux, peak, size = find_representative_spot(detected_objects, identified_objects.query("matched == 1"))
+    # The spot sent to mlp1 describes the matched stars. A frame with no good match keeps
+    # describing every filtered detection, as it always has, rather than sending zeros.
+    matched_objects = identified_objects.query("matched == 1")
+    flux, peak, size = find_representative_spot(
+        detected_objects, matched_objects if len(matched_objects) else identified_objects
+    )
     logger.info(f"Calculated star stats: {flux=},{peak=},{size=}")
 
     return GuideOffsets(

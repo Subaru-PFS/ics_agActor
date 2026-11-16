@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-- INSTRM-3112 - The spot size, peak and flux sent to mlp1 (`find_representative_spot`) are medians over the detections matched to guide stars, as documented, not over every detection that passed the source filter. In the Run 30 engineering visits the values change by under 1% in the median (size within 8%, peak and flux within a factor 0.8–1.9 in single exposures of the sparse visits). A spot whose moments give no real semi-minor axis is left out of the size instead of making it NaN, and the size is 0 when none is left. `AgCmd` no longer fails at start-up when the actor config has no `tel_status` entry.
+- INSTRM-3112 - The spot size, peak and flux sent to mlp1 (`find_representative_spot`) are medians over the detections matched to guide stars, as documented, not over every detection that passed the source filter; a frame with no good match still uses every filtered detection, as before (11 of 20,593 exposures since Run 30). In the Run 30 engineering visits the values change by under 1% in the median (size within 9%, peak and flux within a factor 0.8–1.9 in single exposures of the sparse visits). Called directly, `find_representative_spot` leaves a spot whose moments give no real semi-minor axis out of the size instead of returning NaN when every spot is like that (0 when none is left); the actor's source filter already drops such spots, so this changes nothing on sky. `AgCmd` and the `ag` controller no longer fail at start-up when the actor config has no `tel_status` entry.
 
 ## [1.1.82] - 2026-11-15
 
