@@ -144,7 +144,7 @@ def acquire_field(
         - identified_objects (np.ndarray): Matched guide and detected objects
         - dx (float): X offset in arcseconds
         - dy (float): Y offset in arcseconds
-        - size (float): Representative spot size in pixels
+        - size (float): Representative spot size (FWHM) in arcseconds
         - peak (float): Representative peak intensity
         - flux (float): Representative flux
 
@@ -324,7 +324,7 @@ def get_guide_offsets(
         - identified_objects (NDArray): Matched guide and detected objects
         - dx (float): X offset in arcseconds
         - dy (float): Y offset in arcseconds
-        - size (float): Representative spot size in pixels
+        - size (float): Representative spot size (FWHM) in arcseconds
         - peak (float): Representative peak intensity
         - flux (float): Representative flux
     """
