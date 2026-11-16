@@ -73,10 +73,14 @@ def _sparse_field(match_flags: list[int]) -> GuideOffsets:
     return _guide_offsets(identified, detected)
 
 
-def _acquire_field(guide_offsets: GuideOffsets, calls: list | None = None) -> tuple[list[float], float]:
+def _acquire_field(
+    guide_offsets: GuideOffsets, calls: list | None = None, too_few_stars: bool = False
+) -> tuple[list[float], float]:
     """Run the acquire_field handler on ``guide_offsets``: the six focusErrors and the guideErrors focus.
 
     ``calls``, if given, collects the keyword arguments of each field_acquisition.acquire_field call.
+    ``too_few_stars`` says the offsets' match has fewer stars than the handler needs: the command
+    then fails, after publishing the focus all the same.
     """
     actor = MagicMock()
     actor.actorConfig = {"tel_status": "agc_exposure"}
@@ -97,15 +101,21 @@ def _acquire_field(guide_offsets: GuideOffsets, calls: list | None = None) -> tu
     with (
         patch.object(agCmdModule.field_acquisition, "acquire_field", return_value=guide_offsets) as acquire,
         patch.object(agCmdModule.time, "sleep"),
-        patch.object(agCmdModule, "send_guide_offsets"),
+        patch.object(agCmdModule, "send_guide_offsets") as send,
         patch.object(GuideOffsets, "save_numpy_files", return_value=["a", "b", "c"]),
     ):
         cmd_set.acquire_field(cmd)
     if calls is not None:
         calls.extend(call.kwargs for call in acquire.call_args_list)
 
-    cmd.fail.assert_not_called()
-    cmd.finish.assert_called_once()
+    if too_few_stars:
+        cmd.finish.assert_not_called()
+        send.assert_not_called()
+        (failure,) = [c.args[0] for c in cmd.fail.call_args_list]
+        assert "Too few guide stars matched" in failure
+    else:
+        cmd.fail.assert_not_called()
+        cmd.finish.assert_called_once()
     replies = [c.args[0] for c in cmd.inform.call_args_list]
     (focus_errors,) = [r for r in replies if r.startswith("focusErrors=")]
     (guide_errors,) = [r for r in replies if r.startswith("guideErrors=")]
@@ -139,7 +149,7 @@ def test_acquire_field_focus_ignores_unmatched_spots():
 def test_acquire_field_focus_is_nan_without_matches_on_both_halves(match_flags):
     guide_offsets = _sparse_field(match_flags)
 
-    focus_errors, guide_focus = _acquire_field(guide_offsets)
+    focus_errors, guide_focus = _acquire_field(guide_offsets, too_few_stars=True)
 
     assert np.isnan(focus_errors).all()
     assert np.isnan(guide_focus)
@@ -157,7 +167,8 @@ def test_acquire_field_focus_uses_the_second_match():
     guide_offsets.focus_detected_object_ids = np.array([0, 3, 4])
     _, expected_dzs = focus(detected_objects=guide_offsets.detected_objects.loc[[0, 3, 4]])
 
-    focus_errors, guide_focus = _acquire_field(guide_offsets)
+    # One star is too few for the offset, so the command fails; the focus is published all the same.
+    focus_errors, guide_focus = _acquire_field(guide_offsets, too_few_stars=True)
 
     assert np.isfinite(expected_dzs[0])
     assert focus_errors[0] == pytest.approx(expected_dzs[0])
