@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## [1.1.83] - 2026-11-15
+
+- INSTRM-3112 - The spot size, peak and flux sent to mlp1 (`find_representative_spot`) are medians over the detections matched to guide stars, as documented, not over every detection that passed the source filter; a frame with no good match still uses every filtered detection, as before (11 of 20,593 exposures since Run 30). In the Run 30 engineering visits the values change by under 1% in the median (size within 9%, peak and flux within a factor 0.8–1.9 in single exposures of the sparse visits). Called directly, `find_representative_spot` leaves a spot whose moments give no real semi-minor axis out of the size instead of returning NaN when every spot is like that (0 when none is left); the actor's source filter already drops such spots, so this changes nothing on sky. `AgCmd` and the `ag` controller no longer fail at start-up when the actor config has no `tel_status` entry.
+
 ## [1.1.82] - 2026-11-15
 
 - INSTRM-3111 - `acquire_field` estimates focus from the detections the autoguide loop would match: its guide stars (galaxies removed, nothing else) and its residual limit (`ag.MAX_RESIDUAL`, 0.2 mm), so acquisition and guiding estimate focus from the same spots. Its offsets, `agc_match` rows and saved files still come from the stricter acquisition catalog and its own limit (0.5 mm unless `max_residual` is given); it matches a second time for focus only (`GuideOffsets.focus_detected_objects`), about 35 ms per call. Replaying the ten Run 30 engineering visits, the acquisition focus then equals the loop's on every camera of all 290 exposures; against 1.1.81 a camera's value changes by up to 5 µm in the dense visits and by a median of 4 µm (up to 117 µm) in the sparse visits 148258–148259. Also, guide stars now load on pandas 3 as well as pandas 2: `tweak_target_position` gives pfs_utils a copy of the parallax column, which pfs_utils clamps in place.

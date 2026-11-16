@@ -509,7 +509,12 @@ def get_guide_offsets(
     dy = dec_offset  # arcsec (HSC definition)
     logger.info(f"Converting offsets to pixels: {dx=},{dy=}")
 
-    flux, peak, size = find_representative_spot(detected_objects, identified_objects)
+    # The spot sent to mlp1 describes the matched stars. A frame with no good match keeps
+    # describing every filtered detection, as it always has, rather than sending zeros.
+    matched_objects = identified_objects.query("matched == 1")
+    flux, peak, size = find_representative_spot(
+        detected_objects, matched_objects if len(matched_objects) else identified_objects
+    )
     logger.info(f"Calculated star stats: {flux=},{peak=},{size=}")
 
     return GuideOffsets(
@@ -546,9 +551,9 @@ def find_representative_spot(
         Detected star data filtered by BAD_DETECTION_FLAGS (output of
         ``get_detected_objects``).
     identified_objects : pd.DataFrame
-        Matched guide/detected object pairs (output of the astrometric fit).
-        Must contain column ``detected_object_id`` indexing into
-        ``detected_objects``.
+        The rows of the astrometric fit's output to use: pass the detections matched
+        to a guide star (``matched == 1``). Must contain column ``detected_object_id``,
+        the labels of those rows in ``detected_objects``.
     ag_plate_scale : float
         Plate scale in arcsec/pixel. Default is (206.265 * 13 um/px) / 15000 mm.
 
@@ -561,21 +566,26 @@ def find_representative_spot(
             Median peak intensity across matched stars.
         size : float
             Median spot size (arcsec) across matched stars, computed as
-            ``ag_plate_scale * 2 * sqrt(a * b)`` where a, b are semi-axes.
+            ``ag_plate_scale * 2 * sqrt(a * b)`` where a, b are semi-axes. Spots whose
+            moments give no real semi-minor axis are left out; 0.0 if none is left.
     """
     matched_idx = identified_objects["detected_object_id"].values
     if len(matched_idx) == 0:
         return 0.0, 0.0, 0.0
 
-    matched = detected_objects.iloc[matched_idx]
+    matched = detected_objects.loc[matched_idx]
     fluxes = matched["image_moment_00_pix"].to_numpy(dtype=float)
     peaks = matched["peak_intensity"].to_numpy(dtype=float)
 
-    semi_major, semi_minor = semi_axes(
-        matched["central_image_moment_11_pix"].to_numpy(dtype=float),
-        matched["central_image_moment_20_pix"].to_numpy(dtype=float),
-        matched["central_image_moment_02_pix"].to_numpy(dtype=float),
-    )
-    sizes = ag_plate_scale * 2.0 * np.sqrt(np.maximum(semi_major * semi_minor, 0.0))
+    # Noisy moments with m11^2 > m20 * m02 have no real semi-minor axis: such a spot gets a
+    # NaN size and is left out of the median.
+    with np.errstate(invalid="ignore"):
+        semi_major, semi_minor = semi_axes(
+            matched["central_image_moment_11_pix"].to_numpy(dtype=float),
+            matched["central_image_moment_20_pix"].to_numpy(dtype=float),
+            matched["central_image_moment_02_pix"].to_numpy(dtype=float),
+        )
+        sizes = ag_plate_scale * 2.0 * np.sqrt(semi_major * semi_minor)
+    size = float(np.nanmedian(sizes)) if np.isfinite(sizes).any() else 0.0
 
-    return float(np.nanmedian(fluxes)), float(np.nanmedian(peaks)), float(np.nanmedian(sizes))
+    return float(np.nanmedian(fluxes)), float(np.nanmedian(peaks)), size

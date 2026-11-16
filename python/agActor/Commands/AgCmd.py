@@ -207,7 +207,7 @@ class AgCmd:
 
         tel_status = [
             x.strip()
-            for x in actor.actorConfig.get("tel_status", ("agc_exposure",)).split(",")
+            for x in actor.actorConfig.get("tel_status", "agc_exposure").split(",")
         ]
         self.with_gen2_status = "gen2" in tel_status
         self.with_mlp1_status = "mlp1" in tel_status
