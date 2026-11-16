@@ -101,7 +101,7 @@ def _acquire_field(
     with (
         patch.object(agCmdModule.field_acquisition, "acquire_field", return_value=guide_offsets) as acquire,
         patch.object(agCmdModule.time, "sleep"),
-        patch.object(agCmdModule, "send_guide_offsets"),
+        patch.object(agCmdModule, "send_guide_offsets") as send,
         patch.object(GuideOffsets, "save_numpy_files", return_value=["a", "b", "c"]),
     ):
         cmd_set.acquire_field(cmd)
@@ -110,6 +110,7 @@ def _acquire_field(
 
     if too_few_stars:
         cmd.finish.assert_not_called()
+        send.assert_not_called()
         (failure,) = [c.args[0] for c in cmd.fail.call_args_list]
         assert "Too few guide stars matched" in failure
     else:

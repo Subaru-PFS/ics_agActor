@@ -45,7 +45,7 @@ def count_fit_stars(identified_objects: pd.DataFrame) -> int:
 
     The fit has four unknowns (RA, Dec, InR, scale) and each star gives two equations, so two stars
     fit exactly with no check on the result. With no real match at all the fit still returns an offset,
-    from detections paired with the wrong guide stars (INSTRM-2800), so the count, not the offset, says
+    from detections paired with the wrong guide stars, so the count, not the offset, says
     whether the offset can be used.
     """
     good = identified_objects["matched"] == 1
@@ -92,8 +92,9 @@ def too_few_stars_message(guide_offsets: GuideOffsets, n_fit_stars: int, min_mat
     if "filtered_by" in guide_objects:
         guide_objects = guide_objects[guide_objects["filtered_by"] == 0]
     return (
-        f"Too few guide stars matched to use the offset: {n_fit_stars} matched (need {min_matched_stars}), "
-        f"{len(guide_offsets.detected_objects)} spots detected, {len(guide_objects)} guide stars"
+        f"Too few guide stars matched to use the offset: {n_fit_stars} matched on enabled cameras "
+        f"(need {min_matched_stars}), {len(guide_offsets.detected_objects)} spots detected and "
+        f"{len(guide_objects)} guide stars on all cameras"
     )
 
 

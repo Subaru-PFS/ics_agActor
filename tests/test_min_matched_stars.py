@@ -1,4 +1,4 @@
-"""An offset is used only when enough guide stars matched (INSTRM-2800)."""
+"""An offset is used only when enough guide stars matched."""
 
 import numpy as np
 import pandas as pd
@@ -52,6 +52,8 @@ def test_too_few_stars_is_rejected_whatever_the_size(in_range):
     flags, status = classify_offset(2, 3, in_range)
     assert flags == GuideOffsetFlag.INVALID_OFFSET | GuideOffsetFlag.TOO_FEW_STARS
     assert status == "TOO_FEW_STARS"
+    # Negative control: with enough stars the size decides.
+    assert classify_offset(3, 3, in_range)[1] == ("OK" if in_range else "INVALID_OFFSET")
 
 
 def test_minimum_is_inclusive():
@@ -96,8 +98,11 @@ def test_message_counts_the_guide_stars_kept():
     )
     message = too_few_stars_message(offsets, 1, 3)
     assert message == (
-        "Too few guide stars matched to use the offset: 1 matched (need 3), 32 spots detected, 4 guide stars"
+        "Too few guide stars matched to use the offset: 1 matched on enabled cameras (need 3), "
+        "32 spots detected and 4 guide stars on all cameras"
     )
+    # Negative control: the guide stars the catalog filtered out are not counted.
+    assert f"{len(guide_objects)} guide stars" not in message
 
 
 def keyword_values(keyword):
@@ -107,7 +112,7 @@ def keyword_values(keyword):
 
 
 def test_too_few_stars_publishes_nan_offsets():
-    # Gen2 copies guideErrors into PFS.AG.ERR without the status, and SETUPFIELD applies it.
+    # Gen2 copies guideErrors into PFS.AG.ERR, and SETUPFIELD applies the offsets without reading the status.
     flags, status = classify_offset(1, 3)
     values = keyword_values(
         guide_errors_keyword(1110791, -2.58, -0.48, 755.1, 1.2, -0.3, 0.05, 1e-5, status, flags)
@@ -116,6 +121,11 @@ def test_too_few_stars_publishes_nan_offsets():
     assert all(np.isnan(float(v)) for v in values[1:6] + values[7:8])  # dRA dDec dInR dAz dAlt, dScale
     assert float(values[6]) == pytest.approx(0.05)  # dZ is from focus, not the fit
     assert values[8] == "TOO_FEW_STARS"
+    # Negative control: the same offset from enough stars is published as it is.
+    ok = keyword_values(
+        guide_errors_keyword(1110791, -2.58, -0.48, 755.1, 1.2, -0.3, 0.05, 1e-5, "OK", GuideOffsetFlag.OK)
+    )
+    assert [float(v) for v in ok[1:8]] == pytest.approx([-2.58, -0.48, 755.1, 1.2, -0.3, 0.05, 1e-5])
 
 
 @pytest.mark.parametrize("n_fit_stars, in_range, status", [(10, True, "OK"), (10, False, "INVALID_OFFSET")])

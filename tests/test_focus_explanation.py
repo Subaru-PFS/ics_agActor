@@ -1,4 +1,4 @@
-"""Focus explains which cameras gave no value and why (INSTRM-2800)."""
+"""Focus explains which cameras gave no value and why."""
 
 import logging
 
@@ -31,8 +31,7 @@ def spots(rows):
 
 
 def test_single_star_gives_nan_and_a_reason():
-    # The ticket's case, one usable star (on AG1's left half): INSTRM-2840 made it NaN instead of an
-    # IndexError; what is new is the reason.
+    # One usable star, on AG1's left half: it used to raise an IndexError, then gave NaN with no reason.
     detected = spots([(0, 0)])
     dz, dzs = focus(detected_objects=detected, enabledCameras=[1, 2, 3, 4, 5, 6])
     assert np.isnan(dz)

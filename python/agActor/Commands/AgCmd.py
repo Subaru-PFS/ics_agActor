@@ -165,7 +165,7 @@ class AgCmd:
         ]
         self.keys = keys.KeysDictionary(
             "ag_ag",
-            (1, 18),
+            (1, 19),
             keys.Key("exposure_time", types.Int(), help=""),
             keys.Key("cadence", types.Int(), help=""),
             keys.Key("guide", types.Bool("no", "yes"), help=""),
