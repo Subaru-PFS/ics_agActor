@@ -201,6 +201,7 @@ def _run_acquire_field(guide_offsets: GuideOffsets, **keywords) -> dict:
         "match_written": write_match.called,
         "guide_errors": _guide_errors(cmd.inform),
         "failures": [c.args[0] for c in cmd.fail.call_args_list],
+        "warnings": [c.args[0] for c in cmd.warn.call_args_list],
         "finished": cmd.finish.called,
     }
 
@@ -228,6 +229,23 @@ def test_acquire_field_records_but_does_not_use_an_offset_from_too_few_stars():
     assert result["match_written"]
     # Negative control: the same frame passes when the command asks for two stars.
     assert _run_acquire_field(_guide_offsets(2, n_good_disabled=3), min_matched_stars=2)["sent"]
+
+
+def test_acquire_field_without_guiding_warns_instead_of_failing():
+    # A caller that asked for no guiding wanted the frame, not the offset.
+    result = _run_acquire_field(_guide_offsets(2), guide=False)
+
+    assert result["finished"] and not result["failures"]
+    (warning,) = result["warnings"]
+    assert "2 matched on enabled cameras (need 3)" in warning
+    # The offset is still not used: nothing sent, NaN published, flagged in the opdb.
+    assert not result["sent"]
+    assert np.isnan(_fitted(result["guide_errors"])).all()
+    assert result["written"]["offset_flags"] == TOO_FEW
+    # Negative control: asked to guide, which is the default, the same frame fails the command.
+    for keywords in ({}, {"guide": True}):
+        guiding = _run_acquire_field(_guide_offsets(2), **keywords)
+        assert guiding["failures"] and not guiding["finished"] and not guiding["warnings"]
 
 
 @pytest.fixture(scope="module")
