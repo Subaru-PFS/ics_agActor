@@ -9,6 +9,7 @@ import pandas as pd
 from astropy import units as u
 from astropy.table import Table
 from numpy.typing import NDArray
+from pfs.utils.agMetrics import AgImageSize
 from pfs.utils.coordinates import updateTargetPosition
 from pfs.utils.coordinates.CoordTransp import ag_pfimm_to_pixel
 from pfs.utils.database.db import DB
@@ -162,9 +163,10 @@ class GuideOffsets:
             `matched` (1 for `GOOD_MATCH` alone); built by `field_acquisition.get_guide_offsets`
         dx: X offset in arcseconds
         dy: Y offset in arcseconds
-        size: Representative spot size
+        size: Representative spot size: the median FWHM in arcsec (`image_size.fwhm`), 0 without spots
         peak: Representative peak intensity
         flux: Representative flux
+        image_size: Median FWHM of the spots behind `size`, pooled and for each detector half
         focus_detected_object_ids: Labels of the `detected_objects` rows the focus estimate
             uses, when they are not `matched_detected_objects` (see `focus_detected_objects`)
     """
@@ -190,6 +192,17 @@ class GuideOffsets:
     visit_id: int | None = None
     frame_id: int | None = None
     focus_detected_object_ids: NDArray | None = None
+    image_size: AgImageSize | None = None
+
+    def describe_image_size(self, frame_id: int) -> str:
+        """Return a log line with the median FWHM of the frame's spots, pooled and per detector half."""
+        size = self.image_size
+        if size is None:
+            return f"Image size: frame_id={frame_id} not measured"
+        return (
+            f"Image size: frame_id={frame_id} fwhm={size.fwhm:.3f} arcsec "
+            f"left={size.fwhmLeft:.3f} (n={size.nLeft}) right={size.fwhmRight:.3f} (n={size.nRight})"
+        )
 
     @property
     def matched_detected_objects(self) -> pd.DataFrame:

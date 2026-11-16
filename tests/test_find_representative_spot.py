@@ -2,7 +2,7 @@
 
 Test values are derived from the 2026-05-13T17:12:30.695 AG log which
 contained ~2095 guiding frames. Typical (non-spike) peaks were ~280,
-fluxes ~13400, and sizes ~0.77 arcsec. A near-saturated source on CAM2
+fluxes ~13400, and sizes ~0.77 arcsec (by the formula of the time). A near-saturated source on CAM2
 produced peaks ~24000, triggering 664x frame-to-frame spikes in the old
 single-star implementation.
 """
@@ -14,6 +14,8 @@ import pandas as pd
 import pytest
 from agActor import field_acquisition
 from agActor.field_acquisition import find_representative_spot
+from pfs.utils import agMetrics
+from pfs.utils.datamodel.ag import SourceDetectionFlags
 from pfs.utils.datamodel.ag import SourceMatchingFlags as M
 
 
@@ -25,6 +27,7 @@ def _make_detected(n, *, peak=280.0, flux=13400.0, moment_20=2.5, moment_02=2.3,
         "central_image_moment_20_pix": np.full(n, moment_20),
         "central_image_moment_02_pix": np.full(n, moment_02),
         "central_image_moment_11_pix": np.full(n, moment_11),
+        "flags": np.zeros(n, dtype=int),
     })
 
 
@@ -110,26 +113,62 @@ class TestFindRepresentativeSpot:
         _, _, size = find_representative_spot(detected, identified)
         assert size >= 0.0
 
-    def test_negative_moment_product_does_not_raise(self):
-        """Negative semi-axis product (from noisy moments) must not produce nan via sqrt."""
+    def test_cross_moment_does_not_enter_the_size(self):
+        """The size is from the trace radius: a cross moment, even an impossible one, leaves it alone."""
         detected = _make_detected(3, moment_20=0.5, moment_02=0.5, moment_11=1.0)
         identified = _make_identified(list(range(3)))
         _, _, size = find_representative_spot(detected, identified)
-        assert np.isfinite(size)
-        assert size >= 0.0
+        assert size == pytest.approx(agMetrics.momentsToFwhm(0.5, 0.5))
+        # Negative control: the determinant radius has no value for these moments.
+        assert np.isnan(agMetrics.momentsToFwhm(0.5, 0.5, 1.0, radius="determinant"))
 
-    def test_spot_without_a_real_semi_minor_axis_is_left_out(self):
-        """Spots with m11^2 > m20 * m02 among normal ones do not change the size."""
+    def test_no_usable_spot_sends_zero_not_nan(self):
+        """With a negative moment on every spot there is no FWHM: the size sent to mlp1 is 0."""
+        detected = _make_detected(3, moment_20=-1.0, moment_02=2.0)
+        identified = _make_identified(list(range(3)))
+        flux, peak, size = find_representative_spot(detected, identified)
+        assert size == 0.0
+        assert flux == pytest.approx(13400.0) and peak == pytest.approx(280.0)
+        # Negative control: the image size itself has no value, which is what would otherwise be sent.
+        assert np.isnan(field_acquisition.get_image_size(detected, identified).fwhm)
+
+    def test_spot_with_a_negative_moment_is_left_out(self):
+        """Spots with a negative second moment among normal ones do not change the size."""
         detected = _make_detected(5)
         identified = _make_identified(list(range(5)))
         _, _, clean_size = find_representative_spot(detected, identified)
 
-        detected.loc[[0, 1, 2], "central_image_moment_11_pix"] = 5.0
+        detected.loc[[0, 1, 2], "central_image_moment_20_pix"] = -5.0
         _, _, size = find_representative_spot(detected, identified)
 
         assert size == pytest.approx(clean_size)
-        # Negative control: counted as zero-sized spots, the three would be the median.
-        assert size > 0.0
+
+    def test_size_is_the_fwhm_of_the_shared_definition(self):
+        """The size is 2.9 times the radius of the stored moments, at 0.137 arcsec per pixel."""
+        detected = _make_detected(6, moment_20=6.0, moment_02=2.0, moment_11=1.5)
+        _, _, size = find_representative_spot(detected, _make_identified(list(range(6))))
+        assert size == pytest.approx(agMetrics.momentsToFwhm(6.0, 2.0))
+        assert size == pytest.approx(2.05 * np.sqrt(2) * 2.0 * 13 / 94.7, rel=1e-6)  # trace radius 2 pix
+        # Negative controls: the formula used until now (twice the determinant radius at a 15 m focal
+        # length), and the new one on the determinant radius.
+        determinant = (6.0 * 2.0 - 1.5**2) ** 0.25
+        assert size != pytest.approx(2 * determinant * 206.265 * 13 / 15000, rel=0.05)
+        assert size != pytest.approx(agMetrics.momentsToFwhm(6.0, 2.0, 1.5, radius="determinant"), rel=0.05)
+
+    def test_image_size_per_detector_half(self):
+        """Spots flagged RIGHT are on the other half of the detector, with their own median."""
+        detected = _make_detected(6, moment_20=4.0, moment_02=4.0, moment_11=0.0)
+        detected.loc[[3, 4, 5], ["central_image_moment_20_pix", "central_image_moment_02_pix"]] = 9.0
+        detected.loc[[3, 4, 5], "flags"] = int(SourceDetectionFlags.RIGHT)
+        size = field_acquisition.get_image_size(detected, _make_identified(list(range(6))))
+        assert size.fwhmLeft == pytest.approx(agMetrics.momentsToFwhm(4.0, 4.0))
+        assert size.fwhmRight == pytest.approx(agMetrics.momentsToFwhm(9.0, 9.0))
+        assert (size.nLeft, size.nRight) == (3, 3)
+        assert size.fwhmLeft < size.fwhm < size.fwhmRight
+        # Negative control: without the flag every spot is on the left half.
+        detected["flags"] = 0
+        unsplit = field_acquisition.get_image_size(detected, _make_identified(list(range(6))))
+        assert (unsplit.nLeft, unsplit.nRight) == (6, 0) and np.isnan(unsplit.fwhmRight)
 
     def test_rows_are_selected_by_label(self):
         """detected_object_id holds labels of detected_objects, not positions."""
@@ -226,6 +265,12 @@ def test_get_guide_offsets_takes_the_representative_spot_from_matched_detections
     all_flux, all_peak, all_size = find_representative_spot(detected, offsets.identified_objects)
     assert all_peak == pytest.approx(9000.0) and all_flux == pytest.approx(9.0e5)
     assert offsets.size < all_size
+    # The logged image size describes the same spots: the two matched ones, on the left half.
+    assert offsets.image_size.fwhm == pytest.approx(offsets.size)
+    assert (offsets.image_size.nLeft, offsets.image_size.nRight) == (2, 0)
+    line = offsets.describe_image_size(1234)
+    assert f"frame_id=1234 fwhm={offsets.size:.3f} arcsec" in line
+    assert "(n=2) right=nan (n=0)" in line
 
 
 def test_get_guide_offsets_spot_without_any_match_uses_every_detection(monkeypatch):

@@ -11,6 +11,7 @@ from agActor.Commands import AgCmd as agCmdModule
 from agActor.Controllers import ag as agModule
 from agActor.utils.data import GuideOffsetFlag, GuideOffsets
 from opscore.protocols import keys, validation
+from pfs.utils.agMetrics import AgImageSize
 from pfs.utils.datamodel.ag import SourceMatchingFlags
 
 ag = agModule.ag
@@ -44,6 +45,7 @@ def _guide_offsets(n_good: int, n_good_disabled: int = 0, n_bad: int = 5, dra: f
         dalt=0.1, daz=0.2, guide_objects=pd.DataFrame({"filtered_by": [0] * 8}),
         detected_objects=detected, identified_objects=identified,
         dx=-dra, dy=DDEC, size=1.0, peak=2.0, flux=3.0,
+        image_size=AgImageSize(fwhm=0.8, fwhmLeft=0.7, fwhmRight=0.9, nLeft=2, nRight=1),
     )  # fmt: skip
 
 
@@ -123,6 +125,16 @@ def test_loop_sends_an_offset_from_enough_stars():
     assert result["guide_errors"][8] == "OK"
     assert float(result["guide_errors"][1]) == pytest.approx(DRA)
     assert result["alerts"] == []
+
+
+IMAGE_SIZE_LINE = "fwhm=0.800 arcsec left=0.700 (n=2) right=0.900 (n=1)"
+
+
+def test_loop_logs_the_image_size(caplog):
+    with caplog.at_level(logging.INFO, logger="test_ag"):
+        _run_loop_once(_guide_offsets(3))
+
+    assert f"Image size: frame_id=42 {IMAGE_SIZE_LINE}" in caplog.text
 
 
 def test_loop_does_not_use_an_offset_from_too_few_stars():
@@ -212,6 +224,13 @@ def test_acquire_field_sends_an_offset_from_enough_stars():
     assert result["sent"] and result["finished"] and not result["failures"]
     assert result["written"]["offset_flags"] == GuideOffsetFlag.OK
     assert _fitted(result["guide_errors"])[:3] == pytest.approx([DRA, DDEC, DINR])
+
+
+def test_acquire_field_logs_the_image_size(caplog):
+    with caplog.at_level(logging.INFO, logger="test_ag"):
+        _run_acquire_field(_guide_offsets(3))
+
+    assert IMAGE_SIZE_LINE in caplog.text
 
 
 def test_acquire_field_records_but_does_not_use_an_offset_from_too_few_stars():

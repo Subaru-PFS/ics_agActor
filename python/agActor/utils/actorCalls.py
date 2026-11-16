@@ -21,7 +21,8 @@ def send_guide_offsets(
     dy : float
         Y offset in arcseconds (HSC -> PFS).
     size : float
-        Representative spot size in mas.
+        Representative spot size (FWHM) in arcseconds. Sent as it is: the telescope gives it
+        back as the SEEING of the FITS headers, which is in arcseconds.
     peak : float
         Representative peak intensity in adu.
     flux : float
@@ -42,7 +43,7 @@ def send_guide_offsets(
     # send corrections to mlp1 and gen2 (or iic)
     mlp1_result = actor.queueCommand(
         actor="mlp1",
-        # daz, dalt: arcsec, positive feedback; dx, dy: mas, HSC -> PFS; size: mas; peak, flux: adu
+        # daz, dalt: arcsec, positive feedback; dx, dy: mas, HSC -> PFS; size: arcsec; peak, flux: adu
         cmdStr="guide azel={},{} ready={} time={} delay=0 xy={},{} size={} intensity={} flux={}".format(
             -daz,
             -dalt,

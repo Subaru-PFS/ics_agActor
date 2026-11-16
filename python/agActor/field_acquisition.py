@@ -5,6 +5,7 @@ from typing import Any, Dict, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
+from pfs.utils import agMetrics
 from pfs.utils.coordinates import coordinates
 from pfs.utils.datamodel.ag import SourceMatchingFlags
 
@@ -143,7 +144,7 @@ def acquire_field(
         - identified_objects (np.ndarray): Matched guide and detected objects
         - dx (float): X offset in arcseconds
         - dy (float): Y offset in arcseconds
-        - size (float): Representative spot size in pixels
+        - size (float): Representative spot size (FWHM) in arcseconds
         - peak (float): Representative peak intensity
         - flux (float): Representative flux
 
@@ -323,7 +324,7 @@ def get_guide_offsets(
         - identified_objects (NDArray): Matched guide and detected objects
         - dx (float): X offset in arcseconds
         - dy (float): Y offset in arcseconds
-        - size (float): Representative spot size in pixels
+        - size (float): Representative spot size (FWHM) in arcseconds
         - peak (float): Representative peak intensity
         - flux (float): Representative flux
     """
@@ -512,10 +513,10 @@ def get_guide_offsets(
     # The spot sent to mlp1 describes the matched stars. A frame with no good match keeps
     # describing every filtered detection, as it always has, rather than sending zeros.
     matched_objects = identified_objects.query("matched == 1")
-    flux, peak, size = find_representative_spot(
-        detected_objects, matched_objects if len(matched_objects) else identified_objects
-    )
-    logger.info(f"Calculated star stats: {flux=},{peak=},{size=}")
+    spots = matched_objects if len(matched_objects) else identified_objects
+    flux, peak, size = find_representative_spot(detected_objects, spots)
+    image_size = get_image_size(detected_objects, spots)
+    logger.info(f"Calculated star stats: {flux=},{peak=},{size=},{image_size=}")
 
     return GuideOffsets(
         ra=ra,
@@ -535,13 +536,40 @@ def get_guide_offsets(
         size=size,
         peak=peak,
         flux=flux,
+        image_size=image_size,
     )
+
+
+def get_image_size(detected_objects: pd.DataFrame, identified_objects: pd.DataFrame) -> agMetrics.AgImageSize:
+    """Return the median FWHM of the spots, pooled and for each detector half.
+
+    Parameters
+    ----------
+    detected_objects : pd.DataFrame
+        Detected star data (output of ``get_detected_objects``), with the second moments
+        and ``flags``.
+    identified_objects : pd.DataFrame
+        The rows to use, by their ``detected_object_id``: the labels of those rows in
+        ``detected_objects``.
+
+    Returns
+    -------
+    pfs.utils.agMetrics.AgImageSize
+        The median FWHM (arcsec) of all the spots and of each detector half, from
+        ``pfs.utils.agMetrics.momentsToFwhm``, and the number of spots on each half. NaN
+        where there are no spots.
+    """
+    spots = detected_objects.loc[identified_objects["detected_object_id"].values]
+    fwhm = agMetrics.momentsToFwhm(
+        spots["central_image_moment_20_pix"].to_numpy(dtype=float),
+        spots["central_image_moment_02_pix"].to_numpy(dtype=float),
+    )
+    return agMetrics.summarizeFwhm(fwhm, spots["flags"].to_numpy(dtype=int))
 
 
 def find_representative_spot(
     detected_objects: pd.DataFrame,
     identified_objects: pd.DataFrame,
-    ag_plate_scale: float = (206.265 * 13) / 15000,
 ) -> tuple[float, float, float]:
     """Return median flux, peak intensity, and spot size across all matched guide stars.
 
@@ -554,8 +582,6 @@ def find_representative_spot(
         The rows of the astrometric fit's output to use: pass the detections matched
         to a guide star (``matched == 1``). Must contain column ``detected_object_id``,
         the labels of those rows in ``detected_objects``.
-    ag_plate_scale : float
-        Plate scale in arcsec/pixel. Default is (206.265 * 13 um/px) / 15000 mm.
 
     Returns
     -------
@@ -565,9 +591,9 @@ def find_representative_spot(
         peak : float
             Median peak intensity across matched stars.
         size : float
-            Median spot size (arcsec) across matched stars, computed as
-            ``ag_plate_scale * 2 * sqrt(a * b)`` where a, b are semi-axes. Spots whose
-            moments give no real semi-minor axis are left out; 0.0 if none is left.
+            Median FWHM (arcsec) across matched stars, both detector halves together
+            (``get_image_size``). Spots with a negative second moment are left out; 0.0
+            if none is left.
     """
     matched_idx = identified_objects["detected_object_id"].values
     if len(matched_idx) == 0:
@@ -577,15 +603,7 @@ def find_representative_spot(
     fluxes = matched["image_moment_00_pix"].to_numpy(dtype=float)
     peaks = matched["peak_intensity"].to_numpy(dtype=float)
 
-    # Noisy moments with m11^2 > m20 * m02 have no real semi-minor axis: such a spot gets a
-    # NaN size and is left out of the median.
-    with np.errstate(invalid="ignore"):
-        semi_major, semi_minor = semi_axes(
-            matched["central_image_moment_11_pix"].to_numpy(dtype=float),
-            matched["central_image_moment_20_pix"].to_numpy(dtype=float),
-            matched["central_image_moment_02_pix"].to_numpy(dtype=float),
-        )
-        sizes = ag_plate_scale * 2.0 * np.sqrt(semi_major * semi_minor)
-    size = float(np.nanmedian(sizes)) if np.isfinite(sizes).any() else 0.0
+    fwhm = get_image_size(detected_objects, identified_objects).fwhm
+    size = fwhm if np.isfinite(fwhm) else 0.0
 
     return float(np.nanmedian(fluxes)), float(np.nanmedian(peaks)), size
