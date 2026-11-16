@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## [1.1.85] - 2026-11-16
+
 - INSTRM-3069 - The spot size sent to mlp1 (`size=`) is the FWHM from `pfs.utils.agMetrics`: 2.9 times the radius of the stored second moments (trace) at 0.137 arcsec per pixel, the definition drp_qa uses. It was twice the determinant radius at 0.179 arcsec per pixel (a 15 m focal length). The new value is at least 11% larger, more for elongated spots (13% in the median, 0.64 to 0.71 arcsec, over the 290 exposures of ten Run 30 engineering visits), and so is the SEEING card of the FITS headers, which the telescope fills from it. `acquire_field` and the autoguide loop also log, for each exposure, that FWHM for the two halves of the detectors separately, with the number of spots on each. `find_representative_spot` no longer takes `ag_plate_scale`. **Needs pfs_utils 7.4.45 or later.**
 
 ## [1.1.84] - 2026-11-16
