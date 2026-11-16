@@ -50,11 +50,11 @@ class AgCmd:
             ("show", "", self.show),
             (
                 "acquire_field",
-                "[<design_id>] "
+                "[<designId>] "
                 "[<design_path>] "
-                "[<visit_id>|<visit>] "
+                "[<visit>] "
                 "[<visit0>] "
-                "[<exposure_time>] "
+                "[<exptime>] "
                 "[<guide>] "
                 "[<offset>] "
                 "[<dinr>] "
@@ -74,8 +74,8 @@ class AgCmd:
             ),
             (
                 "focus",
-                "[<visit_id>|<visit>] "
-                "[<exposure_time>] "
+                "[<visit>] "
+                "[<exptime>] "
                 "[<max_ellipticity>] "
                 "[<max_size>] "
                 "[<min_size>] "
@@ -86,12 +86,12 @@ class AgCmd:
             (
                 "autoguide",
                 "@start "
-                "[<design_id>] "
+                "[<designId>] "
                 "[<design_path>] "
-                "[<visit_id>|<visit>] "
+                "[<visit>] "
                 "[<visit0>] "
                 "[<from_sky>] "
-                "[<exposure_time>] "
+                "[<exptime>] "
                 "[<cadence>] "
                 "[<center>] "
                 "[<magnitude>] "
@@ -112,11 +112,11 @@ class AgCmd:
             (
                 "autoguide",
                 "@initialize "
-                "[<design_id>] "
+                "[<designId>] "
                 "[<design_path>] "
-                "[<visit_id>|<visit>] "
+                "[<visit>] "
                 "[<from_sky>] "
-                "[<exposure_time>] "
+                "[<exptime>] "
                 "[<cadence>] "
                 "[<center>] "
                 "[<magnitude>] "
@@ -139,8 +139,8 @@ class AgCmd:
             (
                 "autoguide",
                 "@reconfigure "
-                "[<visit_id>|<visit>] "
-                "[<exposure_time>] "
+                "[<visit>] "
+                "[<exptime>] "
                 "[<cadence>] "
                 "[<dry_run>] "
                 "[<fit_dinr>] "
@@ -166,12 +166,11 @@ class AgCmd:
         self.keys = keys.KeysDictionary(
             "ag_ag",
             (1, 19),
-            keys.Key("exposure_time", types.Int(), help=""),
+            keys.Key("exptime", types.Int(), help="AG exposure time in ms"),
             keys.Key("cadence", types.Int(), help=""),
             keys.Key("guide", types.Bool("no", "yes"), help=""),
-            keys.Key("design_id", types.String(), help=""),
+            keys.Key("designId", types.String(), help=""),
             keys.Key("design_path", types.String(), help=""),
-            keys.Key("visit_id", types.Int(), help=""),
             keys.Key("visit", types.Int(), help=""),
             keys.Key("visit0", types.Int(), help="The visit0 associated with a pfsConfig"),
             keys.Key("from_sky", types.Bool("no", "yes"), help=""),
@@ -254,8 +253,8 @@ class AgCmd:
             return
 
         design_id = None
-        if "design_id" in cmd.cmd.keywords:
-            design_id = int(cmd.cmd.keywords["design_id"].values[0], 0)
+        if "designId" in cmd.cmd.keywords:
+            design_id = int(cmd.cmd.keywords["designId"].values[0], 0)
         design_path = self.with_design_path if design_id is not None else None
         if "design_path" in cmd.cmd.keywords:
             design_path = str(cmd.cmd.keywords["design_path"].values[0])
@@ -265,9 +264,7 @@ class AgCmd:
             else None
         )
         visit_id = None
-        if "visit_id" in cmd.cmd.keywords:
-            visit_id = int(cmd.cmd.keywords["visit_id"].values[0])
-        elif "visit" in cmd.cmd.keywords:
+        if "visit" in cmd.cmd.keywords:
             visit_id = int(cmd.cmd.keywords["visit"].values[0])
 
         visit0 = None
@@ -275,8 +272,8 @@ class AgCmd:
             visit0 = int(cmd.cmd.keywords["visit0"].values[0])
 
         exposure_time = 2000  # ms
-        if "exposure_time" in cmd.cmd.keywords:
-            exposure_time = int(cmd.cmd.keywords["exposure_time"].values[0])
+        if "exptime" in cmd.cmd.keywords:
+            exposure_time = int(cmd.cmd.keywords["exptime"].values[0])
             if exposure_time < 100:
                 exposure_time = 100
         guide = True
@@ -570,13 +567,11 @@ class AgCmd:
             return
 
         visit_id = None
-        if "visit_id" in cmd.cmd.keywords:
-            visit_id = int(cmd.cmd.keywords["visit_id"].values[0])
-        elif "visit" in cmd.cmd.keywords:
+        if "visit" in cmd.cmd.keywords:
             visit_id = int(cmd.cmd.keywords["visit"].values[0])
         exposure_time = 2000  # ms
-        if "exposure_time" in cmd.cmd.keywords:
-            exposure_time = int(cmd.cmd.keywords["exposure_time"].values[0])
+        if "exptime" in cmd.cmd.keywords:
+            exposure_time = int(cmd.cmd.keywords["exptime"].values[0])
             if exposure_time < 100:
                 exposure_time = 100
 
@@ -673,8 +668,8 @@ class AgCmd:
         controller = self.actor.controllers["ag"]
 
         design_id = None
-        if "design_id" in cmd.cmd.keywords:
-            design_id = int(cmd.cmd.keywords["design_id"].values[0], 0)
+        if "designId" in cmd.cmd.keywords:
+            design_id = int(cmd.cmd.keywords["designId"].values[0], 0)
         design_path = self.with_design_path if design_id is not None else None
         if "design_path" in cmd.cmd.keywords:
             design_path = str(cmd.cmd.keywords["design_path"].values[0])
@@ -684,9 +679,7 @@ class AgCmd:
             else None
         )
         visit_id = None
-        if "visit_id" in cmd.cmd.keywords:
-            visit_id = int(cmd.cmd.keywords["visit_id"].values[0])
-        elif "visit" in cmd.cmd.keywords:
+        if "visit" in cmd.cmd.keywords:
             visit_id = int(cmd.cmd.keywords["visit"].values[0])
 
         visit0 = None
@@ -697,8 +690,8 @@ class AgCmd:
         if "from_sky" in cmd.cmd.keywords:
             from_sky = bool(cmd.cmd.keywords["from_sky"].values[0])
         exposure_time = 2000  # ms
-        if "exposure_time" in cmd.cmd.keywords:
-            exposure_time = int(cmd.cmd.keywords["exposure_time"].values[0])
+        if "exptime" in cmd.cmd.keywords:
+            exposure_time = int(cmd.cmd.keywords["exptime"].values[0])
             if exposure_time < 100:
                 exposure_time = 100
         cadence = 0  # ms
@@ -772,8 +765,8 @@ class AgCmd:
         controller = self.actor.controllers["ag"]
 
         design_id = None
-        if "design_id" in cmd.cmd.keywords:
-            design_id = int(cmd.cmd.keywords["design_id"].values[0], 0)
+        if "designId" in cmd.cmd.keywords:
+            design_id = int(cmd.cmd.keywords["designId"].values[0], 0)
         design_path = self.with_design_path if design_id is not None else None
         if "design_path" in cmd.cmd.keywords:
             design_path = str(cmd.cmd.keywords["design_path"].values[0])
@@ -783,16 +776,14 @@ class AgCmd:
             else None
         )
         visit_id = None
-        if "visit_id" in cmd.cmd.keywords:
-            visit_id = int(cmd.cmd.keywords["visit_id"].values[0])
-        elif "visit" in cmd.cmd.keywords:
+        if "visit" in cmd.cmd.keywords:
             visit_id = int(cmd.cmd.keywords["visit"].values[0])
         from_sky = None
         if "from_sky" in cmd.cmd.keywords:
             from_sky = bool(cmd.cmd.keywords["from_sky"].values[0])
         exposure_time = 2000  # ms
-        if "exposure_time" in cmd.cmd.keywords:
-            exposure_time = int(cmd.cmd.keywords["exposure_time"].values[0])
+        if "exptime" in cmd.cmd.keywords:
+            exposure_time = int(cmd.cmd.keywords["exptime"].values[0])
             if exposure_time < 100:
                 exposure_time = 100
         cadence = 0  # ms
@@ -888,14 +879,11 @@ class AgCmd:
         controller = self.actor.controllers["ag"]
 
         kwargs = {}
-        if "visit_id" in cmd.cmd.keywords:
-            visit_id = int(cmd.cmd.keywords["visit_id"].values[0])
-            kwargs["visit_id"] = visit_id
-        elif "visit" in cmd.cmd.keywords:
+        if "visit" in cmd.cmd.keywords:
             visit_id = int(cmd.cmd.keywords["visit"].values[0])
             kwargs["visit_id"] = visit_id
-        if "exposure_time" in cmd.cmd.keywords:
-            exposure_time = int(cmd.cmd.keywords["exposure_time"].values[0])
+        if "exptime" in cmd.cmd.keywords:
+            exposure_time = int(cmd.cmd.keywords["exptime"].values[0])
             if exposure_time < 100:
                 exposure_time = 100
             kwargs["exposure_time"] = exposure_time
