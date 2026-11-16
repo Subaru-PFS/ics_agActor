@@ -9,6 +9,7 @@ import pandas as pd
 from astropy import units as u
 from astropy.table import Table
 from numpy.typing import NDArray
+from pfs.utils.agMetrics import AgImageSize
 from pfs.utils.coordinates import updateTargetPosition
 from pfs.utils.coordinates.CoordTransp import ag_pfimm_to_pixel
 from pfs.utils.database.db import DB
@@ -162,9 +163,10 @@ class GuideOffsets:
             `matched` (1 for `GOOD_MATCH` alone); built by `field_acquisition.get_guide_offsets`
         dx: X offset in arcseconds
         dy: Y offset in arcseconds
-        size: Representative spot size
+        size: Representative spot size: the median FWHM in arcsec (`image_size.fwhm`), 0 without spots
         peak: Representative peak intensity
         flux: Representative flux
+        image_size: Median FWHM of the spots behind `size`, pooled and for each detector half
         focus_detected_object_ids: Labels of the `detected_objects` rows the focus estimate
             uses, when they are not `matched_detected_objects` (see `focus_detected_objects`)
     """
@@ -190,6 +192,21 @@ class GuideOffsets:
     visit_id: int | None = None
     frame_id: int | None = None
     focus_detected_object_ids: NDArray | None = None
+    image_size: AgImageSize | None = None
+
+    def guide_stats_keyword(self, frame_id: int) -> str:
+        """Return the ``guideStats`` keyword for this frame.
+
+        The fields are the exposure, the median FWHM (arcsec) of the spots behind `size` on
+        both detector halves, on the left halves and on the right halves, the number of spots
+        on each, and the transparency, which is not measured yet and is sent as NaN.
+        """
+        size = self.image_size
+        if size is None:
+            size = AgImageSize(fwhm=np.nan, fwhmLeft=np.nan, fwhmRight=np.nan, nLeft=0, nRight=0)
+        return "guideStats={},{:.3f},{:.3f},{:.3f},{},{},{}".format(
+            frame_id, size.fwhm, size.fwhmLeft, size.fwhmRight, size.nLeft, size.nRight, np.nan
+        )
 
     @property
     def matched_detected_objects(self) -> pd.DataFrame:
