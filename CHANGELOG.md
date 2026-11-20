@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## [1.1.87] - 2026-11-20
+
 - INSTRM-3115 - `acquire_field` and the autoguide loop log the sky transparency each exposure's matched guide stars show, after the image size: for example `Transparency: frame_id=1091325 transparency=0.726 (n=18, uncalibrated) relative=0.987 (to the visit's first 2 measured)` (`acquire_field` gives no relative value, and matches against its stricter catalogue, so its value for a frame differs a little from the loop's). The value is `pfs.utils.agMetrics`' (measured over expected flux from agcc's `estimated_magnitude`, the catalogue magnitude and a colour term; the median over the brighter three quarters of the stars). It is not calibrated to read 1 under a clear sky, so the loop also gives it relative to the median of the first five measured exposures (three stars or more) after it was given the visit, which is what shows cloud coming over a field; that reference starts again when the design or the visit changes, not at a stop and restart on the same visit, and a visit that starts under cloud has the cloud in it. It reads the spots' magnitudes once per exposure and the design's guide star colours once per design, with its own queries, and nothing in acquisition or guiding uses it: a failure of any kind is logged as `not measured`. No keyword, and nothing is written to the opdb. **Needs pfs_utils 7.4.48 or later for a value**; with an earlier one the actor runs as before and warns once that the transparency is not measured.
 
 ## [1.1.86] - 2026-11-19
