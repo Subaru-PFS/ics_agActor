@@ -1,6 +1,7 @@
 import logging
 
 import numpy as np
+from pfs.utils import agMetrics
 from pfs.utils.coordinates import Subaru_POPT2_PFS as pfs
 from pfs.utils.datamodel.ag import SourceDetectionFlags
 
@@ -758,12 +759,14 @@ class PFS():
 
         Uses an empirical linear calibration derived from lab/on-sky
         measurements:
-          ``focus_error [mm] = momentdifference [px²] × 0.0086 − 0.026``
+          ``focus_error [mm] = momentdifference [px²] × AG_FOCUS_MM_PER_PIX2 − AG_FOCUS_OFFSET_MM``
 
-        Calibration constants:
-          - ``0.0086`` [mm px⁻²]: slope — relates PSF moment spread to
-            physical defocus along the optical axis.
-          - ``0.026``  [mm]:       intercept — accounts for a systematic
+        Calibration constants, from ``pfs.utils.agMetrics``:
+          - ``AG_FOCUS_MM_PER_PIX2`` [mm px⁻²]: slope — relates PSF moment
+            spread to physical defocus along the optical axis. It is for
+            moments that are the spot's variance, as ``query_agc_data``
+            returns them.
+          - ``AG_FOCUS_OFFSET_MM`` [mm]: intercept — accounts for a systematic
             offset between measured moment difference and true focus zero.
 
         Sign convention: a positive focus error means the focal plane is
@@ -782,6 +785,6 @@ class PFS():
         """
         # momentdifference [pixel^2]
         # focuserror [mm]
-        focuserror = momentdifference * 0.0086 - 0.026
+        focuserror = momentdifference * agMetrics.AG_FOCUS_MM_PER_PIX2 - agMetrics.AG_FOCUS_OFFSET_MM
 
         return focuserror

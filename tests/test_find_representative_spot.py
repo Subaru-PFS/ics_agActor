@@ -19,6 +19,11 @@ from pfs.utils.datamodel.ag import SourceDetectionFlags
 from pfs.utils.datamodel.ag import SourceMatchingFlags as M
 
 
+def _fwhm(moment_20, moment_02):
+    """The FWHM (arcsec) of a spot whose stored moments are its variance, as agcc stores them."""
+    return agMetrics.momentsToFwhm(moment_20, moment_02, variancePerMoment=1)
+
+
 def _make_detected(n, *, peak=280.0, flux=13400.0, moment_20=2.5, moment_02=2.3, moment_11=0.1):
     """Build a minimal detected_objects DataFrame with n rows of identical values."""
     return pd.DataFrame({
@@ -118,7 +123,7 @@ class TestFindRepresentativeSpot:
         detected = _make_detected(3, moment_20=0.5, moment_02=0.5, moment_11=1.0)
         identified = _make_identified(list(range(3)))
         _, _, size = find_representative_spot(detected, identified)
-        assert size == pytest.approx(agMetrics.momentsToFwhm(0.5, 0.5))
+        assert size == pytest.approx(_fwhm(0.5, 0.5))
         # Negative control: the determinant radius has no value for these moments.
         assert np.isnan(agMetrics.momentsToFwhm(0.5, 0.5, 1.0, radius="determinant"))
 
@@ -144,16 +149,23 @@ class TestFindRepresentativeSpot:
         assert size == pytest.approx(clean_size)
 
     def test_size_is_the_fwhm_of_the_shared_definition(self):
-        """The size is 2.9 times the radius of the stored moments, at 0.137 arcsec per pixel."""
+        """The size is 2.05 times the radius of the stored moments, at 0.137 arcsec per pixel."""
         detected = _make_detected(6, moment_20=6.0, moment_02=2.0, moment_11=1.5)
         _, _, size = find_representative_spot(detected, _make_identified(list(range(6))))
-        assert size == pytest.approx(agMetrics.momentsToFwhm(6.0, 2.0))
-        assert size == pytest.approx(2.05 * np.sqrt(2) * 2.0 * 13 / 94.7, rel=1e-6)  # trace radius 2 pix
+        assert size == pytest.approx(_fwhm(6.0, 2.0))
+        assert size == pytest.approx(2.05 * 2.0 * 13 / 94.7, rel=1e-6)  # trace radius 2 pix
+        # Negative control: the stored moments are the variance. Read as half of it, as agcc
+        # stored them before, the size comes out sqrt(2) larger.
+        halved = agMetrics.momentsToFwhm(6.0, 2.0, variancePerMoment=agMetrics.VARIANCE_PER_AGC_MOMENT)
+        assert halved / size == pytest.approx(np.sqrt(2))
+        assert size != pytest.approx(halved, rel=0.25)
         # Negative controls: the formula used until now (twice the determinant radius at a 15 m focal
         # length), and the new one on the determinant radius.
         determinant = (6.0 * 2.0 - 1.5**2) ** 0.25
         assert size != pytest.approx(2 * determinant * 206.265 * 13 / 15000, rel=0.05)
-        assert size != pytest.approx(agMetrics.momentsToFwhm(6.0, 2.0, 1.5, radius="determinant"), rel=0.05)
+        assert size != pytest.approx(
+            agMetrics.momentsToFwhm(6.0, 2.0, 1.5, radius="determinant", variancePerMoment=1), rel=0.05
+        )
 
     def test_image_size_per_detector_half(self):
         """Spots flagged RIGHT are on the other half of the detector, with their own median."""
@@ -161,8 +173,8 @@ class TestFindRepresentativeSpot:
         detected.loc[[3, 4, 5], ["central_image_moment_20_pix", "central_image_moment_02_pix"]] = 9.0
         detected.loc[[3, 4, 5], "flags"] = int(SourceDetectionFlags.RIGHT)
         size = field_acquisition.get_image_size(detected, _make_identified(list(range(6))))
-        assert size.fwhmLeft == pytest.approx(agMetrics.momentsToFwhm(4.0, 4.0))
-        assert size.fwhmRight == pytest.approx(agMetrics.momentsToFwhm(9.0, 9.0))
+        assert size.fwhmLeft == pytest.approx(_fwhm(4.0, 4.0))
+        assert size.fwhmRight == pytest.approx(_fwhm(9.0, 9.0))
         assert (size.nLeft, size.nRight) == (3, 3)
         assert size.fwhmLeft < size.fwhm < size.fwhmRight
         # Negative control: without the flag every spot is on the left half.

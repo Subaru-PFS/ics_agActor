@@ -9,7 +9,7 @@ import pandas as pd
 from astropy import units as u
 from astropy.table import Table
 from numpy.typing import NDArray
-from pfs.utils.agMetrics import AgImageSize
+from pfs.utils.agMetrics import VARIANCE_PER_AGC_MOMENT, AgImageSize
 from pfs.utils.coordinates import updateTargetPosition
 from pfs.utils.coordinates.CoordTransp import ag_pfimm_to_pixel
 from pfs.utils.database.db import DB
@@ -1007,26 +1007,48 @@ def query_agc_data(agc_exposure_id: int, as_dataframe: bool = True, **kwargs):
     -------
     pd.DataFrame | np.ndarray
         Rows from ``agc_data`` for the given exposure ID.
+
+    Notes
+    -----
+    The second moments returned are the spots' variance, whichever ics_agccActor wrote the
+    exposure. It stores the variance now; exposures whose ``agc_exposure.version_actor`` is
+    the literal ``"git"`` hold half of it and are multiplied by
+    ``pfs.utils.agMetrics.VARIANCE_PER_AGC_MOMENT``. ``BAD_SHAPE`` spots are left as they
+    are: theirs are unweighted moments, about the variance in any exposure.
+
+    The earliest ``"git"`` exposures (2022 to early 2023, before agcc measured adaptive
+    moments) hold unweighted moments on every spot and are doubled all the same, so focus
+    and size from them are what this actor always gave, not what the spots' variance gives.
     """
     sql = """
-SELECT agc_camera_id,
- spot_id,
- image_moment_00_pix,
- centroid_x_pix,
- centroid_y_pix,
- central_image_moment_11_pix,
- central_image_moment_20_pix,
- central_image_moment_02_pix,
- peak_pixel_x_pix,
- peak_pixel_y_pix,
- peak_intensity,
- background,
- COALESCE(flags, CAST(centroid_x_pix >= 511.5 + 24 AS INTEGER)) AS flags
+SELECT agc_data.agc_camera_id,
+ agc_data.spot_id,
+ agc_data.image_moment_00_pix,
+ agc_data.centroid_x_pix,
+ agc_data.centroid_y_pix,
+ agc_data.central_image_moment_11_pix * scale.variance_per_moment AS central_image_moment_11_pix,
+ agc_data.central_image_moment_20_pix * scale.variance_per_moment AS central_image_moment_20_pix,
+ agc_data.central_image_moment_02_pix * scale.variance_per_moment AS central_image_moment_02_pix,
+ agc_data.peak_pixel_x_pix,
+ agc_data.peak_pixel_y_pix,
+ agc_data.peak_intensity,
+ agc_data.background,
+ COALESCE(agc_data.flags, CAST(agc_data.centroid_x_pix >= 511.5 + 24 AS INTEGER)) AS flags
 FROM agc_data
-WHERE agc_exposure_id = :agc_exposure_id
-ORDER BY agc_camera_id, spot_id
+JOIN agc_exposure ON agc_exposure.agc_exposure_id = agc_data.agc_exposure_id
+CROSS JOIN LATERAL (
+    SELECT CASE
+        WHEN agc_exposure.version_actor = 'git' AND COALESCE(agc_data.flags, 0) & :bad_shape = 0
+        THEN :halved_scale ELSE 1 END AS variance_per_moment
+) scale
+WHERE agc_data.agc_exposure_id = :agc_exposure_id
+ORDER BY agc_data.agc_camera_id, agc_data.spot_id
 """
-    params = {"agc_exposure_id": agc_exposure_id}
+    params = {
+        "agc_exposure_id": agc_exposure_id,
+        "halved_scale": float(VARIANCE_PER_AGC_MOMENT),
+        "bad_shape": int(SourceDetectionFlag.BAD_SHAPE),
+    }
     return query_db(sql, params, as_dataframe=as_dataframe, **kwargs)
 
 
