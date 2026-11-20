@@ -758,11 +758,14 @@ class PFS():
 
         Uses an empirical linear calibration derived from lab/on-sky
         measurements:
-          ``focus_error [mm] = momentdifference [px²] × 0.0086 − 0.026``
+          ``focus_error [mm] = momentdifference [px²] × 0.0043 − 0.026``
 
         Calibration constants:
-          - ``0.0086`` [mm px⁻²]: slope — relates PSF moment spread to
-            physical defocus along the optical axis.
+          - ``0.0043`` [mm px⁻²]: slope — relates PSF moment spread to
+            physical defocus along the optical axis. It is for moments
+            that are the spot's variance, as ``query_agc_data`` returns
+            them. It was calibrated as 0.0086 on moments that were half
+            the variance.
           - ``0.026``  [mm]:       intercept — accounts for a systematic
             offset between measured moment difference and true focus zero.
 
@@ -782,6 +785,6 @@ class PFS():
         """
         # momentdifference [pixel^2]
         # focuserror [mm]
-        focuserror = momentdifference * 0.0086 - 0.026
+        focuserror = momentdifference * 0.0043 - 0.026
 
         return focuserror

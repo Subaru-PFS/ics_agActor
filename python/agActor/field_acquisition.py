@@ -558,11 +558,17 @@ def get_image_size(detected_objects: pd.DataFrame, identified_objects: pd.DataFr
         The median FWHM (arcsec) of all the spots and of each detector half, from
         ``pfs.utils.agMetrics.momentsToFwhm``, and the number of spots on each half. NaN
         where there are no spots.
+
+    Notes
+    -----
+    The second moments are taken as the spots' variance, which is what
+    ``agActor.utils.data.query_agc_data`` returns for any exposure.
     """
     spots = detected_objects.loc[identified_objects["detected_object_id"].values]
     fwhm = agMetrics.momentsToFwhm(
         spots["central_image_moment_20_pix"].to_numpy(dtype=float),
         spots["central_image_moment_02_pix"].to_numpy(dtype=float),
+        variancePerMoment=1,
     )
     return agMetrics.summarizeFwhm(fwhm, spots["flags"].to_numpy(dtype=int))
 
