@@ -8,7 +8,7 @@ import numpy as np
 from opscore.utility.qstr import qstr
 
 from agActor import autoguide
-from agActor.utils import actorCalls
+from agActor.utils import actorCalls, transparency
 from agActor.utils import data as data_utils
 from agActor.utils.focus import focus
 from agActor.utils.actorCalls import sendAlert, send_guide_offsets
@@ -200,6 +200,7 @@ class AgThread(threading.Thread):
         )
         self.logger.info("AgThread.__init__: {}".format(self.params.get()))
         self.lock = threading.Lock()
+        self.transparency_reference = transparency.TransparencyReference()
         self.__abort = threading.Event()
         self.__stop = threading.Event()
 
@@ -540,6 +541,14 @@ class AgThread(threading.Thread):
                         "focusErrors={},{},{},{},{},{},{}".format(frame_id, *dzs)
                     )
                     self.logger.info(guide_offsets.describe_image_size(frame_id))
+                    transparency.log_transparency(
+                        self.logger,
+                        guide_offsets,
+                        frame_id=frame_id,
+                        design_id=design_id,
+                        visit_id=visit_id,
+                        reference=self.transparency_reference,
+                    )
 
                     if self.with_opdb_agc_guide_offset:
                         self.logger.info(

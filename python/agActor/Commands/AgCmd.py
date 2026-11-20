@@ -11,7 +11,7 @@ from pfs.utils.database.gaia import GaiaDB
 from agActor import autoguide, field_acquisition
 from agActor.Controllers.ag import ag
 from agActor.catalog import pfs_design
-from agActor.utils import actorCalls, data as data_utils
+from agActor.utils import actorCalls, data as data_utils, transparency
 from agActor.utils.focus import explain_missing_focus, focus
 from agActor.utils.actorCalls import send_guide_offsets
 from agActor.utils.data import GuideOffsetFlag
@@ -518,6 +518,9 @@ class AgCmd:
             )
             cmd.inform("focusErrors={},{},{},{},{},{},{}".format(frame_id, *dzs))
             self.actor.logger.info(guide_offsets.describe_image_size(frame_id))
+            transparency.log_transparency(
+                self.actor.logger, guide_offsets, frame_id=frame_id, design_id=design_id, visit_id=visit_id
+            )
             # store results in opdb
             if self.with_opdb_agc_guide_offset:
                 data_utils.write_agc_guide_offset(
