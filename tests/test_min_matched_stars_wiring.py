@@ -100,6 +100,7 @@ def _run_loop_once(guide_offsets: GuideOffsets, **options) -> dict:
         patch.object(agModule.data_utils, "write_agc_guide_offset") as write_offset,
         patch.object(agModule.data_utils, "write_agc_match"),
         patch.object(GuideOffsets, "save_numpy_files", return_value=["a", "b", "c"]),
+        patch.object(agModule.transparency, "log_transparency") as log_transparency,  # it queries the opdb
         patch.object(agModule.time, "sleep"),
         pytest.raises(_IterationDone),
     ):
@@ -114,6 +115,8 @@ def _run_loop_once(guide_offsets: GuideOffsets, **options) -> dict:
         "alerts": alerts[1:],  # the first clears the control-loop alert at start-up
         "written": written.kwargs,
         "guide_errors": _guide_errors(actor.bcast.inform),
+        "transparency": log_transparency.call_args_list,
+        "thread": thread,
     }
 
 
@@ -135,6 +138,22 @@ def test_loop_logs_the_image_size(caplog):
         _run_loop_once(_guide_offsets(3))
 
     assert f"Image size: frame_id=42 {IMAGE_SIZE_LINE}" in caplog.text
+
+
+def test_loop_logs_the_transparency():
+    """The loop asks for the transparency line once per frame, for its design and visit, with its reference."""
+    guide_offsets = _guide_offsets(3)
+    result = _run_loop_once(guide_offsets)
+
+    (call,) = result["transparency"]
+    assert call.args[1] is guide_offsets
+    assert call.kwargs == {
+        "frame_id": 42,
+        "design_id": 1,
+        "visit_id": 7,
+        "reference": result["thread"].transparency_reference,
+    }
+    assert isinstance(result["thread"].transparency_reference, agModule.transparency.TransparencyReference)
 
 
 def test_loop_does_not_use_an_offset_from_too_few_stars():

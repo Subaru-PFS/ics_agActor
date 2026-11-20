@@ -6,8 +6,8 @@ into a log line.
 
 The number is ``pfs.utils.agMetrics``': the stars' measured over expected flux, the median
 over the brighter stars of the exposure. It is not calibrated to read 1 under a clear sky, so
-the log gives it twice: as it is, and relative to the first exposures of the same visit, which
-is what shows cloud coming in over a field.
+the log gives it twice: as it is, and relative to the first measured exposures after the guide
+loop was given the visit, which is what shows cloud coming in over a field.
 """
 
 from __future__ import annotations
@@ -22,8 +22,13 @@ from pfs.utils import agMetrics
 
 logger = logging.getLogger(__name__)
 
-#: The first exposures of a visit that set what its later ones are compared with.
+#: The first measured exposures of a visit that set what its later ones are compared with.
 N_REFERENCE_EXPOSURES = 5
+
+#: An exposure enters that reference only with at least this many stars behind its value.
+MIN_REFERENCE_STARS = 3
+
+_warned_no_pfs_utils = False
 
 
 def query_spot_magnitudes(frame_id: int) -> pd.DataFrame:
@@ -101,29 +106,51 @@ def frame_transparency(
 class TransparencyReference:
     """What a visit's exposures are compared with: the median of its first few transparencies.
 
+    "Visit" is what the guide loop is running on, its design and visit: the reference starts
+    again when either changes, and so at each ``autoguide start`` or ``reconfigure`` that gives
+    a new visit. It carries on through a stop and restart on the same visit, and for a loop
+    started without a visit it lasts until the design changes. A visit that starts under cloud
+    has that cloud in its reference.
+
     Parameters
     ----------
     n_first : int
-        How many finite values of a visit make its reference.
+        How many of a visit's first measured exposures make its reference.
+    min_stars : int
+        An exposure with fewer stars behind its value does not enter the reference.
     """
 
-    def __init__(self, n_first: int = N_REFERENCE_EXPOSURES):
+    def __init__(self, n_first: int = N_REFERENCE_EXPOSURES, min_stars: int = MIN_REFERENCE_STARS):
         self.n_first = n_first
+        self.min_stars = min_stars
         self._key = None
         self._first: list[float] = []
 
-    def relative(self, key, transparency: float) -> float:
-        """Return ``transparency`` over the reference of ``key``, a visit; NaN until there is one.
+    def relative(self, key, transparency: float, n_stars: int | None = None) -> float:
+        """Return ``transparency`` over the reference of ``key``; NaN until there is one.
 
         A new ``key`` starts a new reference. The exposures that make the reference get a
         value too, relative to the median of those so far, so the first reads 1.
+
+        Parameters
+        ----------
+        key : hashable
+            What the loop is running on: its design and visit.
+        transparency : float
+            The exposure's transparency.
+        n_stars : int | None
+            The number of stars behind it; with fewer than ``min_stars`` the exposure is
+            compared with the reference but does not enter it. None counts as enough.
         """
         if key != self._key:
             self._key, self._first = key, []
         if not np.isfinite(transparency):
             return float("nan")
-        if len(self._first) < self.n_first:
+        enough = n_stars is None or n_stars >= self.min_stars
+        if len(self._first) < self.n_first and enough:
             self._first.append(float(transparency))
+        if not self._first:
+            return float("nan")
         return float(transparency / np.median(self._first))
 
     @property
@@ -142,7 +169,7 @@ def describe_transparency(
         )
     line = f"Transparency: frame_id={frame_id} transparency={transparency.transparency:.3f} (n={transparency.nStars}, uncalibrated)"
     if relative is not None and np.isfinite(relative):
-        line += f" relative={relative:.3f} (to the visit's first {n_reference})"
+        line += f" relative={relative:.3f} (to the visit's first {n_reference} measured)"
     return line
 
 
@@ -172,7 +199,14 @@ def log_transparency(
     reference : TransparencyReference | None
         Given by the guide loop to add the value relative to the visit's first exposures.
     """
+    global _warned_no_pfs_utils
     try:
+        if not hasattr(agMetrics, "summarizeTransparency"):
+            # An earlier pfs_utils: say so once, then stay quiet and make no query.
+            if not _warned_no_pfs_utils:
+                _warned_no_pfs_utils = True
+                log.warning("Transparency: not measured, this pfs_utils has no transparency functions")
+            return
         if design_id is None:
             log.info(f"Transparency: frame_id={frame_id} not measured (no design id)")
             return
@@ -185,7 +219,9 @@ def log_transparency(
         )
         relative, n_reference = None, 0
         if reference is not None:
-            relative = reference.relative((design_id, visit_id), transparency.transparency)
+            relative = reference.relative(
+                (design_id, visit_id), transparency.transparency, transparency.nStars
+            )
             n_reference = reference.n_used
         log.info(describe_transparency(frame_id, transparency, relative, n_reference))
     except Exception as e:  # noqa: BLE001  whatever fails here must not reach the guide loop
