@@ -255,23 +255,28 @@ def test_acquire_field_logs_the_image_size(caplog):
 def test_acquire_field_records_but_does_not_use_an_offset_from_too_few_stars():
     result = _run_acquire_field(_guide_offsets(2, n_good_disabled=3))
 
+    # Too few stars warns and the command finishes, like an out-of-range offset in the loop, so a
+    # focus sweep is not aborted; the offset is still recorded, flagged and unused.
+    assert result["finished"] and not result["failures"]
+    (warning,) = result["warnings"]
+    assert "2 matched on enabled cameras (need 3)" in warning
     assert not result["sent"]
-    assert not result["finished"]
-    (failure,) = result["failures"]
-    assert "2 matched on enabled cameras (need 3)" in failure
     assert result["guide_errors"][8] == "TOO_FEW_STARS"
     assert np.isnan(_fitted(result["guide_errors"])).all()
     # The opdb keeps the offset and its matches.
     assert result["written"]["offset_flags"] == TOO_FEW
     assert result["written"]["delta_ra"] == pytest.approx(DRA)
     assert result["match_written"]
-    # Negative control: the same frame passes when the command asks for two stars.
-    assert _run_acquire_field(_guide_offsets(2, n_good_disabled=3), min_matched_stars=2)["sent"]
+    # Negative control: a frame with enough stars finishes with no warning and sends the offset.
+    enough = _run_acquire_field(_guide_offsets(2, n_good_disabled=3), min_matched_stars=2)
+    assert enough["sent"] and not enough["warnings"]
 
 
-def test_acquire_field_without_guiding_warns_instead_of_failing():
-    # A caller that asked for no guiding wanted the frame, not the offset.
-    result = _run_acquire_field(_guide_offsets(2), guide=False)
+@pytest.mark.parametrize("keywords", [{}, {"guide": True}, {"guide": False}])
+def test_acquire_field_never_fails_on_too_few_stars(keywords):
+    # acquire_field does not fail on too few stars, whether or not it was asked to guide: it warns
+    # and finishes so a focus sweep (which leaves guide at its default) carries on.
+    result = _run_acquire_field(_guide_offsets(2), **keywords)
 
     assert result["finished"] and not result["failures"]
     (warning,) = result["warnings"]
@@ -280,10 +285,8 @@ def test_acquire_field_without_guiding_warns_instead_of_failing():
     assert not result["sent"]
     assert np.isnan(_fitted(result["guide_errors"])).all()
     assert result["written"]["offset_flags"] == TOO_FEW
-    # Negative control: asked to guide, which is the default, the same frame fails the command.
-    for keywords in ({}, {"guide": True}):
-        guiding = _run_acquire_field(_guide_offsets(2), **keywords)
-        assert guiding["failures"] and not guiding["finished"] and not guiding["warnings"]
+    # Negative control: a frame with enough stars finishes with no warning.
+    assert not _run_acquire_field(_guide_offsets(3), **keywords)["warnings"]
 
 
 @pytest.fixture(scope="module")

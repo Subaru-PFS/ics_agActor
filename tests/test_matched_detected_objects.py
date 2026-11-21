@@ -80,7 +80,7 @@ def _acquire_field(
 
     ``calls``, if given, collects the keyword arguments of each field_acquisition.acquire_field call.
     ``too_few_stars`` says the offsets' match has fewer stars than the handler needs: the command
-    then fails, after publishing the focus all the same.
+    then warns and finishes (the offset is not sent), after publishing the focus all the same.
     """
     actor = MagicMock()
     actor.actorConfig = {"tel_status": "agc_exposure"}
@@ -108,14 +108,12 @@ def _acquire_field(
     if calls is not None:
         calls.extend(call.kwargs for call in acquire.call_args_list)
 
+    cmd.fail.assert_not_called()
+    cmd.finish.assert_called_once()
     if too_few_stars:
-        cmd.finish.assert_not_called()
         send.assert_not_called()
-        (failure,) = [c.args[0] for c in cmd.fail.call_args_list]
-        assert "Too few guide stars matched" in failure
-    else:
-        cmd.fail.assert_not_called()
-        cmd.finish.assert_called_once()
+        (warning,) = [c.args[0] for c in cmd.warn.call_args_list]
+        assert "Too few guide stars matched" in warning
     replies = [c.args[0] for c in cmd.inform.call_args_list]
     (focus_errors,) = [r for r in replies if r.startswith("focusErrors=")]
     (guide_errors,) = [r for r in replies if r.startswith("guideErrors=")]
@@ -167,7 +165,7 @@ def test_acquire_field_focus_uses_the_second_match():
     guide_offsets.focus_detected_object_ids = np.array([0, 3, 4])
     _, expected_dzs = focus(detected_objects=guide_offsets.detected_objects.loc[[0, 3, 4]])
 
-    # One star is too few for the offset, so the command fails; the focus is published all the same.
+    # One star is too few for the offset, so the command warns; the focus is published all the same.
     focus_errors, guide_focus = _acquire_field(guide_offsets, too_few_stars=True)
 
     assert np.isfinite(expected_dzs[0])
