@@ -469,8 +469,9 @@ class AgCmd:
             )
             cmd.inform("detectionState=0")
 
-            # Too few matches: the offset is not sent, but it is recorded (flagged). The command then
-            # fails if it was asked to guide, and warns if the frame was wanted for itself.
+            # Too few matches: the offset is not sent, but it is recorded (flagged). The command warns
+            # and finishes rather than failing, like an out-of-range offset in the guide loop, so a
+            # focus sweep is not aborted.
             n_fit_stars = autoguide.count_fit_stars(guide_offsets.identified_objects)
             offset_flags, guide_status = autoguide.classify_offset(n_fit_stars, min_matched_stars)
 
@@ -555,9 +556,6 @@ class AgCmd:
                 )
             if offset_flags & GuideOffsetFlag.TOO_FEW_STARS:
                 message = autoguide.too_few_stars_message(guide_offsets, n_fit_stars, min_matched_stars)
-                if guide:
-                    cmd.fail(f'text="AgCmd.acquire_field: {message}"')
-                    return
                 cmd.warn(f'text="AgCmd.acquire_field: {message}"')
         except Exception as e:
             self.actor.logger.exception("AgCmd.acquire_field:")
