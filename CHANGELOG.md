@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## [1.1.88] - 2026-11-20
+
 - INSTRM-3127 - `acquire_field` no longer fails when too few guide stars matched: it warns and finishes, like an out-of-range offset in the autoguide loop, so an AG focus sweep is not aborted. The offset is still flagged and unused (`guideErrors` NaN, `agc_guide_offset.mask = INVALID_OFFSET | TOO_FEW_STARS`) and focus and `focusErrors` are still computed. This relaxes the `acquire_field` failure added in 1.1.84 (INSTRM-2800); the autoguide loop is unchanged.
 
 ## [1.1.87] - 2026-11-20
