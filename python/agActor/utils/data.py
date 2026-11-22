@@ -9,7 +9,7 @@ import pandas as pd
 from astropy import units as u
 from astropy.table import Table
 from numpy.typing import NDArray
-from pfs.utils.agMetrics import VARIANCE_PER_AGC_MOMENT, AgImageSize
+from pfs.utils.agMetrics import VARIANCE_PER_AGC_MOMENT, AgImageSize, calibratedSeeing
 from pfs.utils.coordinates import updateTargetPosition
 from pfs.utils.coordinates.CoordTransp import ag_pfimm_to_pixel
 from pfs.utils.database.db import DB
@@ -203,6 +203,21 @@ class GuideOffsets:
             f"Image size: frame_id={frame_id} fwhm={size.fwhm:.3f} arcsec "
             f"left={size.fwhmLeft:.3f} (n={size.nLeft}) right={size.fwhmRight:.3f} (n={size.nRight})"
         )
+
+    def describe_seeing(self, frame_id: int, altitude: float | None) -> str:
+        """Return a log line with the atmospheric seeing (zenith) from the image size.
+
+        `pfs.utils.agMetrics.calibratedSeeing` of the pooled FWHM at the telescope ``altitude``
+        (degrees): the image size corrected to zenith and the instrument PSF removed. NaN there
+        (no image size, no altitude, or a size at or below the PSF) is reported as not measured.
+        """
+        size = self.image_size
+        if size is None or altitude is None or not np.isfinite(altitude):
+            return f"Seeing: frame_id={frame_id} not measured (no image size or altitude)"
+        seeing = float(calibratedSeeing(size.fwhm, altitude))
+        if not np.isfinite(seeing):
+            return f"Seeing: frame_id={frame_id} not measured (image size at or below the instrument PSF)"
+        return f"Seeing: frame_id={frame_id} seeing={seeing:.3f} arcsec (zenith)"
 
     @property
     def matched_detected_objects(self) -> pd.DataFrame:

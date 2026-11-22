@@ -541,6 +541,9 @@ class AgThread(threading.Thread):
                         "focusErrors={},{},{},{},{},{},{}".format(frame_id, *dzs)
                     )
                     self.logger.info(guide_offsets.describe_image_size(frame_id))
+                    self.logger.info(
+                        guide_offsets.describe_seeing(frame_id, (telescope_state or {}).get("el_real_angle"))
+                    )
                     transparency.log_transparency(
                         self.logger,
                         guide_offsets,
