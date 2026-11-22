@@ -41,3 +41,10 @@ def test_describe_seeing_not_measured_cases():
     at_psf = AgImageSize(fwhm=psf, fwhmLeft=psf, fwhmRight=psf, nLeft=1, nRight=1)
     assert "not measured" in _offsets(at_psf).describe_seeing(1, None)
     assert "at or below the instrument PSF" in _offsets(at_psf).describe_seeing(1, 90.0)
+
+
+def test_describe_seeing_tolerates_an_older_pfs_utils(monkeypatch):
+    """Without calibratedSeeing (an older pfs_utils) it degrades to not measured, it does not crash."""
+    monkeypatch.delattr(agMetrics, "calibratedSeeing", raising=False)
+    offsets = _offsets(AgImageSize(fwhm=0.9, fwhmLeft=0.9, fwhmRight=0.9, nLeft=5, nRight=5))
+    assert "not measured" in offsets.describe_seeing(1, 90.0)

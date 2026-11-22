@@ -9,7 +9,8 @@ import pandas as pd
 from astropy import units as u
 from astropy.table import Table
 from numpy.typing import NDArray
-from pfs.utils.agMetrics import VARIANCE_PER_AGC_MOMENT, AgImageSize, calibratedSeeing
+from pfs.utils import agMetrics
+from pfs.utils.agMetrics import VARIANCE_PER_AGC_MOMENT, AgImageSize
 from pfs.utils.coordinates import updateTargetPosition
 from pfs.utils.coordinates.CoordTransp import ag_pfimm_to_pixel
 from pfs.utils.database.db import DB
@@ -214,7 +215,9 @@ class GuideOffsets:
         size = self.image_size
         if size is None or altitude is None or not np.isfinite(altitude):
             return f"Seeing: frame_id={frame_id} not measured (no image size or altitude)"
-        seeing = float(calibratedSeeing(size.fwhm, altitude))
+        if not hasattr(agMetrics, "calibratedSeeing"):  # an older pfs_utils: degrade, do not crash
+            return f"Seeing: frame_id={frame_id} not measured (this pfs_utils has no seeing calibration)"
+        seeing = float(agMetrics.calibratedSeeing(size.fwhm, altitude))
         if not np.isfinite(seeing):
             return f"Seeing: frame_id={frame_id} not measured (image size at or below the instrument PSF)"
         return f"Seeing: frame_id={frame_id} seeing={seeing:.3f} arcsec (zenith)"
