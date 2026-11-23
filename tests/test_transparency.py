@@ -81,13 +81,13 @@ def test_frame_transparency_pairs_by_label_and_by_spot():
 
 
 def test_frame_transparency_uses_the_camera_zero_point():
-    """A star on AG3's left half (camera 2), 0.19 mag faint there, reads its sky with the zero point."""
+    """A star on AG3 (camera 2) without RIGHT, 0.19 mag faint there, reads its sky with the zero point."""
     detected, identified, guide, spots, colors = make_frame([0.9])
     detected["agc_camera_id"] = 2
     spots["agc_camera_id"] = 2
     spots["estimated_magnitude"] = magnitude(0.9, camera=2, flags=0)
     assert frame_transparency(detected, identified, guide, spots, colors).transparency == pytest.approx(0.9)
-    # Negative control: read as on the right half, whose zero point is near 0, it is 0.19 mag low.
+    # Negative control: read as RIGHT, whose zero point is near 0, it is 0.19 mag low.
     spots["flags"] = 1
     assert frame_transparency(detected, identified, guide, spots, colors).transparency < 0.8
 
