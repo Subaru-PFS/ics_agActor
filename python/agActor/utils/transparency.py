@@ -208,7 +208,7 @@ def log_transparency(
     """
     global _warned_no_pfs_utils
     try:
-        if not hasattr(agMetrics, "summarizeTransparency"):
+        if not all(hasattr(agMetrics, name) for name in ("summarizeTransparency", "agCameraZeroPoint")):
             # An earlier pfs_utils: say so once, then stay quiet and make no query.
             if not _warned_no_pfs_utils:
                 _warned_no_pfs_utils = True

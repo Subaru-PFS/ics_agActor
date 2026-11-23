@@ -10,7 +10,7 @@ from agActor.utils import transparency
 from agActor.utils.transparency import TransparencyReference, describe_transparency, frame_transparency
 from pfs.utils import agMetrics
 
-if not hasattr(agMetrics, "summarizeTransparency"):
+if not all(hasattr(agMetrics, name) for name in ("summarizeTransparency", "agCameraZeroPoint")):
     pytest.skip("needs a pfs_utils with the AG transparency functions", allow_module_level=True)
 
 COLOR = 1.0
@@ -19,7 +19,7 @@ CLEAR = CATALOG_MAG + agMetrics.agColorTerm(COLOR)  # a clear sky's reading, bef
 
 
 def magnitude(value: float, camera: int = 3, flags: int = 0) -> float:
-    """The magnitude a star of `CATALOG_MAG` and `COLOR` reads on a camera under a transparency of ``value``."""
+    """What a star of `CATALOG_MAG` and `COLOR` reads on a camera under a transparency of ``value``."""
     return CLEAR + agMetrics.agCameraZeroPoint(camera, flags) - 2.5 * np.log10(value)
 
 
@@ -81,7 +81,7 @@ def test_frame_transparency_pairs_by_label_and_by_spot():
 
 
 def test_frame_transparency_uses_the_camera_zero_point():
-    """A star on AG3's glass half (camera 2, left), 0.19 mag faint there, reads its sky with the zero point."""
+    """A star on AG3's left half (camera 2), 0.19 mag faint there, reads its sky with the zero point."""
     detected, identified, guide, spots, colors = make_frame([0.9])
     detected["agc_camera_id"] = 2
     spots["agc_camera_id"] = 2

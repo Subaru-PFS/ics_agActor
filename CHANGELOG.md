@@ -10,8 +10,8 @@ All notable changes to this project will be documented in this file.
   (`pfs.utils.agMetrics.agCameraZeroPoint`, per camera and detector half, from the spot's `flags`, which
   `query_spot_magnitudes` now reads), and pfs_utils' recalibrated colour term carries the clear-sky level, so a
   clear sky reads about 1 rather than 0.8. The line drops `uncalibrated`: `Transparency: frame_id=... transparency=0.981
-  (n=18) relative=...`. **Needs the pfs_utils release with `agCameraZeroPoint`**; with an older one the line reads
-  `not measured`.
+  (n=18) relative=...`. **Needs the pfs_utils release with `agCameraZeroPoint`**; with an older one the actor warns once
+  that the transparency is not measured, as it does without the transparency functions.
 
 ## [1.1.88] - 2026-11-20
 
