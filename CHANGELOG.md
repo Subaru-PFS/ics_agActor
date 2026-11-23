@@ -6,6 +6,12 @@ All notable changes to this project will be documented in this file.
 
 - INSTRM-3115: Log the atmospheric seeing (zenith) of each AG exposure, from the image size via
   `pfs.utils.agMetrics.calibratedSeeing` (airmass correction, instrument PSF removed in quadrature).
+- INSTRM-3115: The transparency in the log is calibrated: each star takes its camera's zero point
+  (`pfs.utils.agMetrics.agCameraZeroPoint`, per camera and detector half, from the spot's `flags`, which
+  `query_spot_magnitudes` now reads), and pfs_utils' recalibrated colour term carries the clear-sky level, so a
+  clear sky reads about 1 rather than 0.8. The line drops `uncalibrated`: `Transparency: frame_id=... transparency=0.981
+  (n=18) relative=...`. **Needs the pfs_utils release with `agCameraZeroPoint`**; with an older one the line reads
+  `not measured`.
 
 ## [1.1.88] - 2026-11-20
 

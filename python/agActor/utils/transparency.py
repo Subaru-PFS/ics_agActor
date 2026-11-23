@@ -4,10 +4,11 @@ Nothing here feeds acquisition or guiding. It reads what it needs with its own t
 (the spots' magnitudes, the guide stars' colours), and `log_transparency` turns any failure
 into a log line.
 
-The number is ``pfs.utils.agMetrics``': the stars' measured over expected flux, the median
-over the brighter stars of the exposure. It is not calibrated to read 1 under a clear sky, so
-the log gives it twice: as it is, and relative to the first measured exposures after the guide
-loop was given the visit, which is what shows cloud coming in over a field.
+The number is ``pfs.utils.agMetrics``': the stars' measured over expected flux, each with its
+camera's zero point, the median over the brighter stars of the exposure. It reads about 1 under
+a clear sky (calibrated on agcc 2.4.0 exposures; the clear-sky level moves a little from run to
+run), so the log gives it twice: as it is, and relative to the first measured exposures after
+the guide loop was given the visit, which is what shows cloud coming in over a field.
 """
 
 from __future__ import annotations
@@ -32,9 +33,9 @@ _warned_no_pfs_utils = False
 
 
 def query_spot_magnitudes(frame_id: int) -> pd.DataFrame:
-    """Return ``agc_camera_id``, ``spot_id`` and ``estimated_magnitude`` of an AG exposure's spots."""
+    """Return ``agc_camera_id``, ``spot_id``, ``flags`` and ``estimated_magnitude`` of an exposure's spots."""
     sql = """
-SELECT agc_camera_id, spot_id, estimated_magnitude
+SELECT agc_camera_id, spot_id, flags, estimated_magnitude
 FROM agc_data
 WHERE agc_exposure_id = :agc_exposure_id
 """
@@ -78,7 +79,8 @@ def frame_transparency(
     guide_objects : pd.DataFrame
         The guide stars, with ``source_id`` and ``mag``, the catalogue magnitude.
     spot_magnitudes : pd.DataFrame
-        ``agc_camera_id``, ``spot_id`` and ``estimated_magnitude`` (`query_spot_magnitudes`).
+        ``agc_camera_id``, ``spot_id``, ``flags`` (the detector half, for the camera's zero
+        point) and ``estimated_magnitude`` (`query_spot_magnitudes`).
     colors : pd.Series
         The guide stars' Gaia BP-RP by ``source_id`` (`query_guide_star_colors`).
 
@@ -98,8 +100,13 @@ def frame_transparency(
     )
     keys = pd.MultiIndex.from_arrays([spots["agc_camera_id"].to_numpy(), spots["spot_id"].to_numpy()])
     estimated = magnitudes["estimated_magnitude"].reindex(keys).to_numpy(dtype=float)
+    # A spot with no row has no magnitude either, so the flags it is given here do not matter.
+    flags = magnitudes["flags"].reindex(keys).fillna(0).to_numpy(dtype=int)
+    zero_point = agMetrics.agCameraZeroPoint(spots["agc_camera_id"].to_numpy(dtype=int), flags)
     color = colors.reindex(stars["source_id"].to_numpy()).to_numpy(dtype=float)
-    transparency = agMetrics.magnitudesToTransparency(estimated, stars["mag"].to_numpy(dtype=float), color)
+    transparency = agMetrics.magnitudesToTransparency(
+        estimated, stars["mag"].to_numpy(dtype=float), color, zeroPoint=zero_point
+    )
     return agMetrics.summarizeTransparency(transparency, estimated)
 
 
@@ -167,7 +174,7 @@ def describe_transparency(
         return (
             f"Transparency: frame_id={frame_id} not measured (no matched star with a magnitude and a colour)"
         )
-    line = f"Transparency: frame_id={frame_id} transparency={transparency.transparency:.3f} (n={transparency.nStars}, uncalibrated)"
+    line = f"Transparency: frame_id={frame_id} transparency={transparency.transparency:.3f} (n={transparency.nStars})"
     if relative is not None and np.isfinite(relative):
         line += f" relative={relative:.3f} (to the visit's first {n_reference} measured)"
     return line
