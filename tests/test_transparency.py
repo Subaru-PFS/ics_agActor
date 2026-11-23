@@ -10,17 +10,17 @@ from agActor.utils import transparency
 from agActor.utils.transparency import TransparencyReference, describe_transparency, frame_transparency
 from pfs.utils import agMetrics
 
-if not hasattr(agMetrics, "summarizeTransparency"):
+if not all(hasattr(agMetrics, name) for name in ("summarizeTransparency", "agCameraZeroPoint")):
     pytest.skip("needs a pfs_utils with the AG transparency functions", allow_module_level=True)
 
 COLOR = 1.0
 CATALOG_MAG = 16.0
-CLEAR = CATALOG_MAG + agMetrics.agColorTerm(COLOR)  # what a star reads when the transparency is 1
+CLEAR = CATALOG_MAG + agMetrics.agColorTerm(COLOR)  # a clear sky's reading, before the camera zero point
 
 
-def magnitude(value: float) -> float:
-    """The magnitude a star of `CATALOG_MAG` and `COLOR` is measured at under a transparency of ``value``."""
-    return CLEAR - 2.5 * np.log10(value)
+def magnitude(value: float, camera: int = 3, flags: int = 0) -> float:
+    """What a star of `CATALOG_MAG` and `COLOR` reads on a camera under a transparency of ``value``."""
+    return CLEAR + agMetrics.agCameraZeroPoint(camera, flags) - 2.5 * np.log10(value)
 
 
 def make_frame(values, matched=None):
@@ -43,7 +43,8 @@ def make_frame(values, matched=None):
         {
             "agc_camera_id": detected.agc_camera_id.to_numpy(),
             "spot_id": detected.spot_id.to_numpy(),
-            "estimated_magnitude": [magnitude(v) for v in values],
+            "flags": 0,
+            "estimated_magnitude": [magnitude(v, c) for v, c in zip(values, detected.agc_camera_id)],
         }
     ).sample(frac=1, random_state=1)  # the query's order is not the detections'
     colors = pd.Series(COLOR, index=guide.source_id.to_numpy()[::-1])
@@ -77,6 +78,18 @@ def test_frame_transparency_pairs_by_label_and_by_spot():
     # Negative control: paired by position instead, the spots' shuffled order would give other values.
     byPosition = agMetrics.magnitudesToTransparency(spots.estimated_magnitude.to_numpy(), CATALOG_MAG, COLOR)
     assert not np.allclose(byPosition, [0.9, 0.8, 0.7, 0.6])
+
+
+def test_frame_transparency_uses_the_camera_zero_point():
+    """A star on AG3 (camera 2) without RIGHT, 0.19 mag faint there, reads its sky with the zero point."""
+    detected, identified, guide, spots, colors = make_frame([0.9])
+    detected["agc_camera_id"] = 2
+    spots["agc_camera_id"] = 2
+    spots["estimated_magnitude"] = magnitude(0.9, camera=2, flags=0)
+    assert frame_transparency(detected, identified, guide, spots, colors).transparency == pytest.approx(0.9)
+    # Negative control: read as RIGHT, whose zero point is near 0, it is 0.19 mag low.
+    spots["flags"] = 1
+    assert frame_transparency(detected, identified, guide, spots, colors).transparency < 0.8
 
 
 def test_frame_transparency_without_stars():
@@ -126,7 +139,7 @@ def test_describe_transparency():
     measured = agMetrics.AgTransparency(transparency=0.8123, nStars=23)
     assert (
         describe_transparency(7, measured)
-        == "Transparency: frame_id=7 transparency=0.812 (n=23, uncalibrated)"
+        == "Transparency: frame_id=7 transparency=0.812 (n=23)"
     )
     assert describe_transparency(7, measured, 0.954, 5).endswith(
         "relative=0.954 (to the visit's first 5 measured)"
@@ -179,7 +192,7 @@ def test_log_transparency(offsets, queries, caplog):
             )
     lines = [record.getMessage() for record in caplog.records]
     assert lines[0] == (
-        "Transparency: frame_id=100 transparency=0.800 (n=3, uncalibrated) relative=1.000 (to the visit's first 1 measured)"
+        "Transparency: frame_id=100 transparency=0.800 (n=3) relative=1.000 (to the visit's first 1 measured)"
     )
     assert lines[1].endswith("relative=1.000 (to the visit's first 2 measured)")
     # The colours are read once per design, the magnitudes for each exposure.
@@ -192,7 +205,7 @@ def test_log_transparency_without_a_design_or_a_reference(offsets, queries, capl
         transparency.log_transparency(logging.getLogger("test"), offsets[0], frame_id=101, design_id=0x1234)
     lines = [record.getMessage() for record in caplog.records]
     assert lines[0] == "Transparency: frame_id=100 not measured (no design id)"
-    assert lines[1] == "Transparency: frame_id=101 transparency=0.800 (n=3, uncalibrated)"
+    assert lines[1] == "Transparency: frame_id=101 transparency=0.800 (n=3)"
 
 
 @pytest.mark.parametrize("broken", ["query", "offsets"])
